@@ -602,6 +602,7 @@ export default {
     noGroup: 'No Group',
     requests: 'Requests',
     tokens: 'Tokens',
+    cost: 'Cost',
     actual: 'Actual',
     standard: 'Standard',
     input: 'Input',

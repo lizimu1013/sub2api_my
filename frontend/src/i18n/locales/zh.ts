@@ -601,6 +601,7 @@ export default {
     noGroup: '无分组',
     requests: '请求',
     tokens: 'Token',
+    cost: '消费',
     actual: '实际',
     standard: '标准',
     input: '输入',
