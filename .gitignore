@@ -34,6 +34,8 @@ backend/.gocache/
 node_modules/
 frontend/node_modules/
 frontend/dist/
+# Built output of external gpt_image_playground (see Makefile build-playground)
+frontend/public/playground/
 *.local
 *.tsbuildinfo
 vite.config.d.ts

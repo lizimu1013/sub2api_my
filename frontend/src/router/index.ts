@@ -350,6 +350,17 @@ const routes: RouteRecordRaw[] = [
       titleKey: 'customPage.title',
     }
   },
+  {
+    path: '/playground',
+    name: 'ImagePlayground',
+    component: () => import('@/views/user/PlaygroundLauncherView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Image Playground',
+      titleKey: 'imagePlayground.title',
+    }
+  },
 
   // ==================== Admin Routes ====================
   {

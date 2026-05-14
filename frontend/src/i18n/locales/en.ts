@@ -344,6 +344,7 @@ export default {
     dashboard: 'Dashboard',
     announcements: 'Announcements',
     apiKeys: 'API Keys',
+    imagePlayground: 'Image Playground',
     usage: 'Usage',
     redeem: 'Redeem',
     affiliate: 'Affiliate Rebates',
@@ -6194,6 +6195,23 @@ export default {
     notConfiguredTitle: 'Recharge / Subscription URL not configured',
     notConfiguredDesc:
       'The administrator enabled the entry but has not configured a recharge/subscription URL. Please contact admin.'
+  },
+
+  // Image Playground (iframe embed of gpt_image_playground)
+  imagePlayground: {
+    title: 'Image Playground',
+    useKey: 'Use key',
+    loadingKeys: 'Loading…',
+    noKeys: 'No active keys',
+    refresh: 'Refresh',
+    manageKeys: 'Manage keys',
+    openInNewTab: 'Open in new tab',
+    emptyTitle: 'No API key yet',
+    emptyDesc: 'Create an active API key from the "API Keys" page before using Image Playground.',
+    goCreateKey: 'Create a key',
+    retry: 'Retry',
+    loadFailed: 'Failed to load API keys',
+    unnamedKey: 'Unnamed key',
   },
 
   // Custom Page (iframe embed)

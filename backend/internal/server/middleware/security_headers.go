@@ -34,6 +34,7 @@ var requiredCSPDirectiveValues = []struct {
 	directive string
 	value     string
 }{
+	{"frame-src", "'self'"},
 	{"script-src", CloudflareInsightsDomain},
 	{"script-src", StripeDomain},
 	{"frame-src", StripeDomain},
@@ -81,22 +82,27 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 	// Enhance policy with required directives (nonce placeholder and Cloudflare Insights)
 	policy = enhanceCSPPolicy(policy)
 
-	return func(c *gin.Context) {
-		finalPolicy := policy
-		if getFrameSrcOrigins != nil {
-			for _, origin := range getFrameSrcOrigins() {
-				if origin != "" {
-					finalPolicy = addToDirective(finalPolicy, "frame-src", origin)
+		return func(c *gin.Context) {
+			finalPolicy := policy
+			if getFrameSrcOrigins != nil {
+				for _, origin := range getFrameSrcOrigins() {
+					if origin != "" {
+						finalPolicy = addToDirective(finalPolicy, "frame-src", origin)
+					}
 				}
 			}
-		}
 
-		c.Header("X-Content-Type-Options", "nosniff")
-		c.Header("X-Frame-Options", "DENY")
-		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
-		if isAPIRoutePath(c) {
-			c.Next()
-			return
+			c.Header("X-Content-Type-Options", "nosniff")
+			if isPlaygroundStaticPath(c) {
+				c.Header("X-Frame-Options", "SAMEORIGIN")
+				finalPolicy = setDirective(finalPolicy, "frame-ancestors", "'self'")
+			} else {
+				c.Header("X-Frame-Options", "DENY")
+			}
+			c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+			if isAPIRoutePath(c) {
+				c.Next()
+				return
 		}
 
 		if cfg.Enabled {
@@ -124,7 +130,14 @@ func isAPIRoutePath(c *gin.Context) bool {
 		strings.HasPrefix(path, "/v1beta/") ||
 		strings.HasPrefix(path, "/antigravity/") ||
 		strings.HasPrefix(path, "/responses") ||
-		strings.HasPrefix(path, "/images")
+			strings.HasPrefix(path, "/images")
+}
+
+func isPlaygroundStaticPath(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	return strings.HasPrefix(c.Request.URL.Path, "/playground/")
 }
 
 // enhanceCSPPolicy 确保 CSP 策略包含 nonce 支持和支付 SDK 必需域名。
@@ -194,4 +207,22 @@ func addToDirective(policy, directive, value string) string {
 	// Insert value before the semicolon
 	insertPos := idx + endIdx
 	return policy[:insertPos] + " " + value + policy[insertPos:]
+}
+
+func setDirective(policy, directive, values string) string {
+	parts := strings.Split(policy, ";")
+	for i, rawDirective := range parts {
+		fields := strings.Fields(strings.TrimSpace(rawDirective))
+		if len(fields) == 0 || fields[0] != directive {
+			continue
+		}
+		parts[i] = directive + " " + values
+		return strings.Join(parts, "; ")
+	}
+
+	policy = strings.TrimSpace(policy)
+	if policy == "" {
+		return directive + " " + values
+	}
+	return strings.TrimRight(policy, " ;") + "; " + directive + " " + values
 }

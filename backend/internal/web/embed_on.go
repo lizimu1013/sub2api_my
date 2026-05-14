@@ -97,20 +97,32 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 			cleanPath = "index.html"
 		}
 
-		// For index.html or SPA routes, serve with injected settings
-		if cleanPath == "index.html" || !s.fileExists(cleanPath) {
-			s.serveIndexHTML(c)
-			return
-		}
+		// Mounted static apps (for example /playground/) must serve their own
+		// index.html instead of falling back to the host Vue SPA.
+			if s.directoryIndexExists(cleanPath) {
+				if s.tryServeOverride(c, filepath.Join(cleanPath, "index.html")) {
+					return
+				}
+				s.fileServer.ServeHTTP(c.Writer, c.Request)
+				c.Abort()
+				return
+			}
 
-		// Try local override first
-		if s.tryServeOverride(c, cleanPath) {
-			return
-		}
+			// Local overrides can introduce new asset hashes that do not exist in
+			// the embedded distFS. Check them before SPA fallback.
+			if s.tryServeOverride(c, cleanPath) {
+				return
+			}
 
-		// Serve static files normally
-		s.fileServer.ServeHTTP(c.Writer, c.Request)
-		c.Abort()
+			// For index.html or SPA routes, serve with injected settings
+			if cleanPath == "index.html" || !s.fileExists(cleanPath) {
+				s.serveIndexHTML(c)
+				return
+			}
+
+			// Serve static files normally
+			s.fileServer.ServeHTTP(c.Writer, c.Request)
+			c.Abort()
 	}
 }
 
@@ -119,8 +131,19 @@ func (s *FrontendServer) fileExists(path string) bool {
 	if err != nil {
 		return false
 	}
-	_ = file.Close()
-	return true
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
+func (s *FrontendServer) directoryIndexExists(path string) bool {
+	if !strings.HasSuffix(path, "/") {
+		return false
+	}
+	return s.fileExists(path + "index.html")
 }
 
 // tryServeOverride checks if a local override file exists and serves it.

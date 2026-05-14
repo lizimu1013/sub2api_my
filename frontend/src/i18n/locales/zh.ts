@@ -344,6 +344,7 @@ export default {
     dashboard: '仪表盘',
     announcements: '公告',
     apiKeys: 'API 密钥',
+    imagePlayground: '图片生成',
     usage: '使用记录',
     redeem: '兑换',
     affiliate: '邀请返利',
@@ -6353,6 +6354,23 @@ export default {
     notEnabledDesc: '管理员暂未开启充值/订阅入口，请联系管理员。',
     notConfiguredTitle: '充值/订阅链接未配置',
     notConfiguredDesc: '管理员已开启入口，但尚未配置充值/订阅链接，请联系管理员。'
+  },
+
+  // Image Playground (iframe embed of gpt_image_playground)
+  imagePlayground: {
+    title: '图片生成',
+    useKey: '使用密钥',
+    loadingKeys: '加载中…',
+    noKeys: '暂无可用密钥',
+    refresh: '刷新',
+    manageKeys: '管理密钥',
+    openInNewTab: '新窗口打开',
+    emptyTitle: '尚未创建 API 密钥',
+    emptyDesc: '请先到「API 密钥」页面创建一把启用状态的密钥后再使用图片生成。',
+    goCreateKey: '去创建密钥',
+    retry: '重试',
+    loadFailed: '加载密钥列表失败',
+    unnamedKey: '未命名密钥',
   },
 
   // Custom Page (iframe embed)

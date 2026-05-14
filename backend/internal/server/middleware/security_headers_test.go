@@ -151,6 +151,27 @@ func TestSecurityHeaders(t *testing.T) {
 		assert.Empty(t, GetNonceFromContext(c))
 	})
 
+	t.Run("playground_static_allows_same_origin_embedding", func(t *testing.T) {
+		cfg := config.CSPConfig{
+			Enabled: true,
+			Policy:  config.DefaultCSPPolicy,
+		}
+		middleware := SecurityHeaders(cfg, nil)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/playground/", nil)
+
+		middleware(c)
+
+		csp := w.Header().Get("Content-Security-Policy")
+		assert.Equal(t, "SAMEORIGIN", w.Header().Get("X-Frame-Options"))
+		assert.Contains(t, csp, "frame-src")
+		assert.Contains(t, csp, "'self'")
+		assert.Contains(t, csp, "frame-ancestors 'self'")
+		assert.NotContains(t, csp, "frame-ancestors 'none'")
+	})
+
 	t.Run("csp_enabled_with_nonce_placeholder", func(t *testing.T) {
 		cfg := config.CSPConfig{
 			Enabled: true,
