@@ -88,7 +88,14 @@
             >
               <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
               <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
-              <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+              <span
+                class="sidebar-label sidebar-label-with-badge"
+                :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
+                :aria-hidden="sidebarCollapsed ? 'true' : 'false'"
+              >
+                <span class="min-w-0 truncate">{{ item.label }}</span>
+                <span v-if="item.badge" class="sidebar-badge">{{ item.badge }}</span>
+              </span>
             </router-link>
           </template>
         </div>
@@ -113,7 +120,14 @@
           >
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
-            <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+            <span
+              class="sidebar-label sidebar-label-with-badge"
+              :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
+              :aria-hidden="sidebarCollapsed ? 'true' : 'false'"
+            >
+              <span class="min-w-0 truncate">{{ item.label }}</span>
+              <span v-if="item.badge" class="sidebar-badge">{{ item.badge }}</span>
+            </span>
           </router-link>
         </div>
       </template>
@@ -133,7 +147,14 @@
           >
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
-            <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+            <span
+              class="sidebar-label sidebar-label-with-badge"
+              :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
+              :aria-hidden="sidebarCollapsed ? 'true' : 'false'"
+            >
+              <span class="min-w-0 truncate">{{ item.label }}</span>
+              <span v-if="item.badge" class="sidebar-badge">{{ item.badge }}</span>
+            </span>
           </router-link>
         </div>
       </template>
@@ -193,6 +214,7 @@ interface NavItem {
   label: string
   icon: unknown
   iconSvg?: string
+  badge?: string
   hideInSimpleMode?: boolean
   children?: NavItem[]
   /**
@@ -681,7 +703,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   }
   items.push(
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
-    { path: '/playground', label: t('nav.imagePlayground'), icon: SparklesIcon },
+    { path: '/playground', label: t('nav.imagePlayground'), icon: SparklesIcon, badge: 'NEW' },
     { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },
     { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
@@ -1016,6 +1038,24 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.sidebar-label-with-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sidebar-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgb(16 185 129);
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.1875rem 0.375rem;
+  letter-spacing: 0;
 }
 
 .sidebar-label-collapsed {
