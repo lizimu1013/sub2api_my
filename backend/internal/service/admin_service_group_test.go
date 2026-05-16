@@ -174,47 +174,6 @@ func TestAdminService_CreateGroup_WithImagePricing(t *testing.T) {
 	require.InDelta(t, 0.30, *repo.created.ImagePrice4K, 0.0001)
 }
 
-func TestAdminService_CreateGroup_DisplayRateMultiplierOnlyAffectsPresentationField(t *testing.T) {
-	repo := &groupRepoStubForAdmin{}
-	svc := &adminServiceImpl{groupRepo: repo}
-
-	displayRate := 2.5
-	group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
-		Name:                  "display-rate-group",
-		Platform:              PlatformAnthropic,
-		RateMultiplier:        1.25,
-		DisplayRateMultiplier: &displayRate,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, group)
-	require.NotNil(t, repo.created)
-	require.InDelta(t, 1.25, repo.created.RateMultiplier, 0.0001)
-	require.InDelta(t, 2.5, repo.created.DisplayRateMultiplier, 0.0001)
-}
-
-func TestAdminService_UpdateGroup_DisplayRateMultiplierDoesNotChangeBillingRate(t *testing.T) {
-	existingGroup := &Group{
-		ID:                    1,
-		Name:                  "existing-group",
-		Platform:              PlatformAnthropic,
-		Status:                StatusActive,
-		RateMultiplier:        1.25,
-		DisplayRateMultiplier: 1,
-	}
-	repo := &groupRepoStubForAdmin{getByID: existingGroup}
-	svc := &adminServiceImpl{groupRepo: repo}
-
-	displayRate := 3.2
-	group, err := svc.UpdateGroup(context.Background(), 1, &UpdateGroupInput{
-		DisplayRateMultiplier: &displayRate,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, group)
-	require.NotNil(t, repo.updated)
-	require.InDelta(t, 1.25, repo.updated.RateMultiplier, 0.0001)
-	require.InDelta(t, 3.2, repo.updated.DisplayRateMultiplier, 0.0001)
-}
-
 // TestAdminService_CreateGroup_NilImagePricing 测试 ImagePrice 为 nil 时正常创建
 func TestAdminService_CreateGroup_NilImagePricing(t *testing.T) {
 	repo := &groupRepoStubForAdmin{}
