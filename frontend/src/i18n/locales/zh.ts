@@ -679,6 +679,7 @@ export default {
     groupChangedSuccess: '分组更换成功',
     failedToChangeGroup: '更换分组失败',
     groupRequired: '请选择分组',
+    displayRateMultiplier: '展示倍率',
     usage: '用量',
     today: '今日',
     total: '近30天',
@@ -2027,6 +2028,7 @@ export default {
         description: '描述',
         platform: '平台',
         rateMultiplier: '费率倍数',
+        displayRateMultiplier: '展示倍率',
         status: '状态',
         exclusive: '专属分组',
         nameLabel: '分组名称',
@@ -2054,6 +2056,7 @@ export default {
       },
       exclusive: '专属',
       exclusiveHint: '专属分组，可以手动指定给特定用户',
+      displayRateMultiplierHint: '仅用于用户 API 密钥分组展示，不参与真实计费倍率计算。',
       exclusiveTooltip: {
         title: '什么是专属分组？',
         description:

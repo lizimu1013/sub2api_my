@@ -105,12 +105,20 @@
                 class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
                 :title="t('keys.clickToChangeGroup')"
               >
-                <GroupBadge
-                  v-if="row.group"
-                  :name="row.group.name"
-                  :platform="row.group.platform"
-                  :subscription-type="row.group.subscription_type"
-                />
+                <template v-if="row.group">
+                  <GroupBadge
+                    :name="row.group.name"
+                    :platform="row.group.platform"
+                    :subscription-type="row.group.subscription_type"
+                  />
+                  <span
+                    v-if="displayRateMultiplier(row.group) !== null"
+                    class="inline-flex items-center whitespace-nowrap rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+                  >
+                    {{ t('keys.displayRateMultiplier') }}
+                    {{ formatDisplayRateMultiplier(displayRateMultiplier(row.group) ?? 1) }}x
+                  </span>
+                </template>
                 <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
                   t('keys.noGroup')
                 }}</span>
@@ -413,12 +421,20 @@
             data-tour="key-form-group"
           >
             <template #selected="{ option }">
-              <GroupBadge
-                v-if="option"
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-              />
+              <template v-if="option">
+                <GroupBadge
+                  :name="(option as unknown as GroupOption).label"
+                  :platform="(option as unknown as GroupOption).platform"
+                  :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                />
+                <span
+                  v-if="(option as unknown as GroupOption).displayRateMultiplier !== null"
+                  class="ml-2 inline-flex items-center whitespace-nowrap rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+                >
+                  {{ t('keys.displayRateMultiplier') }}
+                  {{ formatDisplayRateMultiplier((option as unknown as GroupOption).displayRateMultiplier ?? 1) }}x
+                </span>
+              </template>
               <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
             </template>
             <template #option="{ option, selected }">
@@ -426,6 +442,8 @@
                 :name="(option as unknown as GroupOption).label"
                 :platform="(option as unknown as GroupOption).platform"
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                :rate-multiplier="(option as unknown as GroupOption).displayRateMultiplier ?? undefined"
+                :rate-label="t('keys.displayRateMultiplier')"
                 :description="(option as unknown as GroupOption).description"
                 :selected="selected"
               />
@@ -1019,6 +1037,8 @@
               :name="option.label"
               :platform="option.platform"
               :subscription-type="option.subscriptionType"
+              :rate-multiplier="option.displayRateMultiplier ?? undefined"
+              :rate-label="t('keys.displayRateMultiplier')"
               :description="option.description"
               :selected="
                 selectedKeyForGroup?.group_id === option.value ||
@@ -1065,6 +1085,7 @@ import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
+import { formatMultiplier } from '@/utils/formatters'
 import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
@@ -1083,6 +1104,7 @@ interface GroupOption {
   description: string | null
   subscriptionType: SubscriptionType
   platform: GroupPlatform
+  displayRateMultiplier: number | null
 }
 
 const appStore = useAppStore()
@@ -1237,9 +1259,19 @@ const groupOptions = computed(() =>
     label: group.name,
     description: group.description,
     subscriptionType: group.subscription_type,
-    platform: group.platform
+    platform: group.platform,
+    displayRateMultiplier: displayRateMultiplier(group)
   }))
 )
+
+const displayRateMultiplier = (group?: Pick<Group, 'display_rate_multiplier'> | null): number | null => {
+  if (!group || group.display_rate_multiplier === null || group.display_rate_multiplier === undefined) {
+    return null
+  }
+  return Number.isFinite(Number(group.display_rate_multiplier)) ? Number(group.display_rate_multiplier) : null
+}
+
+const formatDisplayRateMultiplier = (value: number): string => formatMultiplier(value)
 
 // Group dropdown search
 const groupSearchQuery = ref('')

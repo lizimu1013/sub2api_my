@@ -31,7 +31,7 @@
           <span class="font-bold">{{ userRateMultiplier }}x</span>
         </template>
         <template v-else>
-          {{ rateMultiplier }}x 倍率
+          {{ rateMultiplier }}x {{ rateLabel }}
         </template>
       </span>
       <!-- Checkmark -->
@@ -60,6 +60,7 @@ interface Props {
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
   userRateMultiplier?: number | null
+  rateLabel?: string
   description?: string | null
   selected?: boolean
   showCheckmark?: boolean
@@ -69,7 +70,8 @@ const props = withDefaults(defineProps<Props>(), {
   subscriptionType: 'standard',
   selected: false,
   showCheckmark: true,
-  userRateMultiplier: null
+  userRateMultiplier: null,
+  rateLabel: '倍率'
 })
 
 // Whether user has a custom rate different from default

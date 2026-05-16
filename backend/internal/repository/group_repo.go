@@ -37,12 +37,20 @@ func newGroupRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor) *groupRep
 	return &groupRepository{client: client, sql: sqlq}
 }
 
+func normalizeDisplayRateMultiplier(value float64) float64 {
+	if value <= 0 {
+		return 1
+	}
+	return value
+}
+
 func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) error {
 	builder := r.client.Group.Create().
 		SetName(groupIn.Name).
 		SetDescription(groupIn.Description).
 		SetPlatform(groupIn.Platform).
 		SetRateMultiplier(groupIn.RateMultiplier).
+		SetDisplayRateMultiplier(normalizeDisplayRateMultiplier(groupIn.DisplayRateMultiplier)).
 		SetSortOrder(groupIn.SortOrder).
 		SetIsExclusive(groupIn.IsExclusive).
 		SetStatus(groupIn.Status).
@@ -117,6 +125,7 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetDescription(groupIn.Description).
 		SetPlatform(groupIn.Platform).
 		SetRateMultiplier(groupIn.RateMultiplier).
+		SetDisplayRateMultiplier(normalizeDisplayRateMultiplier(groupIn.DisplayRateMultiplier)).
 		SetIsExclusive(groupIn.IsExclusive).
 		SetStatus(groupIn.Status).
 		SetSubscriptionType(groupIn.SubscriptionType).
