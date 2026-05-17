@@ -5405,7 +5405,7 @@ export default {
         emailBlacklist: '注册邮箱黑名单',
         emailBlacklistHint:
           "禁止指定邮箱或邮箱域名注册账号（例如 user{'@'}example.com, {'@'}example.com）",
-        emailBlacklistPlaceholder: 'user@example.com 或 example.com',
+        emailBlacklistPlaceholder: "user{'@'}example.com 或 example.com",
         emailBlacklistInputHint:
           '支持完整邮箱或域名，黑名单优先级高于白名单，留空则不拦截',
         promoCode: '优惠码',

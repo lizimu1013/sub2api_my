@@ -5242,7 +5242,7 @@ export default {
         emailBlacklist: 'Registration Email Blacklist',
         emailBlacklistHint:
           "Block the specified email addresses or email domains from registering (for example, user{'@'}example.com, {'@'}example.com)",
-        emailBlacklistPlaceholder: 'user@example.com or example.com',
+        emailBlacklistPlaceholder: "user{'@'}example.com or example.com",
         emailBlacklistInputHint:
           'Supports full email addresses or domains. Blacklist has priority over whitelist. Leave empty to disable blocking.',
         promoCode: 'Promo Code',
