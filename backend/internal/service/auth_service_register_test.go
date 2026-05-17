@@ -335,6 +335,31 @@ func TestAuthService_Register_EmailSuffixAllowed(t *testing.T) {
 	require.Equal(t, int64(8), user.ID)
 }
 
+func TestAuthService_Register_EmailBlacklisted(t *testing.T) {
+	repo := &userRepoStub{}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled:        "true",
+		SettingKeyRegistrationEmailBlacklist: `["blocked@example.com","evil.com"]`,
+	}, nil)
+
+	_, _, err := service.Register(context.Background(), "user@evil.com", "password")
+	require.ErrorIs(t, err, ErrEmailBlacklisted)
+	appErr := infraerrors.FromError(err)
+	require.Equal(t, "EMAIL_BLACKLISTED", appErr.Reason)
+}
+
+func TestAuthService_Register_EmailBlacklistPrecedesWhitelist(t *testing.T) {
+	repo := &userRepoStub{}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled:              "true",
+		SettingKeyRegistrationEmailSuffixWhitelist: `["@example.com"]`,
+		SettingKeyRegistrationEmailBlacklist:       `["blocked@example.com"]`,
+	}, nil)
+
+	_, _, err := service.Register(context.Background(), "blocked@example.com", "password")
+	require.ErrorIs(t, err, ErrEmailBlacklisted)
+}
+
 func TestAuthService_SendVerifyCode_EmailSuffixNotAllowed(t *testing.T) {
 	repo := &userRepoStub{}
 	service := newAuthService(repo, map[string]string{

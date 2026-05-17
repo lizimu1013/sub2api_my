@@ -4428,6 +4428,42 @@ export default {
           requestsWithFirstToken: 'Requests With First Token'
         }
       },
+      recentAccounts: {
+        title: 'Recently Added Account Status',
+        subtitle: 'Defaults to accounts added today and follows the current platform and group filters',
+        date: 'Date',
+        latest: 'Recently added accounts',
+        totalInRange: '{count} accounts in range',
+        empty: 'No accounts were added for the selected date and filters',
+        failedToLoad: 'Failed to load recently added account status',
+        stats: {
+          total: 'Total',
+          normal: 'Normal',
+          rateLimited: 'Rate limited',
+          error: 'Error',
+          overloaded: 'Overloaded',
+          paused: 'Paused',
+          disabled: 'Disabled',
+          other: 'Other'
+        },
+        status: {
+          normal: 'Normal',
+          rate_limited: 'Rate limited',
+          error: 'Error',
+          overloaded: 'Overloaded',
+          temp_unschedulable: 'Paused',
+          paused: 'Paused',
+          disabled: 'Disabled',
+          other: 'Other'
+        },
+        table: {
+          account: 'Account',
+          platform: 'Platform',
+          group: 'Group',
+          status: 'Status',
+          createdAt: 'Created at'
+        }
+      },
       fullscreen: {
         enter: 'Enter Fullscreen'
       },
@@ -5198,6 +5234,12 @@ export default {
           "Only email addresses from the specified domains can register (for example, {'@'}qq.com, {'@'}gmail.com)",
         emailSuffixWhitelistPlaceholder: 'example.com',
         emailSuffixWhitelistInputHint: 'Leave empty for no restriction',
+        emailBlacklist: 'Registration Email Blacklist',
+        emailBlacklistHint:
+          "Block the specified email addresses or email domains from registering (for example, user{'@'}example.com, {'@'}example.com)",
+        emailBlacklistPlaceholder: 'user@example.com or example.com',
+        emailBlacklistInputHint:
+          'Supports full email addresses or domains. Blacklist has priority over whitelist. Leave empty to disable blocking.',
         promoCode: 'Promo Code',
         promoCodeHint: 'Allow users to use promo codes during registration',
         invitationCode: 'Invitation Code Registration',

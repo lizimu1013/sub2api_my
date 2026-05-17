@@ -4586,6 +4586,42 @@ export default {
           requestsWithFirstToken: '首 Token 样本数'
         }
       },
+      recentAccounts: {
+        title: '最近新增账号状态',
+        subtitle: '默认展示当日新增账号，跟随当前平台和分组筛选',
+        date: '日期',
+        latest: '最近新增账号',
+        totalInRange: '范围内共 {count} 个账号',
+        empty: '当前日期和筛选条件下没有新增账号',
+        failedToLoad: '加载最近新增账号状态失败',
+        stats: {
+          total: '总数',
+          normal: '正常',
+          rateLimited: '限流',
+          error: '异常',
+          overloaded: '过载',
+          paused: '暂停',
+          disabled: '禁用',
+          other: '其他'
+        },
+        status: {
+          normal: '正常',
+          rate_limited: '限流',
+          error: '异常',
+          overloaded: '过载',
+          temp_unschedulable: '临停',
+          paused: '暂停',
+          disabled: '禁用',
+          other: '其他'
+        },
+        table: {
+          account: '账号',
+          platform: '平台',
+          group: '分组',
+          status: '状态',
+          createdAt: '添加时间'
+        }
+      },
       customTimeRange: {
         startTime: '开始时间',
         endTime: '结束时间'
@@ -5361,6 +5397,12 @@ export default {
           "仅允许使用指定域名的邮箱注册账号（例如 {'@'}qq.com, {'@'}gmail.com）",
         emailSuffixWhitelistPlaceholder: 'example.com',
         emailSuffixWhitelistInputHint: '留空则不限制',
+        emailBlacklist: '注册邮箱黑名单',
+        emailBlacklistHint:
+          "禁止指定邮箱或邮箱域名注册账号（例如 user{'@'}example.com, {'@'}example.com）",
+        emailBlacklistPlaceholder: 'user@example.com 或 example.com',
+        emailBlacklistInputHint:
+          '支持完整邮箱或域名，黑名单优先级高于白名单，留空则不拦截',
         promoCode: '优惠码',
         promoCodeHint: '允许用户在注册时使用优惠码',
         invitationCode: '邀请码注册',

@@ -1470,6 +1470,65 @@
                 </p>
               </div>
 
+              <!-- Email Blacklist -->
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t("admin.settings.registration.emailBlacklist")
+                }}</label>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.registration.emailBlacklistHint") }}
+                </p>
+                <div
+                  class="mt-3 rounded-lg border border-gray-300 bg-white p-2 dark:border-dark-500 dark:bg-dark-700"
+                >
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span
+                      v-for="item in registrationEmailBlacklistTags"
+                      :key="item"
+                      class="inline-flex items-center gap-1 rounded bg-red-50 px-2 py-1 text-xs font-mono text-red-700 dark:bg-red-950/40 dark:text-red-200"
+                    >
+                      <span>{{ item }}</span>
+                      <button
+                        type="button"
+                        class="rounded-full text-red-500 hover:bg-red-100 hover:text-red-700 dark:text-red-300 dark:hover:bg-red-900/60 dark:hover:text-white"
+                        @click="removeRegistrationEmailBlacklistTag(item)"
+                      >
+                        <Icon
+                          name="x"
+                          size="xs"
+                          class="h-3.5 w-3.5"
+                          :stroke-width="2"
+                        />
+                      </button>
+                    </span>
+
+                    <div
+                      class="flex min-w-[260px] flex-1 items-center rounded border border-transparent px-2 py-1 focus-within:border-primary-300 dark:focus-within:border-primary-700"
+                    >
+                      <input
+                        v-model="registrationEmailBlacklistDraft"
+                        type="text"
+                        class="w-full bg-transparent text-sm font-mono text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
+                        :placeholder="
+                          t(
+                            'admin.settings.registration.emailBlacklistPlaceholder',
+                          )
+                        "
+                        @input="handleRegistrationEmailBlacklistDraftInput"
+                        @keydown="handleRegistrationEmailBlacklistDraftKeydown"
+                        @blur="commitRegistrationEmailBlacklistDraft"
+                        @paste="handleRegistrationEmailBlacklistPaste"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {{
+                    t("admin.settings.registration.emailBlacklistInputHint")
+                  }}
+                </p>
+              </div>
+
               <!-- Promo Code -->
               <div
                 class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
@@ -6170,8 +6229,11 @@ import { useAdminSettingsStore } from "@/stores/adminSettings";
 import { normalizeVisibleMethod } from "@/components/payment/paymentFlow";
 import {
   isRegistrationEmailSuffixDomainValid,
+  normalizeRegistrationEmailBlacklist,
+  normalizeRegistrationEmailBlacklistItem,
   normalizeRegistrationEmailSuffixDomain,
   normalizeRegistrationEmailSuffixDomains,
+  parseRegistrationEmailBlacklistInput,
   parseRegistrationEmailSuffixWhitelistInput,
 } from "@/utils/registrationEmailPolicy";
 
@@ -6280,6 +6342,8 @@ const smtpPasswordManuallyEdited = ref(false);
 const testEmailAddress = ref("");
 const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
 const registrationEmailSuffixWhitelistDraft = ref("");
+const registrationEmailBlacklistTags = ref<string[]>([]);
+const registrationEmailBlacklistDraft = ref("");
 const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
 
 // Admin API Key 状态
@@ -6435,6 +6499,7 @@ const form = reactive<SettingsForm>({
   registration_enabled: true,
   email_verify_enabled: false,
   registration_email_suffix_whitelist: [],
+  registration_email_blacklist: [],
   promo_code_enabled: true,
   invitation_code_enabled: false,
   password_reset_enabled: false,
@@ -6930,6 +6995,67 @@ function handleRegistrationEmailSuffixWhitelistPaste(event: ClipboardEvent) {
   }
 }
 
+function removeRegistrationEmailBlacklistTag(item: string) {
+  registrationEmailBlacklistTags.value =
+    registrationEmailBlacklistTags.value.filter((value) => value !== item);
+}
+
+function addRegistrationEmailBlacklistTag(raw: string) {
+  const item = normalizeRegistrationEmailBlacklistItem(raw);
+  if (!item || registrationEmailBlacklistTags.value.includes(item)) {
+    return;
+  }
+  registrationEmailBlacklistTags.value = [
+    ...registrationEmailBlacklistTags.value,
+    item,
+  ];
+}
+
+function commitRegistrationEmailBlacklistDraft() {
+  if (!registrationEmailBlacklistDraft.value) {
+    return;
+  }
+  addRegistrationEmailBlacklistTag(registrationEmailBlacklistDraft.value);
+  registrationEmailBlacklistDraft.value = "";
+}
+
+function handleRegistrationEmailBlacklistDraftInput() {
+  registrationEmailBlacklistDraft.value =
+    registrationEmailBlacklistDraft.value.trim().toLowerCase();
+}
+
+function handleRegistrationEmailBlacklistDraftKeydown(event: KeyboardEvent) {
+  if (event.isComposing) {
+    return;
+  }
+
+  if (registrationEmailSuffixWhitelistSeparatorKeys.has(event.key)) {
+    event.preventDefault();
+    commitRegistrationEmailBlacklistDraft();
+    return;
+  }
+
+  if (
+    event.key === "Backspace" &&
+    !registrationEmailBlacklistDraft.value &&
+    registrationEmailBlacklistTags.value.length > 0
+  ) {
+    registrationEmailBlacklistTags.value.pop();
+  }
+}
+
+function handleRegistrationEmailBlacklistPaste(event: ClipboardEvent) {
+  const text = event.clipboardData?.getData("text") || "";
+  if (!text.trim()) {
+    return;
+  }
+  event.preventDefault();
+  const tokens = parseRegistrationEmailBlacklistInput(text);
+  for (const token of tokens) {
+    addRegistrationEmailBlacklistTag(token);
+  }
+}
+
 // Quota notify email helpers
 const addQuotaNotifyEmail = () => {
   if (!form.account_quota_notify_emails) {
@@ -7231,12 +7357,16 @@ async function loadSettings() {
       normalizeRegistrationEmailSuffixDomains(
         settings.registration_email_suffix_whitelist,
       );
+    registrationEmailBlacklistTags.value = normalizeRegistrationEmailBlacklist(
+      settings.registration_email_blacklist,
+    );
     tablePageSizeOptionsInput.value = formatTablePageSizeOptions(
       Array.isArray(settings.table_page_size_options)
         ? settings.table_page_size_options
         : [10, 20, 50, 100],
     );
     registrationEmailSuffixWhitelistDraft.value = "";
+    registrationEmailBlacklistDraft.value = "";
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";
@@ -7544,6 +7674,7 @@ async function saveSettings() {
         registrationEmailSuffixWhitelistTags.value.map(
           (suffix) => `@${suffix}`,
         ),
+      registration_email_blacklist: registrationEmailBlacklistTags.value,
       promo_code_enabled: form.promo_code_enabled,
       invitation_code_enabled: form.invitation_code_enabled,
       password_reset_enabled: form.password_reset_enabled,
@@ -7765,12 +7896,16 @@ async function saveSettings() {
       normalizeRegistrationEmailSuffixDomains(
         updated.registration_email_suffix_whitelist,
       );
+    registrationEmailBlacklistTags.value = normalizeRegistrationEmailBlacklist(
+      updated.registration_email_blacklist,
+    );
     tablePageSizeOptionsInput.value = formatTablePageSizeOptions(
       Array.isArray(updated.table_page_size_options)
         ? updated.table_page_size_options
         : [10, 20, 50, 100],
     );
     registrationEmailSuffixWhitelistDraft.value = "";
+    registrationEmailBlacklistDraft.value = "";
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";

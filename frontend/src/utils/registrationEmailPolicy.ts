@@ -2,6 +2,7 @@ const EMAIL_SUFFIX_TOKEN_SPLIT_RE = /[\s,，]+/
 const EMAIL_SUFFIX_INVALID_CHAR_RE = /[^a-z0-9.-]/g
 const EMAIL_SUFFIX_INVALID_CHAR_CHECK_RE = /[^a-z0-9.-]/
 const EMAIL_SUFFIX_PREFIX_RE = /^@+/
+const EMAIL_BLACKLIST_LOCAL_INVALID_RE = /[\s@]/
 const EMAIL_SUFFIX_DOMAIN_PATTERN =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
 
@@ -57,10 +58,62 @@ export function parseRegistrationEmailSuffixWhitelistInput(input: string): strin
   return normalized
 }
 
+export function parseRegistrationEmailBlacklistInput(input: string): string[] {
+  if (!input || !input.trim()) {
+    return []
+  }
+
+  const seen = new Set<string>()
+  const normalized: string[] = []
+
+  for (const token of input.split(EMAIL_SUFFIX_TOKEN_SPLIT_RE)) {
+    const item = normalizeRegistrationEmailBlacklistItemStrict(token)
+    if (!item || seen.has(item)) {
+      continue
+    }
+    seen.add(item)
+    normalized.push(item)
+  }
+
+  return normalized
+}
+
 export function normalizeRegistrationEmailSuffixWhitelist(
   items: string[] | null | undefined
 ): string[] {
   return normalizeRegistrationEmailSuffixDomains(items).map((domain) => `@${domain}`)
+}
+
+export function normalizeRegistrationEmailBlacklist(
+  items: string[] | null | undefined
+): string[] {
+  if (!items || items.length === 0) {
+    return []
+  }
+
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const item of items) {
+    const value = normalizeRegistrationEmailBlacklistItem(item)
+    if (!value || seen.has(value)) {
+      continue
+    }
+    seen.add(value)
+    normalized.push(value)
+  }
+  return normalized
+}
+
+export function normalizeRegistrationEmailBlacklistItem(raw: string): string {
+  const value = String(raw || '').trim().toLowerCase()
+  if (!value) {
+    return ''
+  }
+  if (!value.includes('@') || value.startsWith('@')) {
+    const domain = normalizeRegistrationEmailSuffixDomain(value)
+    return isRegistrationEmailSuffixDomainValid(domain) ? `@${domain}` : ''
+  }
+  return normalizeRegistrationEmailAddress(value)
 }
 
 function extractRegistrationEmailDomain(email: string): string {
@@ -105,6 +158,39 @@ function normalizeRegistrationEmailSuffixDomainStrict(raw: string): string {
     return ''
   }
   return value
+}
+
+function normalizeRegistrationEmailBlacklistItemStrict(raw: string): string {
+  const value = String(raw || '').trim().toLowerCase()
+  if (!value) {
+    return ''
+  }
+  if (!value.includes('@') || value.startsWith('@')) {
+    const domain = normalizeRegistrationEmailSuffixDomainStrict(value)
+    return isRegistrationEmailSuffixDomainValid(domain) ? `@${domain}` : ''
+  }
+  return normalizeRegistrationEmailAddress(value)
+}
+
+function normalizeRegistrationEmailAddress(raw: string): string {
+  const value = String(raw || '').trim().toLowerCase()
+  const atIndex = value.indexOf('@')
+  if (atIndex <= 0 || atIndex >= value.length - 1) {
+    return ''
+  }
+  if (value.indexOf('@', atIndex + 1) !== -1) {
+    return ''
+  }
+  const local = value.slice(0, atIndex)
+  const domain = value.slice(atIndex + 1)
+  if (
+    !local ||
+    EMAIL_BLACKLIST_LOCAL_INVALID_RE.test(local) ||
+    !isRegistrationEmailSuffixDomainValid(domain)
+  ) {
+    return ''
+  }
+  return `${local}@${domain}`
 }
 
 export function isRegistrationEmailSuffixDomainValid(domain: string): boolean {

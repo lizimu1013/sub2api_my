@@ -456,6 +456,49 @@ export interface OpsAccountAvailabilityStatsResponse {
   timestamp?: string
 }
 
+export type OpsRecentAccountStatusCategory =
+  | 'normal'
+  | 'rate_limited'
+  | 'error'
+  | 'overloaded'
+  | 'temp_unschedulable'
+  | 'paused'
+  | 'disabled'
+  | 'other'
+
+export interface OpsRecentAccountStatusItem {
+  account_id: number
+  account_name: string
+  platform: string
+  group_id: number
+  group_name: string
+  created_at: string
+  status: string
+  status_category: OpsRecentAccountStatusCategory
+  schedulable: boolean
+  rate_limit_reset_at?: string
+  overload_until?: string
+  error_message?: string
+}
+
+export interface OpsRecentAccountStatusResponse {
+  generated_at: string
+  start_time: string
+  end_time: string
+  platform: string
+  group_id?: number | null
+  total_count: number
+  normal_count: number
+  rate_limited_count: number
+  error_count: number
+  overloaded_count: number
+  temp_unschedulable_count: number
+  paused_count: number
+  disabled_count: number
+  other_count: number
+  items: OpsRecentAccountStatusItem[]
+}
+
 export async function getAccountAvailabilityStats(platform?: string, groupId?: number | null): Promise<OpsAccountAvailabilityStatsResponse> {
   const params: Record<string, any> = {}
   if (platform) {
@@ -465,6 +508,22 @@ export async function getAccountAvailabilityStats(platform?: string, groupId?: n
     params.group_id = groupId
   }
   const { data } = await apiClient.get<OpsAccountAvailabilityStatsResponse>('/admin/ops/account-availability', { params })
+  return data
+}
+
+export interface OpsRecentAccountStatusParams {
+  start_time?: string
+  end_time?: string
+  time_range?: string
+  platform?: string
+  group_id?: number | null
+  limit?: number
+}
+
+export async function getRecentAccountStatus(params: OpsRecentAccountStatusParams = {}): Promise<OpsRecentAccountStatusResponse> {
+  const { data } = await apiClient.get<OpsRecentAccountStatusResponse>('/admin/ops/recent-accounts/status', {
+    params
+  })
   return data
 }
 
@@ -1374,6 +1433,7 @@ export const opsAPI = {
   getConcurrencyStats,
   getUserConcurrencyStats,
   getAccountAvailabilityStats,
+  getRecentAccountStatus,
   getRealtimeTrafficSummary,
   subscribeQPS,
 

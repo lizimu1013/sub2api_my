@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   isRegistrationEmailSuffixAllowed,
   isRegistrationEmailSuffixDomainValid,
+  normalizeRegistrationEmailBlacklist,
+  normalizeRegistrationEmailBlacklistItem,
   normalizeRegistrationEmailSuffixDomain,
   normalizeRegistrationEmailSuffixDomains,
   normalizeRegistrationEmailSuffixWhitelist,
+  parseRegistrationEmailBlacklistInput,
   parseRegistrationEmailSuffixWhitelistInput
 } from '@/utils/registrationEmailPolicy'
 
@@ -56,6 +59,33 @@ describe('registrationEmailPolicy utils', () => {
         ' @foo.bar '
       ])
     ).toEqual(['@example.com', '@foo.bar'])
+  })
+
+  it('normalizeRegistrationEmailBlacklist supports exact emails and domains', () => {
+    expect(
+      normalizeRegistrationEmailBlacklist([
+        'Blocked@Example.com',
+        'example.com',
+        '@EXAMPLE.com',
+        'bad@@example.com'
+      ])
+    ).toEqual(['blocked@example.com', '@example.com'])
+  })
+
+  it('normalizeRegistrationEmailBlacklistItem returns canonical blacklist tokens', () => {
+    expect(normalizeRegistrationEmailBlacklistItem(' User+tag@Example.COM ')).toBe(
+      'user+tag@example.com'
+    )
+    expect(normalizeRegistrationEmailBlacklistItem(' example.com ')).toBe('@example.com')
+    expect(normalizeRegistrationEmailBlacklistItem('bad@@example.com')).toBe('')
+  })
+
+  it('parseRegistrationEmailBlacklistInput supports separators and deduplicates', () => {
+    const input = 'Blocked@Example.com, @evil.com evil.com bad@@example.com'
+    expect(parseRegistrationEmailBlacklistInput(input)).toEqual([
+      'blocked@example.com',
+      '@evil.com'
+    ])
   })
 
   it('isRegistrationEmailSuffixDomainValid matches backend-compatible domain rules', () => {
