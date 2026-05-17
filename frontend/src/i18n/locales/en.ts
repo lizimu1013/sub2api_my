@@ -4430,12 +4430,17 @@ export default {
       },
       recentAccounts: {
         title: 'Recently Added Account Status',
-        subtitle: 'Defaults to accounts added today and follows the current platform and group filters',
+        subtitle: 'Tracks newly added accounts for today, the last 24 hours, or the last 7 days with the current platform and group filters',
         date: 'Date',
         latest: 'Recently added accounts',
         totalInRange: '{count} accounts in range',
-        empty: 'No accounts were added for the selected date and filters',
+        empty: 'No accounts were added for the selected time range and filters',
         failedToLoad: 'Failed to load recently added account status',
+        rangeTabs: {
+          today: 'Today',
+          last24h: 'Last 24h',
+          last7d: 'Last 7d'
+        },
         stats: {
           total: 'Total',
           normal: 'Normal',

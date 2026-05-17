@@ -22,6 +22,13 @@ const loading = ref(false)
 const errorMessage = ref('')
 const response = ref<OpsRecentAccountStatusResponse | null>(null)
 const selectedDate = ref(toDateInputValue(new Date()))
+const selectedRange = ref<'day' | '24h' | '7d'>('day')
+
+const rangeTabs = computed(() => [
+  { key: 'day' as const, label: t('admin.ops.recentAccounts.rangeTabs.today') },
+  { key: '24h' as const, label: t('admin.ops.recentAccounts.rangeTabs.last24h') },
+  { key: '7d' as const, label: t('admin.ops.recentAccounts.rangeTabs.last7d') }
+])
 
 const items = computed(() => response.value?.items ?? [])
 
@@ -63,10 +70,14 @@ async function loadData() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const { startTime, endTime } = selectedDayRange()
+    const rangeParams = selectedRange.value === 'day'
+      ? (() => {
+          const { startTime, endTime } = selectedDayRange()
+          return { start_time: startTime, end_time: endTime }
+        })()
+      : { time_range: selectedRange.value }
     response.value = await opsAPI.getRecentAccountStatus({
-      start_time: startTime,
-      end_time: endTime,
+      ...rangeParams,
       platform: props.platformFilter || undefined,
       group_id: typeof props.groupIdFilter === 'number' && props.groupIdFilter > 0 ? props.groupIdFilter : undefined,
       limit: 20
@@ -117,7 +128,7 @@ function statusBadgeClass(category: OpsRecentAccountStatusCategory): string {
 }
 
 watch(
-  () => [selectedDate.value, props.platformFilter, props.groupIdFilter, props.refreshToken] as const,
+  () => [selectedDate.value, selectedRange.value, props.platformFilter, props.groupIdFilter, props.refreshToken] as const,
   () => {
     void loadData()
   },
@@ -138,10 +149,13 @@ watch(
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <label class="sr-only" for="ops-recent-accounts-date">
+        <label v-if="selectedRange === 'day'" class="sr-only" for="ops-recent-accounts-date">
           {{ t('admin.ops.recentAccounts.date') }}
         </label>
-        <div class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5 dark:border-dark-600 dark:bg-dark-800">
+        <div
+          v-if="selectedRange === 'day'"
+          class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5 dark:border-dark-600 dark:bg-dark-800"
+        >
           <Icon name="calendar" size="xs" class="text-gray-400" />
           <input
             id="ops-recent-accounts-date"
@@ -159,6 +173,23 @@ watch(
           <Icon name="refresh" size="xs" :class="{ 'animate-spin': loading }" />
         </button>
       </div>
+    </div>
+
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+      <button
+        v-for="tab in rangeTabs"
+        :key="tab.key"
+        type="button"
+        :class="[
+          'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+          selectedRange === tab.key
+            ? 'bg-primary-600 text-white shadow-sm'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600'
+        ]"
+        @click="selectedRange = tab.key"
+      >
+        {{ tab.label }}
+      </button>
     </div>
 
     <div v-if="errorMessage" class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-900/20 dark:text-red-400">

@@ -4588,12 +4588,17 @@ export default {
       },
       recentAccounts: {
         title: '最近新增账号状态',
-        subtitle: '默认展示当日新增账号，跟随当前平台和分组筛选',
+        subtitle: '按当日、最近 24 小时或最近 7 天统计新增账号，跟随当前平台和分组筛选',
         date: '日期',
         latest: '最近新增账号',
         totalInRange: '范围内共 {count} 个账号',
-        empty: '当前日期和筛选条件下没有新增账号',
+        empty: '当前时间范围和筛选条件下没有新增账号',
         failedToLoad: '加载最近新增账号状态失败',
+        rangeTabs: {
+          today: '当日',
+          last24h: '最近 24 小时',
+          last7d: '最近 7 天'
+        },
         stats: {
           total: '总数',
           normal: '正常',
