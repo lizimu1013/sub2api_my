@@ -40,6 +40,19 @@
         />
       </div>
 
+      <div>
+        <label class="input-label">{{ t('admin.accounts.dataImportNote') }}</label>
+        <textarea
+          v-model="importNote"
+          class="input min-h-[88px] resize-y"
+          maxlength="500"
+          :placeholder="t('admin.accounts.dataImportNotePlaceholder')"
+        ></textarea>
+        <div class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+          {{ t('admin.accounts.dataImportNoteHint') }}
+        </div>
+      </div>
+
       <div
         v-if="result"
         class="space-y-2 rounded-xl border border-gray-200 p-4 dark:border-dark-700"
@@ -109,6 +122,7 @@ const appStore = useAppStore()
 
 const importing = ref(false)
 const file = ref<File | null>(null)
+const importNote = ref('')
 const result = ref<AdminDataImportResult | null>(null)
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -121,6 +135,7 @@ watch(
   (open) => {
     if (open) {
       file.value = null
+      importNote.value = ''
       result.value = null
       if (fileInput.value) {
         fileInput.value.value = ''
@@ -174,7 +189,8 @@ const handleImport = async () => {
 
     const res = await adminAPI.accounts.importData({
       data: dataPayload,
-      skip_default_group_bind: true
+      skip_default_group_bind: true,
+      import_note: importNote.value.trim() || undefined
     })
 
     result.value = res

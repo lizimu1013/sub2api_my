@@ -112,6 +112,20 @@
                         {{ t('admin.accounts.selectedCount', { count: selIds.length }) }}
                       </span>
                     </button>
+                    <button class="account-tools-menu-item" :disabled="exportingStats" @click="handleExportStatsExcel">
+                      <span class="account-tools-menu-icon bg-cyan-50 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-300">
+                        <Icon name="chartBar" size="sm" />
+                      </span>
+                      <span class="flex-1 text-left">
+                        {{ selIds.length ? t('admin.accounts.statsExportSelected') : t('admin.accounts.statsExport') }}
+                      </span>
+                      <span
+                        v-if="selIds.length"
+                        class="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
+                      >
+                        {{ t('admin.accounts.selectedCount', { count: selIds.length }) }}
+                      </span>
+                    </button>
 
                     <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
                     <div class="px-2 py-2">
@@ -378,6 +392,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
+import * as XLSX from 'xlsx'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { adminAPI } from '@/api/admin'
@@ -411,7 +426,7 @@ import ErrorPassthroughRulesModal from '@/components/admin/ErrorPassthroughRules
 import TLSFingerprintProfilesModal from '@/components/admin/TLSFingerprintProfilesModal.vue'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
-import type { Account, AccountPlatform, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel } from '@/types'
+import type { Account, AccountPlatform, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, AccountStatsExportRow } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -487,6 +502,7 @@ const scheduleModelOptions = ref<SelectOption[]>([])
 const togglingSchedulable = ref<number | null>(null)
 const menu = reactive<{show:boolean, acc:Account|null, pos:{top:number, left:number}|null}>({ show: false, acc: null, pos: null })
 const exportingData = ref(false)
+const exportingStats = ref(false)
 
 // Account tools dropdown
 const showAccountToolsDropdown = ref(false)
@@ -1524,6 +1540,81 @@ const handleExportData = async () => {
   } finally {
     exportingData.value = false
     showExportDataDialog.value = false
+  }
+}
+
+const statValue = (stats: WindowStats | null | undefined, key: keyof WindowStats): number => {
+  const value = stats?.[key]
+  return typeof value === 'number' ? value : 0
+}
+
+const dateCellValue = (value?: string | null): string => {
+  if (!value) return ''
+  return formatDateTime(value)
+}
+
+const buildAccountStatsExcelRow = (row: AccountStatsExportRow) => ({
+  '账号ID': row.id,
+  '账号名称': row.name,
+  '平台': row.platform,
+  '类型': row.type,
+  '状态': row.status,
+  '可调度': row.schedulable ? '是' : '否',
+  '分组': row.group_names?.length ? row.group_names.join(', ') : (row.group_ids || []).join(', '),
+  '并发': row.concurrency,
+  '优先级': row.priority,
+  '账号倍率': row.rate_multiplier,
+  '导入时间': dateCellValue(row.imported_at),
+  '导入备注': row.import_note || '',
+  '备注': row.notes || '',
+  '总额度': row.quota?.total_limit ?? '',
+  '总额度已用': row.quota?.total_used ?? '',
+  '日额度': row.quota?.daily_limit ?? '',
+  '日额度已用': row.quota?.daily_used ?? '',
+  '周额度': row.quota?.weekly_limit ?? '',
+  '周额度已用': row.quota?.weekly_used ?? '',
+  '窗口额度': row.window_quota?.cost_limit ?? '',
+  '窗口已用费用': statValue(row.window_quota?.window_stats, 'cost'),
+  '窗口请求数': statValue(row.window_quota?.window_stats, 'requests'),
+  '窗口开始': dateCellValue(row.window_quota?.window_start),
+  '窗口结束': dateCellValue(row.window_quota?.window_end),
+  '今日请求数': statValue(row.today_stats, 'requests'),
+  '今日Tokens': statValue(row.today_stats, 'tokens'),
+  '今日账号费用': statValue(row.today_stats, 'cost'),
+  '今日用户计费': statValue(row.today_stats, 'user_cost'),
+  '今日标准成本': statValue(row.today_stats, 'standard_cost'),
+  '7天请求数': statValue(row.seven_day_stats, 'requests'),
+  '7天Tokens': statValue(row.seven_day_stats, 'tokens'),
+  '7天账号费用': statValue(row.seven_day_stats, 'cost'),
+  '7天用户计费': statValue(row.seven_day_stats, 'user_cost'),
+  '7天标准成本': statValue(row.seven_day_stats, 'standard_cost'),
+  '30天请求数': statValue(row.thirty_day_stats, 'requests'),
+  '30天Tokens': statValue(row.thirty_day_stats, 'tokens'),
+  '30天账号费用': statValue(row.thirty_day_stats, 'cost'),
+  '30天用户计费': statValue(row.thirty_day_stats, 'user_cost'),
+  '30天标准成本': statValue(row.thirty_day_stats, 'standard_cost')
+})
+
+const handleExportStatsExcel = async () => {
+  if (exportingStats.value) return
+  exportingStats.value = true
+  showAccountToolsDropdown.value = false
+  try {
+    const report = await adminAPI.accounts.exportStats(
+      selIds.value.length > 0
+        ? { ids: selIds.value }
+        : { filters: buildAccountQueryFilters() }
+    )
+    const worksheet = XLSX.utils.json_to_sheet(report.accounts.map(buildAccountStatsExcelRow))
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '账号统计')
+    const timestamp = formatExportTimestamp()
+    XLSX.writeFile(workbook, `sub2api-account-stats-${timestamp}.xlsx`)
+    appStore.showSuccess(t('admin.accounts.statsExported'))
+  } catch (error: any) {
+    appStore.showError(error?.message || t('admin.accounts.statsExportFailed'))
+  } finally {
+    exportingStats.value = false
   }
 }
 const closeTestModal = () => { showTest.value = false; testingAcc.value = null }

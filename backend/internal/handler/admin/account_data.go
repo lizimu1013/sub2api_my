@@ -61,6 +61,7 @@ type DataAccount struct {
 type DataImportRequest struct {
 	Data                 DataPayload `json:"data"`
 	SkipDefaultGroupBind *bool       `json:"skip_default_group_bind"`
+	ImportNote           string      `json:"import_note"`
 }
 
 type DataImportResult struct {
@@ -77,6 +78,51 @@ type DataImportError struct {
 	Name     string `json:"name,omitempty"`
 	ProxyKey string `json:"proxy_key,omitempty"`
 	Message  string `json:"message"`
+}
+
+type AccountStatsExportResponse struct {
+	ExportedAt string                  `json:"exported_at"`
+	Accounts   []AccountStatsExportRow `json:"accounts"`
+}
+
+type AccountStatsExportRow struct {
+	ID             int64                `json:"id"`
+	Name           string               `json:"name"`
+	Notes          string               `json:"notes,omitempty"`
+	Platform       string               `json:"platform"`
+	Type           string               `json:"type"`
+	Status         string               `json:"status"`
+	Schedulable    bool                 `json:"schedulable"`
+	Priority       int                  `json:"priority"`
+	Concurrency    int                  `json:"concurrency"`
+	RateMultiplier float64              `json:"rate_multiplier"`
+	GroupIDs       []int64              `json:"group_ids,omitempty"`
+	GroupNames     []string             `json:"group_names,omitempty"`
+	ImportedAt     string               `json:"imported_at,omitempty"`
+	ImportNote     string               `json:"import_note,omitempty"`
+	Quota          AccountQuotaExport   `json:"quota"`
+	WindowQuota    AccountWindowExport  `json:"window_quota"`
+	TodayStats     *service.WindowStats `json:"today_stats"`
+	SevenDayStats  *service.WindowStats `json:"seven_day_stats"`
+	ThirtyDayStats *service.WindowStats `json:"thirty_day_stats"`
+}
+
+type AccountQuotaExport struct {
+	TotalLimit  *float64 `json:"total_limit,omitempty"`
+	TotalUsed   *float64 `json:"total_used,omitempty"`
+	DailyLimit  *float64 `json:"daily_limit,omitempty"`
+	DailyUsed   *float64 `json:"daily_used,omitempty"`
+	WeeklyLimit *float64 `json:"weekly_limit,omitempty"`
+	WeeklyUsed  *float64 `json:"weekly_used,omitempty"`
+}
+
+type AccountWindowExport struct {
+	CostLimit     *float64             `json:"cost_limit,omitempty"`
+	StickyReserve *float64             `json:"sticky_reserve,omitempty"`
+	WindowStart   string               `json:"window_start,omitempty"`
+	WindowEnd     string               `json:"window_end,omitempty"`
+	WindowStatus  string               `json:"window_status,omitempty"`
+	WindowStats   *service.WindowStats `json:"window_stats,omitempty"`
 }
 
 func buildProxyKey(protocol, host string, port int, username, password string) string {
@@ -172,6 +218,50 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 	response.Success(c, payload)
 }
 
+// ExportStats 批量导出账号统计数据，供前端生成 Excel 文件。
+// GET /api/v1/admin/accounts/stats-export
+func (h *AccountHandler) ExportStats(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	selectedIDs, err := parseAccountIDs(c)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	accounts, err := h.resolveExportAccounts(ctx, selectedIDs, c)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	accountIDs := make([]int64, 0, len(accounts))
+	for i := range accounts {
+		if accounts[i].ID > 0 {
+			accountIDs = append(accountIDs, accounts[i].ID)
+		}
+	}
+
+	now := time.Now()
+	todayStats, sevenDayStats, thirtyDayStats := map[int64]*service.WindowStats{}, map[int64]*service.WindowStats{}, map[int64]*service.WindowStats{}
+	if h.accountUsageService != nil && len(accountIDs) > 0 {
+		todayStats, _ = h.accountUsageService.GetTodayStatsBatch(ctx, accountIDs)
+		sevenDayStats, _ = h.accountUsageService.GetWindowStatsBatch(ctx, accountIDs, now.Add(-7*24*time.Hour))
+		thirtyDayStats, _ = h.accountUsageService.GetWindowStatsBatch(ctx, accountIDs, now.Add(-30*24*time.Hour))
+	}
+
+	rows := make([]AccountStatsExportRow, 0, len(accounts))
+	for i := range accounts {
+		acc := accounts[i]
+		rows = append(rows, h.buildAccountStatsExportRow(ctx, &acc, todayStats[acc.ID], sevenDayStats[acc.ID], thirtyDayStats[acc.ID]))
+	}
+
+	response.Success(c, AccountStatsExportResponse{
+		ExportedAt: now.UTC().Format(time.RFC3339),
+		Accounts:   rows,
+	})
+}
+
 func (h *AccountHandler) ImportData(c *gin.Context) {
 	var req DataImportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -196,6 +286,8 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 	}
 
 	dataPayload := req.Data
+	importedAt := time.Now().UTC().Format(time.RFC3339)
+	importNote := strings.TrimSpace(req.ImportNote)
 	result := DataImportResult{}
 
 	existingProxies, err := h.listAllProxies(ctx)
@@ -300,6 +392,8 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 		}
 
 		enrichCredentialsFromIDToken(&item)
+		item.Extra = addImportMetadata(item.Extra, importedAt, importNote)
+		item.Notes = mergeAccountImportNote(item.Notes, importNote)
 
 		accountInput := &service.CreateAccountInput{
 			Name:                 item.Name,
@@ -353,6 +447,160 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 	}
 
 	return result, nil
+}
+
+func addImportMetadata(extra map[string]any, importedAt string, importNote string) map[string]any {
+	out := make(map[string]any, len(extra)+3)
+	for key, value := range extra {
+		out[key] = value
+	}
+	out["imported_at"] = importedAt
+	out["import_source"] = "admin_account_import"
+	if importNote != "" {
+		out["import_note"] = importNote
+	}
+	return out
+}
+
+func (h *AccountHandler) buildAccountStatsExportRow(ctx context.Context, acc *service.Account, todayStats, sevenDayStats, thirtyDayStats *service.WindowStats) AccountStatsExportRow {
+	row := AccountStatsExportRow{
+		ID:             acc.ID,
+		Name:           acc.Name,
+		Platform:       acc.Platform,
+		Type:           acc.Type,
+		Status:         acc.Status,
+		Schedulable:    acc.Schedulable,
+		Priority:       acc.Priority,
+		Concurrency:    acc.Concurrency,
+		RateMultiplier: acc.BillingRateMultiplier(),
+		GroupIDs:       acc.GroupIDs,
+		GroupNames:     accountExportGroupNames(acc),
+		ImportedAt:     extraString(acc.Extra, "imported_at"),
+		ImportNote:     extraString(acc.Extra, "import_note"),
+		Quota:          accountExportQuota(acc),
+		WindowQuota:    h.accountExportWindowQuota(ctx, acc),
+		TodayStats:     defaultWindowStats(todayStats),
+		SevenDayStats:  defaultWindowStats(sevenDayStats),
+		ThirtyDayStats: defaultWindowStats(thirtyDayStats),
+	}
+	if acc.Notes != nil {
+		row.Notes = *acc.Notes
+	}
+	return row
+}
+
+func accountExportGroupNames(acc *service.Account) []string {
+	if acc == nil || len(acc.Groups) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(acc.Groups))
+	for _, group := range acc.Groups {
+		if group != nil && strings.TrimSpace(group.Name) != "" {
+			names = append(names, group.Name)
+		}
+	}
+	return names
+}
+
+func accountExportQuota(acc *service.Account) AccountQuotaExport {
+	out := AccountQuotaExport{}
+	if acc == nil || !acc.IsAPIKeyOrBedrock() {
+		return out
+	}
+	if limit := acc.GetQuotaLimit(); limit > 0 {
+		out.TotalLimit = float64Ptr(limit)
+		out.TotalUsed = float64Ptr(acc.GetQuotaUsed())
+	}
+	if limit := acc.GetQuotaDailyLimit(); limit > 0 {
+		used := acc.GetQuotaDailyUsed()
+		if acc.IsDailyQuotaPeriodExpired() {
+			used = 0
+		}
+		out.DailyLimit = float64Ptr(limit)
+		out.DailyUsed = float64Ptr(used)
+	}
+	if limit := acc.GetQuotaWeeklyLimit(); limit > 0 {
+		used := acc.GetQuotaWeeklyUsed()
+		if acc.IsWeeklyQuotaPeriodExpired() {
+			used = 0
+		}
+		out.WeeklyLimit = float64Ptr(limit)
+		out.WeeklyUsed = float64Ptr(used)
+	}
+	return out
+}
+
+func (h *AccountHandler) accountExportWindowQuota(ctx context.Context, acc *service.Account) AccountWindowExport {
+	out := AccountWindowExport{}
+	if acc == nil || !acc.IsAnthropicOAuthOrSetupToken() {
+		return out
+	}
+	if limit := acc.GetWindowCostLimit(); limit > 0 {
+		out.CostLimit = float64Ptr(limit)
+	}
+	if reserve := acc.GetWindowCostStickyReserve(); reserve > 0 {
+		out.StickyReserve = float64Ptr(reserve)
+	}
+	if acc.SessionWindowStart != nil {
+		out.WindowStart = acc.SessionWindowStart.UTC().Format(time.RFC3339)
+	}
+	if acc.SessionWindowEnd != nil {
+		out.WindowEnd = acc.SessionWindowEnd.UTC().Format(time.RFC3339)
+	}
+	out.WindowStatus = acc.SessionWindowStatus
+
+	if h.accountUsageService != nil && out.CostLimit != nil {
+		stats, err := h.accountUsageService.GetAccountWindowStats(ctx, acc.ID, acc.GetCurrentWindowStartTime())
+		if err == nil {
+			out.WindowStats = &service.WindowStats{
+				Requests:     stats.Requests,
+				Tokens:       stats.Tokens,
+				Cost:         stats.Cost,
+				StandardCost: stats.StandardCost,
+				UserCost:     stats.UserCost,
+			}
+		}
+	}
+	return out
+}
+
+func defaultWindowStats(stats *service.WindowStats) *service.WindowStats {
+	if stats != nil {
+		return stats
+	}
+	return &service.WindowStats{}
+}
+
+func float64Ptr(v float64) *float64 {
+	return &v
+}
+
+func extraString(extra map[string]any, key string) string {
+	if extra == nil {
+		return ""
+	}
+	if value, ok := extra[key].(string); ok {
+		return value
+	}
+	return ""
+}
+
+func mergeAccountImportNote(existing *string, importNote string) *string {
+	importNote = strings.TrimSpace(importNote)
+	if importNote == "" {
+		return existing
+	}
+	if existing == nil || strings.TrimSpace(*existing) == "" {
+		note := importNote
+		return &note
+	}
+	current := strings.TrimSpace(*existing)
+	if current == importNote || strings.Contains(current, importNote) {
+		note := current
+		return &note
+	}
+	note := current + "\n导入备注: " + importNote
+	return &note
 }
 
 func (h *AccountHandler) listAllProxies(ctx context.Context) ([]service.Proxy, error) {

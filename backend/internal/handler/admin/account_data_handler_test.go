@@ -37,6 +37,7 @@ type dataProxy struct {
 
 type dataAccount struct {
 	Name        string         `json:"name"`
+	Notes       *string        `json:"notes"`
 	Platform    string         `json:"platform"`
 	Type        string         `json:"type"`
 	Credentials map[string]any `json:"credentials"`
@@ -274,4 +275,46 @@ func TestImportDataReusesProxyAndSkipsDefaultGroup(t *testing.T) {
 	require.Len(t, adminSvc.createdProxies, 0)
 	require.Len(t, adminSvc.createdAccounts, 1)
 	require.True(t, adminSvc.createdAccounts[0].SkipDefaultGroupBind)
+}
+
+func TestImportDataAddsImportNoteMetadata(t *testing.T) {
+	router, adminSvc := setupAccountDataRouter()
+
+	dataPayload := map[string]any{
+		"data": map[string]any{
+			"type":    dataType,
+			"version": dataVersion,
+			"proxies": []map[string]any{},
+			"accounts": []map[string]any{
+				{
+					"name":        "acc",
+					"notes":       "existing note",
+					"platform":    service.PlatformOpenAI,
+					"type":        service.AccountTypeAPIKey,
+					"credentials": map[string]any{"api_key": "x"},
+					"extra":       map[string]any{"region": "us"},
+					"concurrency": 3,
+					"priority":    50,
+				},
+			},
+		},
+		"import_note": "batch note",
+	}
+
+	body, _ := json.Marshal(dataPayload)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/data", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	require.Len(t, adminSvc.createdAccounts, 1)
+	created := adminSvc.createdAccounts[0]
+	require.NotNil(t, created.Notes)
+	require.Contains(t, *created.Notes, "existing note")
+	require.Contains(t, *created.Notes, "batch note")
+	require.Equal(t, "us", created.Extra["region"])
+	require.Equal(t, "admin_account_import", created.Extra["import_source"])
+	require.Equal(t, "batch note", created.Extra["import_note"])
+	require.NotEmpty(t, created.Extra["imported_at"])
 }

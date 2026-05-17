@@ -1089,6 +1089,47 @@ export interface AdminDataAccount {
   auto_pause_on_expired?: boolean
 }
 
+export interface AccountStatsExportResponse {
+  exported_at: string
+  accounts: AccountStatsExportRow[]
+}
+
+export interface AccountStatsExportRow {
+  id: number
+  name: string
+  notes?: string
+  platform: AccountPlatform
+  type: AccountType
+  status: Account['status']
+  schedulable: boolean
+  priority: number
+  concurrency: number
+  rate_multiplier: number
+  group_ids?: number[]
+  group_names?: string[]
+  imported_at?: string
+  import_note?: string
+  quota: {
+    total_limit?: number
+    total_used?: number
+    daily_limit?: number
+    daily_used?: number
+    weekly_limit?: number
+    weekly_used?: number
+  }
+  window_quota: {
+    cost_limit?: number
+    sticky_reserve?: number
+    window_start?: string
+    window_end?: string
+    window_status?: string
+    window_stats?: WindowStats | null
+  }
+  today_stats: WindowStats
+  seven_day_stats: WindowStats
+  thirty_day_stats: WindowStats
+}
+
 export interface AdminDataImportError {
   kind: 'proxy' | 'account'
   name?: string
