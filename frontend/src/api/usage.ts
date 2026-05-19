@@ -15,16 +15,6 @@ import type {
 
 // ==================== Dashboard Types ====================
 
-export interface PlatformDashboardStats {
-  platform: string
-  total_requests: number
-  total_tokens: number
-  total_actual_cost: number
-  today_requests: number
-  today_tokens: number
-  today_actual_cost: number
-}
-
 export interface UserDashboardStats {
   total_api_keys: number
   active_api_keys: number
@@ -47,7 +37,6 @@ export interface UserDashboardStats {
   average_duration_ms: number
   rpm: number // 近5分钟平均每分钟请求数
   tpm: number // 近5分钟平均每分钟Token数
-  by_platform?: PlatformDashboardStats[]
 }
 
 export interface TrendParams {
