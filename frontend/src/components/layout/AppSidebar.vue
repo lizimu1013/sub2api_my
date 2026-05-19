@@ -69,11 +69,13 @@
               </div>
             </template>
             <!-- Normal item (no children) -->
-            <router-link
+            <component
               v-else
-              :to="item.path"
-              class="sidebar-link mb-1"
-              :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+              :is="item.externalUrl ? 'button' : 'router-link'"
+              :to="item.externalUrl ? undefined : item.path"
+              :type="item.externalUrl ? 'button' : undefined"
+              class="sidebar-link mb-1 w-full"
+              :class="{ 'sidebar-link-active': !item.externalUrl && isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
               :id="
                 item.path === '/admin/accounts'
@@ -84,7 +86,7 @@
                       ? 'sidebar-wallet'
                       : undefined
               "
-              @click="handleMenuItemClick(item.path)"
+              @click="handleNavItemClick(item, $event)"
             >
               <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
               <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -96,7 +98,7 @@
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <span v-if="item.badge" class="sidebar-badge">{{ item.badge }}</span>
               </span>
-            </router-link>
+            </component>
           </template>
         </div>
 
@@ -108,15 +110,17 @@
             </span>
           </div>
 
-          <router-link
+          <component
             v-for="item in personalNavItems"
             :key="item.path"
-            :to="item.path"
-            class="sidebar-link mb-1"
-            :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+            :is="item.externalUrl ? 'button' : 'router-link'"
+            :to="item.externalUrl ? undefined : item.path"
+            :type="item.externalUrl ? 'button' : undefined"
+            class="sidebar-link mb-1 w-full"
+            :class="{ 'sidebar-link-active': !item.externalUrl && isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            @click="handleMenuItemClick(item.path)"
+            @click="handleNavItemClick(item, $event)"
           >
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -128,22 +132,24 @@
               <span class="min-w-0 truncate">{{ item.label }}</span>
               <span v-if="item.badge" class="sidebar-badge">{{ item.badge }}</span>
             </span>
-          </router-link>
+          </component>
         </div>
       </template>
 
       <!-- Regular User View -->
       <template v-else-if="!appStore.backendModeEnabled">
         <div class="sidebar-section">
-          <router-link
+          <component
             v-for="item in userNavItems"
             :key="item.path"
-            :to="item.path"
-            class="sidebar-link mb-1"
-            :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+            :is="item.externalUrl ? 'button' : 'router-link'"
+            :to="item.externalUrl ? undefined : item.path"
+            :type="item.externalUrl ? 'button' : undefined"
+            class="sidebar-link mb-1 w-full"
+            :class="{ 'sidebar-link-active': !item.externalUrl && isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            @click="handleMenuItemClick(item.path)"
+            @click="handleNavItemClick(item, $event)"
           >
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -155,7 +161,7 @@
               <span class="min-w-0 truncate">{{ item.label }}</span>
               <span v-if="item.badge" class="sidebar-badge">{{ item.badge }}</span>
             </span>
-          </router-link>
+          </component>
         </div>
       </template>
     </nav>
@@ -215,6 +221,7 @@ interface NavItem {
   icon: unknown
   iconSvg?: string
   badge?: string
+  externalUrl?: string
   hideInSimpleMode?: boolean
   children?: NavItem[]
   /**
@@ -665,6 +672,26 @@ const SparklesIcon = {
     )
 }
 
+const GalleryIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M3.75 6.75A2.25 2.25 0 016 4.5h12a2.25 2.25 0 012.25 2.25v10.5A2.25 2.25 0 0118 19.5H6a2.25 2.25 0 01-2.25-2.25V6.75z'
+        }),
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M3.75 15l4.72-4.72a1.5 1.5 0 012.12 0L15.31 15m-2.06-2.06l1.22-1.22a1.5 1.5 0 012.12 0L20.25 15.38M14.25 8.25h.008v.008h-.008V8.25z'
+        })
+      ]
+    )
+}
+
 const ChevronDownIcon = {
   render: () =>
     h(
@@ -690,6 +717,7 @@ const flagAffiliate = makeSidebarFlag(FeatureFlags.affiliate)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
+const IMAGE_GALLERY_URL = 'https://image.muchu.cloud/'
 
 // buildSelfNavItems 构造用户自己的导航项（用户端主菜单和管理员的"我的账户"子菜单共享这组声明）。
 // withDashboard=true 时包含仪表盘（用户端），false 时不含（管理员的个人区已经有独立仪表盘入口）。
@@ -704,6 +732,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   items.push(
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/playground', label: t('nav.imagePlayground'), icon: SparklesIcon, badge: 'NEW' },
+    { path: 'external:image-gallery', label: t('nav.imageGallery'), icon: GalleryIcon, badge: 'NEW', externalUrl: IMAGE_GALLERY_URL },
     { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },
     { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
@@ -857,6 +886,24 @@ function handleMenuItemClick(itemPath: string) {
   if (selector && onboardingStore.isCurrentStep(selector)) {
     onboardingStore.nextStep(500)
   }
+}
+
+function handleNavItemClick(item: NavItem, event?: MouseEvent) {
+  if (item.externalUrl) {
+    event?.preventDefault()
+    const popup = window.open(
+      item.externalUrl,
+      'muchu-image-gallery',
+      'width=1280,height=900,menubar=no,toolbar=no,location=yes,status=yes,resizable=yes,scrollbars=yes'
+    )
+    if (popup) {
+      popup.opener = null
+      popup.focus()
+    } else {
+      window.open(item.externalUrl, '_blank', 'noopener,noreferrer')
+    }
+  }
+  handleMenuItemClick(item.path)
 }
 
 function isActive(path: string): boolean {
