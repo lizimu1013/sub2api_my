@@ -71,9 +71,11 @@
             <!-- Normal item (no children) -->
             <component
               v-else
-              :is="item.externalUrl ? 'button' : 'router-link'"
+              :is="item.externalUrl ? 'a' : 'router-link'"
+              :href="item.externalUrl"
               :to="item.externalUrl ? undefined : item.path"
-              :type="item.externalUrl ? 'button' : undefined"
+              :target="item.externalUrl ? '_blank' : undefined"
+              :rel="item.externalUrl ? 'noopener noreferrer' : undefined"
               class="sidebar-link mb-1 w-full"
               :class="{ 'sidebar-link-active': !item.externalUrl && isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
@@ -86,7 +88,7 @@
                       ? 'sidebar-wallet'
                       : undefined
               "
-              @click="handleNavItemClick(item, $event)"
+              @click="handleMenuItemClick(item.path)"
             >
               <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
               <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -113,14 +115,16 @@
           <component
             v-for="item in personalNavItems"
             :key="item.path"
-            :is="item.externalUrl ? 'button' : 'router-link'"
+            :is="item.externalUrl ? 'a' : 'router-link'"
+            :href="item.externalUrl"
             :to="item.externalUrl ? undefined : item.path"
-            :type="item.externalUrl ? 'button' : undefined"
+            :target="item.externalUrl ? '_blank' : undefined"
+            :rel="item.externalUrl ? 'noopener noreferrer' : undefined"
             class="sidebar-link mb-1 w-full"
             :class="{ 'sidebar-link-active': !item.externalUrl && isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            @click="handleNavItemClick(item, $event)"
+            @click="handleMenuItemClick(item.path)"
           >
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -142,14 +146,16 @@
           <component
             v-for="item in userNavItems"
             :key="item.path"
-            :is="item.externalUrl ? 'button' : 'router-link'"
+            :is="item.externalUrl ? 'a' : 'router-link'"
+            :href="item.externalUrl"
             :to="item.externalUrl ? undefined : item.path"
-            :type="item.externalUrl ? 'button' : undefined"
+            :target="item.externalUrl ? '_blank' : undefined"
+            :rel="item.externalUrl ? 'noopener noreferrer' : undefined"
             class="sidebar-link mb-1 w-full"
             :class="{ 'sidebar-link-active': !item.externalUrl && isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-            @click="handleNavItemClick(item, $event)"
+            @click="handleMenuItemClick(item.path)"
           >
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -886,24 +892,6 @@ function handleMenuItemClick(itemPath: string) {
   if (selector && onboardingStore.isCurrentStep(selector)) {
     onboardingStore.nextStep(500)
   }
-}
-
-function handleNavItemClick(item: NavItem, event?: MouseEvent) {
-  if (item.externalUrl) {
-    event?.preventDefault()
-    const popup = window.open(
-      item.externalUrl,
-      'muchu-image-gallery',
-      'width=1280,height=900,menubar=no,toolbar=no,location=yes,status=yes,resizable=yes,scrollbars=yes'
-    )
-    if (popup) {
-      popup.opener = null
-      popup.focus()
-    } else {
-      window.open(item.externalUrl, '_blank', 'noopener,noreferrer')
-    }
-  }
-  handleMenuItemClick(item.path)
 }
 
 function isActive(path: string): boolean {

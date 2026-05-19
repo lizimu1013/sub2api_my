@@ -32,11 +32,14 @@ describe('AppSidebar header styles', () => {
 })
 
 describe('AppSidebar image gallery entry', () => {
-  it('opens the gallery as an external popup entry below image playground', () => {
+  it('opens the gallery as an external new-tab entry below image playground', () => {
     expect(componentSource).toContain("const IMAGE_GALLERY_URL = 'https://image.muchu.cloud/'")
     expect(componentSource).toContain("{ path: '/playground', label: t('nav.imagePlayground'), icon: SparklesIcon, badge: 'NEW' }")
     expect(componentSource).toContain("label: t('nav.imageGallery'), icon: GalleryIcon, badge: 'NEW', externalUrl: IMAGE_GALLERY_URL")
-    expect(componentSource).toContain("window.open(\n      item.externalUrl,\n      'muchu-image-gallery'")
+    expect(componentSource).toContain(":is=\"item.externalUrl ? 'a' : 'router-link'\"")
+    expect(componentSource).toContain(":target=\"item.externalUrl ? '_blank' : undefined\"")
+    expect(componentSource).toContain(":rel=\"item.externalUrl ? 'noopener noreferrer' : undefined\"")
+    expect(componentSource).not.toContain('window.open(')
     expect(componentSource).not.toContain("path: '/gallery'")
   })
 })
