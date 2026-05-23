@@ -42,7 +42,7 @@ func UserFromService(u *service.User) *User {
 		out.APIKeys = make([]APIKey, 0, len(u.APIKeys))
 		for i := range u.APIKeys {
 			k := u.APIKeys[i]
-			out.APIKeys = append(out.APIKeys, *APIKeyFromService(&k))
+			out.APIKeys = append(out.APIKeys, *APIKeyFromServiceUser(&k))
 		}
 	}
 	if len(u.Subscriptions) > 0 {
@@ -119,11 +119,36 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 	return out
 }
 
+// APIKeyFromServiceUser converts an API key for regular-user responses.
+// Nested group multipliers are display-only and must not reveal billing rates.
+func APIKeyFromServiceUser(k *service.APIKey) *APIKey {
+	if k == nil {
+		return nil
+	}
+	out := APIKeyFromService(k)
+	out.Group = GroupFromServiceUser(k.Group)
+	return out
+}
+
 func GroupFromServiceShallow(g *service.Group) *Group {
 	if g == nil {
 		return nil
 	}
 	out := groupFromServiceBase(g)
+	return &out
+}
+
+// GroupFromServiceUser converts a group for regular-user responses.
+// rate_multiplier is normalized to the display multiplier for backward
+// compatibility without exposing the real billing multiplier.
+func GroupFromServiceUser(g *service.Group) *Group {
+	if g == nil {
+		return nil
+	}
+	out := groupFromServiceBase(g)
+	visible := g.UserVisibleRateMultiplier()
+	out.RateMultiplier = visible
+	out.DisplayRateMultiplier = visible
 	return &out
 }
 
@@ -164,12 +189,17 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
 }
 
 func groupFromServiceBase(g *service.Group) Group {
+	displayRateMultiplier := g.DisplayRateMultiplier
+	if displayRateMultiplier <= 0 {
+		displayRateMultiplier = 1.0
+	}
 	return Group{
 		ID:                              g.ID,
 		Name:                            g.Name,
 		Description:                     g.Description,
 		Platform:                        g.Platform,
 		RateMultiplier:                  g.RateMultiplier,
+		DisplayRateMultiplier:           displayRateMultiplier,
 		IsExclusive:                     g.IsExclusive,
 		Status:                          g.Status,
 		SubscriptionType:                g.SubscriptionType,
@@ -508,6 +538,7 @@ func RedeemCodeFromService(rc *service.RedeemCode) *RedeemCode {
 		return nil
 	}
 	out := redeemCodeFromServiceBase(rc)
+	out.Group = GroupFromServiceUser(rc.Group)
 	return &out
 }
 
@@ -597,7 +628,7 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		CacheReadCost:         l.CacheReadCost,
 		TotalCost:             l.TotalCost,
 		ActualCost:            l.ActualCost,
-		RateMultiplier:        l.RateMultiplier,
+		RateMultiplier:        l.Group.UserVisibleRateMultiplier(),
 		BillingType:           l.BillingType,
 		RequestType:           requestType.String(),
 		Stream:                stream,
@@ -616,8 +647,8 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		BillingMode:           l.BillingMode,
 		CreatedAt:             l.CreatedAt,
 		User:                  UserFromServiceShallow(l.User),
-		APIKey:                APIKeyFromService(l.APIKey),
-		Group:                 GroupFromServiceShallow(l.Group),
+		APIKey:                APIKeyFromServiceUser(l.APIKey),
+		Group:                 GroupFromServiceUser(l.Group),
 		Subscription:          UserSubscriptionFromService(l.Subscription),
 	}
 }
@@ -638,8 +669,16 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	if l == nil {
 		return nil
 	}
+	base := usageLogFromServiceUser(l)
+	base.RateMultiplier = l.RateMultiplier
+	base.APIKey = APIKeyFromService(l.APIKey)
+	base.Group = GroupFromServiceShallow(l.Group)
+	if l.Subscription != nil {
+		sub := userSubscriptionFromServiceBase(l.Subscription)
+		base.Subscription = &sub
+	}
 	return &AdminUsageLog{
-		UsageLog:              usageLogFromServiceUser(l),
+		UsageLog:              base,
 		UpstreamModel:         l.UpstreamModel,
 		ChannelID:             l.ChannelID,
 		ModelMappingChain:     l.ModelMappingChain,
@@ -707,6 +746,7 @@ func UserSubscriptionFromService(sub *service.UserSubscription) *UserSubscriptio
 		return nil
 	}
 	out := userSubscriptionFromServiceBase(sub)
+	out.Group = GroupFromServiceUser(sub.Group)
 	return &out
 }
 

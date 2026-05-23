@@ -793,15 +793,16 @@ func (s *APIKeyService) SearchAPIKeys(ctx context.Context, userID int64, keyword
 	return keys, nil
 }
 
-// GetUserGroupRates 获取用户的专属分组倍率配置
-// 返回 map[groupID]rateMultiplier
+// GetUserGroupRates 获取用户可见的展示倍率配置。
+// 返回 map[groupID]displayRateMultiplier，避免普通用户接口暴露真实计费倍率。
 func (s *APIKeyService) GetUserGroupRates(ctx context.Context, userID int64) (map[int64]float64, error) {
-	if s.userGroupRateRepo == nil {
-		return nil, nil
-	}
-	rates, err := s.userGroupRateRepo.GetByUserID(ctx, userID)
+	groups, err := s.GetAvailableGroups(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("get user group rates: %w", err)
+		return nil, err
+	}
+	rates := make(map[int64]float64, len(groups))
+	for i := range groups {
+		rates[groups[i].ID] = groups[i].UserVisibleRateMultiplier()
 	}
 	return rates, nil
 }

@@ -10,6 +10,7 @@
         :name="name"
         :platform="platform"
         :subscription-type="subscriptionType"
+        :display-rate-multiplier="displayRateMultiplier"
         :show-rate="false"
         class="groupOptionItemBadge"
       />
@@ -25,13 +26,13 @@
     <!-- Right: rate pill + checkmark (vertically centered to first row) -->
     <div class="flex shrink-0 items-center gap-2 pt-0.5">
       <!-- Rate pill (platform color) -->
-      <span v-if="rateMultiplier !== undefined" :class="['inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold', ratePillClass]">
+      <span v-if="visibleRateMultiplier !== undefined" :class="['inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold', ratePillClass]">
         <template v-if="hasCustomRate">
           <span class="mr-1 line-through opacity-50">{{ rateMultiplier }}x</span>
           <span class="font-bold">{{ userRateMultiplier }}x</span>
         </template>
         <template v-else>
-          {{ rateMultiplier }}x 倍率
+          {{ visibleRateMultiplier }}x 倍率
         </template>
       </span>
       <!-- Checkmark -->
@@ -59,6 +60,7 @@ interface Props {
   platform: GroupPlatform
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
+  displayRateMultiplier?: number
   userRateMultiplier?: number | null
   description?: string | null
   selected?: boolean
@@ -74,6 +76,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 // Whether user has a custom rate different from default
 const hasCustomRate = computed(() => {
+  if (props.displayRateMultiplier !== undefined) return false
   return (
     props.userRateMultiplier !== null &&
     props.userRateMultiplier !== undefined &&
@@ -81,6 +84,8 @@ const hasCustomRate = computed(() => {
     props.userRateMultiplier !== props.rateMultiplier
   )
 })
+
+const visibleRateMultiplier = computed(() => props.displayRateMultiplier ?? props.rateMultiplier)
 
 // Rate pill color matches platform badge color
 const ratePillClass = computed(() => {

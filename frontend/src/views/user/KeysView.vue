@@ -110,6 +110,7 @@
                   :name="row.group.name"
                   :platform="row.group.platform"
                   :subscription-type="row.group.subscription_type"
+                  :display-rate-multiplier="row.group.display_rate_multiplier"
                 />
                 <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
                   t('keys.noGroup')
@@ -418,6 +419,7 @@
                 :name="(option as unknown as GroupOption).label"
                 :platform="(option as unknown as GroupOption).platform"
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                :display-rate-multiplier="(option as unknown as GroupOption).displayRateMultiplier"
               />
               <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
             </template>
@@ -426,6 +428,7 @@
                 :name="(option as unknown as GroupOption).label"
                 :platform="(option as unknown as GroupOption).platform"
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                :display-rate-multiplier="(option as unknown as GroupOption).displayRateMultiplier"
                 :description="(option as unknown as GroupOption).description"
                 :selected="selected"
               />
@@ -1019,6 +1022,7 @@
               :name="option.label"
               :platform="option.platform"
               :subscription-type="option.subscriptionType"
+              :display-rate-multiplier="option.displayRateMultiplier"
               :description="option.description"
               :selected="
                 selectedKeyForGroup?.group_id === option.value ||
@@ -1083,6 +1087,7 @@ interface GroupOption {
   description: string | null
   subscriptionType: SubscriptionType
   platform: GroupPlatform
+  displayRateMultiplier?: number
 }
 
 const appStore = useAppStore()
@@ -1237,7 +1242,8 @@ const groupOptions = computed(() =>
     label: group.name,
     description: group.description,
     subscriptionType: group.subscription_type,
-    platform: group.platform
+    platform: group.platform,
+    displayRateMultiplier: group.display_rate_multiplier ?? 1
   }))
 )
 

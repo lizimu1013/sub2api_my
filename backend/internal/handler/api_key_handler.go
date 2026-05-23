@@ -103,7 +103,7 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 
 	out := make([]dto.APIKey, 0, len(keys))
 	for i := range keys {
-		out = append(out, *dto.APIKeyFromService(&keys[i]))
+		out = append(out, *dto.APIKeyFromServiceUser(&keys[i]))
 	}
 	response.Paginated(c, out, result.Total, page, pageSize)
 }
@@ -135,7 +135,7 @@ func (h *APIKeyHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.APIKeyFromService(key))
+	response.Success(c, dto.APIKeyFromServiceUser(key))
 }
 
 // Create handles creating a new API key
@@ -179,7 +179,7 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		return dto.APIKeyFromService(key), nil
+		return dto.APIKeyFromServiceUser(key), nil
 	})
 }
 
@@ -243,7 +243,7 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.APIKeyFromService(key))
+	response.Success(c, dto.APIKeyFromServiceUser(key))
 }
 
 // Delete handles deleting an API key
@@ -287,12 +287,12 @@ func (h *APIKeyHandler) GetAvailableGroups(c *gin.Context) {
 
 	out := make([]dto.Group, 0, len(groups))
 	for i := range groups {
-		out = append(out, *dto.GroupFromService(&groups[i]))
+		out = append(out, *dto.GroupFromServiceUser(&groups[i]))
 	}
 	response.Success(c, out)
 }
 
-// GetUserGroupRates 获取当前用户的专属分组倍率配置
+// GetUserGroupRates 获取当前用户可见的展示倍率配置
 // GET /api/v1/groups/rates
 func (h *APIKeyHandler) GetUserGroupRates(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)

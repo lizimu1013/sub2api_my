@@ -15,9 +15,11 @@ type Group struct {
 	Description    string
 	Platform       string
 	RateMultiplier float64
-	IsExclusive    bool
-	Status         string
-	Hydrated       bool // indicates the group was loaded from a trusted repository source
+	// DisplayRateMultiplier 仅用于用户界面展示，不参与实际计费。
+	DisplayRateMultiplier float64
+	IsExclusive           bool
+	Status                string
+	Hydrated              bool // indicates the group was loaded from a trusted repository source
 
 	SubscriptionType    string
 	DailyLimitUSD       *float64
@@ -81,6 +83,15 @@ func (g *Group) IsActive() bool {
 
 func (g *Group) IsSubscriptionType() bool {
 	return g.SubscriptionType == SubscriptionTypeSubscription
+}
+
+// UserVisibleRateMultiplier returns the display-only multiplier exposed to
+// regular users. It intentionally does not reveal the real billing multiplier.
+func (g *Group) UserVisibleRateMultiplier() float64 {
+	if g == nil || g.DisplayRateMultiplier <= 0 {
+		return 1.0
+	}
+	return g.DisplayRateMultiplier
 }
 
 func (g *Group) HasDailyLimit() bool {

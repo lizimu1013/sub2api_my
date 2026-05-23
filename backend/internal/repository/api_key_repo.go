@@ -164,6 +164,7 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 				group.FieldStatus,
 				group.FieldSubscriptionType,
 				group.FieldRateMultiplier,
+				group.FieldDisplayRateMultiplier,
 				group.FieldDailyLimitUsd,
 				group.FieldWeeklyLimitUsd,
 				group.FieldMonthlyLimitUsd,
@@ -690,12 +691,17 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 	if g == nil {
 		return nil
 	}
+	displayRateMultiplier := g.DisplayRateMultiplier
+	if displayRateMultiplier <= 0 {
+		displayRateMultiplier = 1.0
+	}
 	return &service.Group{
 		ID:                              g.ID,
 		Name:                            g.Name,
 		Description:                     derefString(g.Description),
 		Platform:                        g.Platform,
 		RateMultiplier:                  g.RateMultiplier,
+		DisplayRateMultiplier:           displayRateMultiplier,
 		IsExclusive:                     g.IsExclusive,
 		Status:                          g.Status,
 		Hydrated:                        true,

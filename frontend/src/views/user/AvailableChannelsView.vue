@@ -105,8 +105,7 @@ const filteredChannels = computed(() => {
 async function loadChannels() {
   loading.value = true
   try {
-    // 渠道列表和用户专属倍率并发拉取。专属倍率失败不阻塞渠道展示——
-    // 失败时只是无法渲染专属倍率角标，降级为仅显示默认倍率。
+    // 渠道列表和展示倍率并发拉取。展示倍率失败不阻塞渠道展示。
     const [list, rates] = await Promise.all([
       userChannelsAPI.getAvailable(),
       userGroupsAPI.getUserGroupRates().catch((err: unknown) => {
