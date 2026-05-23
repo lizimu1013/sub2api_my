@@ -344,6 +344,30 @@ func TestGetPaymentConfigKeepsStoredEnabledTypes(t *testing.T) {
 	}
 }
 
+func TestGetGroupInfoMapUsesDisplayRateMultiplier(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	group, err := client.Group.Create().
+		SetName("subscription-display-rate").
+		SetRateMultiplier(8.5).
+		SetDisplayRateMultiplier(1.25).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+
+	svc := &PaymentConfigService{entClient: client}
+	got := svc.GetGroupInfoMap(ctx, []*dbent.SubscriptionPlan{{GroupID: int64(group.ID)}})
+	info, ok := got[int64(group.ID)]
+	if !ok {
+		t.Fatalf("missing group info for group %d: %#v", group.ID, got)
+	}
+	if info.RateMultiplier != 1.25 {
+		t.Fatalf("RateMultiplier = %v, want display multiplier 1.25", info.RateMultiplier)
+	}
+}
+
 func newPaymentConfigServiceTestClient(t *testing.T) *dbent.Client {
 	t.Helper()
 

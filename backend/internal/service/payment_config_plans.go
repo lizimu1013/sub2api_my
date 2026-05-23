@@ -60,6 +60,7 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 // --- Plan CRUD ---
 
 // PlanGroupInfo holds the group details needed for subscription plan display.
+// RateMultiplier is display-only for regular-user payment pages.
 type PlanGroupInfo struct {
 	Platform        string   `json:"platform"`
 	Name            string   `json:"name"`
@@ -68,6 +69,13 @@ type PlanGroupInfo struct {
 	WeeklyLimitUSD  *float64 `json:"weekly_limit_usd"`
 	MonthlyLimitUSD *float64 `json:"monthly_limit_usd"`
 	ModelScopes     []string `json:"supported_model_scopes"`
+}
+
+func userVisiblePlanRateMultiplier(g *dbent.Group) float64 {
+	if g == nil || g.DisplayRateMultiplier <= 0 {
+		return 1.0
+	}
+	return g.DisplayRateMultiplier
 }
 
 // GetGroupPlatformMap returns a map of group_id → platform for the given plans.
@@ -102,7 +110,7 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
 		m[int64(g.ID)] = PlanGroupInfo{
 			Platform:        g.Platform,
 			Name:            g.Name,
-			RateMultiplier:  g.RateMultiplier,
+			RateMultiplier:  userVisiblePlanRateMultiplier(g),
 			DailyLimitUSD:   g.DailyLimitUsd,
 			WeeklyLimitUSD:  g.WeeklyLimitUsd,
 			MonthlyLimitUSD: g.MonthlyLimitUsd,
