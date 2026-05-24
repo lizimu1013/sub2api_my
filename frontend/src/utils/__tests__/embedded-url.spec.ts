@@ -56,6 +56,29 @@ describe('embedded-url', () => {
     expect(url.searchParams.has('lang')).toBe(false)
   })
 
+  it('can omit auth and source context for untrusted embeds', () => {
+    const result = buildEmbeddedUrl(
+      'https://chat.muchu.cloud/',
+      42,
+      'token-123',
+      'dark',
+      'zh-CN',
+      {
+        includeAuthContext: false,
+        includeSourceContext: false,
+      },
+    )
+
+    const url = new URL(result)
+    expect(url.searchParams.get('theme')).toBe('dark')
+    expect(url.searchParams.get('lang')).toBe('zh-CN')
+    expect(url.searchParams.get('ui_mode')).toBe('embedded')
+    expect(url.searchParams.has('user_id')).toBe(false)
+    expect(url.searchParams.has('token')).toBe(false)
+    expect(url.searchParams.has('src_host')).toBe(false)
+    expect(url.searchParams.has('src_url')).toBe(false)
+  })
+
   it('returns original string for invalid url input', () => {
     expect(buildEmbeddedUrl('not a url', 1, 'token')).toBe('not a url')
   })

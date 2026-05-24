@@ -148,6 +148,7 @@ const tocItems = ref<TocItem[]>([])
 const tocVisible = ref(typeof window !== 'undefined' ? window.innerWidth > 768 : true)
 const activeHeadingId = ref('')
 let themeObserver: MutationObserver | null = null
+const SAFE_CHAT_EMBED_HOST = 'chat.muchu.cloud'
 
 const menuItemId = computed(() => route.params.id as string)
 
@@ -174,12 +175,18 @@ const isMarkdownMode = computed(() => !!markdownSlug.value)
 
 const embeddedUrl = computed(() => {
   if (!menuItem.value || isMarkdownMode.value) return ''
+  const rawUrl = menuItem.value.url
+  const isSafeChatEmbed = isChatEmbedUrl(rawUrl)
   return buildEmbeddedUrl(
-    menuItem.value.url,
+    rawUrl,
     authStore.user?.id,
     authStore.token,
     pageTheme.value,
     locale.value,
+    {
+      includeAuthContext: !isSafeChatEmbed,
+      includeSourceContext: !isSafeChatEmbed,
+    },
   )
 })
 
@@ -195,6 +202,15 @@ function generateHeadingId(text: string, index: number): string {
     .replace(/[^\w一-鿿]+/g, '-')
     .replace(/^-+|-+$/g, '')
   return base ? `${base}-${index}` : `heading-${index}`
+}
+
+function isChatEmbedUrl(rawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl)
+    return url.protocol === 'https:' && url.hostname === SAFE_CHAT_EMBED_HOST
+  } catch {
+    return false
+  }
 }
 
 function isRelativeMarkdownAsset(src: string): boolean {
