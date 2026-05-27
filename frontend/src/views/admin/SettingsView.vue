@@ -1524,6 +1524,124 @@
                 </p>
               </div>
 
+              <!-- Registration Identity Blacklist -->
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t("admin.settings.registration.identityBlacklist")
+                }}</label>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.registration.identityBlacklistHint") }}
+                </p>
+                <div
+                  class="mt-3 rounded-lg border border-gray-300 bg-white p-2 dark:border-dark-500 dark:bg-dark-700"
+                >
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span
+                      v-for="item in registrationIdentityBlacklistTags"
+                      :key="item"
+                      class="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-1 text-xs font-mono text-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                    >
+                      <span>{{ item }}</span>
+                      <button
+                        type="button"
+                        class="rounded-full text-amber-600 hover:bg-amber-100 hover:text-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/60 dark:hover:text-white"
+                        @click="removeRegistrationIdentityBlacklistTag(item)"
+                      >
+                        <Icon
+                          name="x"
+                          size="xs"
+                          class="h-3.5 w-3.5"
+                          :stroke-width="2"
+                        />
+                      </button>
+                    </span>
+
+                    <div
+                      class="flex min-w-[260px] flex-1 items-center rounded border border-transparent px-2 py-1 focus-within:border-primary-300 dark:focus-within:border-primary-700"
+                    >
+                      <input
+                        v-model="registrationIdentityBlacklistDraft"
+                        type="text"
+                        class="w-full bg-transparent text-sm font-mono text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
+                        :placeholder="
+                          t(
+                            'admin.settings.registration.identityBlacklistPlaceholder',
+                          )
+                        "
+                        @input="handleRegistrationIdentityBlacklistDraftInput"
+                        @keydown="
+                          handleRegistrationIdentityBlacklistDraftKeydown
+                        "
+                        @blur="commitRegistrationIdentityBlacklistDraft"
+                        @paste="handleRegistrationIdentityBlacklistPaste"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {{
+                    t("admin.settings.registration.identityBlacklistInputHint")
+                  }}
+                </p>
+              </div>
+
+              <!-- Registration IP Blacklist -->
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t("admin.settings.registration.ipBlacklist")
+                }}</label>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.registration.ipBlacklistHint") }}
+                </p>
+                <div
+                  class="mt-3 rounded-lg border border-gray-300 bg-white p-2 dark:border-dark-500 dark:bg-dark-700"
+                >
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span
+                      v-for="item in registrationIPBlacklistTags"
+                      :key="item"
+                      class="inline-flex items-center gap-1 rounded bg-sky-50 px-2 py-1 text-xs font-mono text-sky-800 dark:bg-sky-950/40 dark:text-sky-100"
+                    >
+                      <span>{{ item }}</span>
+                      <button
+                        type="button"
+                        class="rounded-full text-sky-600 hover:bg-sky-100 hover:text-sky-800 dark:text-sky-200 dark:hover:bg-sky-900/60 dark:hover:text-white"
+                        @click="removeRegistrationIPBlacklistTag(item)"
+                      >
+                        <Icon
+                          name="x"
+                          size="xs"
+                          class="h-3.5 w-3.5"
+                          :stroke-width="2"
+                        />
+                      </button>
+                    </span>
+
+                    <div
+                      class="flex min-w-[260px] flex-1 items-center rounded border border-transparent px-2 py-1 focus-within:border-primary-300 dark:focus-within:border-primary-700"
+                    >
+                      <input
+                        v-model="registrationIPBlacklistDraft"
+                        type="text"
+                        class="w-full bg-transparent text-sm font-mono text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
+                        :placeholder="
+                          t(
+                            'admin.settings.registration.ipBlacklistPlaceholder',
+                          )
+                        "
+                        @input="handleRegistrationIPBlacklistDraftInput"
+                        @keydown="handleRegistrationIPBlacklistDraftKeydown"
+                        @blur="commitRegistrationIPBlacklistDraft"
+                        @paste="handleRegistrationIPBlacklistPaste"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.registration.ipBlacklistInputHint") }}
+                </p>
+              </div>
+
               <!-- Promo Code -->
               <div
                 class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
@@ -6636,9 +6754,15 @@ import {
   isRegistrationEmailSuffixDomainValid,
   normalizeRegistrationEmailBlacklist,
   normalizeRegistrationEmailBlacklistItem,
+  normalizeRegistrationIdentityBlacklist,
+  normalizeRegistrationIdentityBlacklistItem,
+  normalizeRegistrationIPBlacklist,
+  normalizeRegistrationIPBlacklistItem,
   normalizeRegistrationEmailSuffixDomain,
   normalizeRegistrationEmailSuffixDomains,
   parseRegistrationEmailBlacklistInput,
+  parseRegistrationIdentityBlacklistInput,
+  parseRegistrationIPBlacklistInput,
   parseRegistrationEmailSuffixWhitelistInput,
 } from "@/utils/registrationEmailPolicy";
 
@@ -6749,6 +6873,10 @@ const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
 const registrationEmailSuffixWhitelistDraft = ref("");
 const registrationEmailBlacklistTags = ref<string[]>([]);
 const registrationEmailBlacklistDraft = ref("");
+const registrationIdentityBlacklistTags = ref<string[]>([]);
+const registrationIdentityBlacklistDraft = ref("");
+const registrationIPBlacklistTags = ref<string[]>([]);
+const registrationIPBlacklistDraft = ref("");
 const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
 
 // Admin API Key 状态
@@ -6906,6 +7034,8 @@ const form = reactive<SettingsForm>({
   email_verify_enabled: false,
   registration_email_suffix_whitelist: [],
   registration_email_blacklist: [],
+  registration_identity_blacklist: [],
+  registration_ip_blacklist: [],
   promo_code_enabled: true,
   invitation_code_enabled: false,
   password_reset_enabled: false,
@@ -7492,6 +7622,134 @@ function handleRegistrationEmailBlacklistPaste(event: ClipboardEvent) {
   }
 }
 
+function removeRegistrationIdentityBlacklistTag(item: string) {
+  registrationIdentityBlacklistTags.value =
+    registrationIdentityBlacklistTags.value.filter((value) => value !== item);
+}
+
+function addRegistrationIdentityBlacklistTag(raw: string) {
+  const item = normalizeRegistrationIdentityBlacklistItem(raw);
+  if (
+    !item ||
+    registrationIdentityBlacklistTags.value.some(
+      (value) => value.toLowerCase() === item.toLowerCase(),
+    )
+  ) {
+    return;
+  }
+  registrationIdentityBlacklistTags.value = [
+    ...registrationIdentityBlacklistTags.value,
+    item,
+  ];
+}
+
+function commitRegistrationIdentityBlacklistDraft() {
+  if (!registrationIdentityBlacklistDraft.value) {
+    return;
+  }
+  addRegistrationIdentityBlacklistTag(registrationIdentityBlacklistDraft.value);
+  registrationIdentityBlacklistDraft.value = "";
+}
+
+function handleRegistrationIdentityBlacklistDraftInput() {
+  registrationIdentityBlacklistDraft.value =
+    registrationIdentityBlacklistDraft.value.trim();
+}
+
+function handleRegistrationIdentityBlacklistDraftKeydown(event: KeyboardEvent) {
+  if (event.isComposing) {
+    return;
+  }
+
+  if (registrationEmailSuffixWhitelistSeparatorKeys.has(event.key)) {
+    event.preventDefault();
+    commitRegistrationIdentityBlacklistDraft();
+    return;
+  }
+
+  if (
+    event.key === "Backspace" &&
+    !registrationIdentityBlacklistDraft.value &&
+    registrationIdentityBlacklistTags.value.length > 0
+  ) {
+    registrationIdentityBlacklistTags.value.pop();
+  }
+}
+
+function handleRegistrationIdentityBlacklistPaste(event: ClipboardEvent) {
+  const text = event.clipboardData?.getData("text") || "";
+  if (!text.trim()) {
+    return;
+  }
+  event.preventDefault();
+  const tokens = parseRegistrationIdentityBlacklistInput(text);
+  for (const token of tokens) {
+    addRegistrationIdentityBlacklistTag(token);
+  }
+}
+
+function removeRegistrationIPBlacklistTag(item: string) {
+  registrationIPBlacklistTags.value = registrationIPBlacklistTags.value.filter(
+    (value) => value !== item,
+  );
+}
+
+function addRegistrationIPBlacklistTag(raw: string) {
+  const item = normalizeRegistrationIPBlacklistItem(raw);
+  if (!item || registrationIPBlacklistTags.value.includes(item)) {
+    return;
+  }
+  registrationIPBlacklistTags.value = [
+    ...registrationIPBlacklistTags.value,
+    item,
+  ];
+}
+
+function commitRegistrationIPBlacklistDraft() {
+  if (!registrationIPBlacklistDraft.value) {
+    return;
+  }
+  addRegistrationIPBlacklistTag(registrationIPBlacklistDraft.value);
+  registrationIPBlacklistDraft.value = "";
+}
+
+function handleRegistrationIPBlacklistDraftInput() {
+  registrationIPBlacklistDraft.value =
+    registrationIPBlacklistDraft.value.trim().toLowerCase();
+}
+
+function handleRegistrationIPBlacklistDraftKeydown(event: KeyboardEvent) {
+  if (event.isComposing) {
+    return;
+  }
+
+  if (registrationEmailSuffixWhitelistSeparatorKeys.has(event.key)) {
+    event.preventDefault();
+    commitRegistrationIPBlacklistDraft();
+    return;
+  }
+
+  if (
+    event.key === "Backspace" &&
+    !registrationIPBlacklistDraft.value &&
+    registrationIPBlacklistTags.value.length > 0
+  ) {
+    registrationIPBlacklistTags.value.pop();
+  }
+}
+
+function handleRegistrationIPBlacklistPaste(event: ClipboardEvent) {
+  const text = event.clipboardData?.getData("text") || "";
+  if (!text.trim()) {
+    return;
+  }
+  event.preventDefault();
+  const tokens = parseRegistrationIPBlacklistInput(text);
+  for (const token of tokens) {
+    addRegistrationIPBlacklistTag(token);
+  }
+}
+
 // Quota notify email helpers
 const addQuotaNotifyEmail = () => {
   if (!form.account_quota_notify_emails) {
@@ -7796,6 +8054,13 @@ async function loadSettings() {
     registrationEmailBlacklistTags.value = normalizeRegistrationEmailBlacklist(
       settings.registration_email_blacklist,
     );
+    registrationIdentityBlacklistTags.value =
+      normalizeRegistrationIdentityBlacklist(
+        settings.registration_identity_blacklist,
+      );
+    registrationIPBlacklistTags.value = normalizeRegistrationIPBlacklist(
+      settings.registration_ip_blacklist,
+    );
     tablePageSizeOptionsInput.value = formatTablePageSizeOptions(
       Array.isArray(settings.table_page_size_options)
         ? settings.table_page_size_options
@@ -7803,6 +8068,8 @@ async function loadSettings() {
     );
     registrationEmailSuffixWhitelistDraft.value = "";
     registrationEmailBlacklistDraft.value = "";
+    registrationIdentityBlacklistDraft.value = "";
+    registrationIPBlacklistDraft.value = "";
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";
@@ -8112,6 +8379,8 @@ async function saveSettings() {
           suffix.startsWith("*.") ? suffix : `@${suffix}`,
         ),
       registration_email_blacklist: registrationEmailBlacklistTags.value,
+      registration_identity_blacklist: registrationIdentityBlacklistTags.value,
+      registration_ip_blacklist: registrationIPBlacklistTags.value,
       promo_code_enabled: form.promo_code_enabled,
       invitation_code_enabled: form.invitation_code_enabled,
       password_reset_enabled: form.password_reset_enabled,
@@ -8360,6 +8629,13 @@ async function saveSettings() {
     registrationEmailBlacklistTags.value = normalizeRegistrationEmailBlacklist(
       updated.registration_email_blacklist,
     );
+    registrationIdentityBlacklistTags.value =
+      normalizeRegistrationIdentityBlacklist(
+        updated.registration_identity_blacklist,
+      );
+    registrationIPBlacklistTags.value = normalizeRegistrationIPBlacklist(
+      updated.registration_ip_blacklist,
+    );
     tablePageSizeOptionsInput.value = formatTablePageSizeOptions(
       Array.isArray(updated.table_page_size_options)
         ? updated.table_page_size_options
@@ -8367,6 +8643,8 @@ async function saveSettings() {
     );
     registrationEmailSuffixWhitelistDraft.value = "";
     registrationEmailBlacklistDraft.value = "";
+    registrationIdentityBlacklistDraft.value = "";
+    registrationIPBlacklistDraft.value = "";
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";

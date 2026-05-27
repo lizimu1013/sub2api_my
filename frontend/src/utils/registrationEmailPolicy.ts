@@ -5,6 +5,11 @@ const EMAIL_SUFFIX_PREFIX_RE = /^@+/
 const EMAIL_BLACKLIST_LOCAL_INVALID_RE = /[\s@]/
 const EMAIL_SUFFIX_WILDCARD_PREFIX = '*.'
 const EMAIL_SUFFIX_MESSAGE_VISIBLE_LIMIT = 5
+const REGISTRATION_ID_TOKEN_SPLIT_RE = /[\s,，]+/
+const REGISTRATION_ID_MAX_LENGTH = 512
+const REGISTRATION_ID_PROVIDER_RE = /^[a-z0-9_-]+$/
+const REGISTRATION_IP_TOKEN_SPLIT_RE = /[\s,，]+/
+const REGISTRATION_IP_MAX_LENGTH = 128
 const EMAIL_SUFFIX_DOMAIN_PATTERN =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
 
@@ -118,6 +123,139 @@ export function normalizeRegistrationEmailBlacklistItem(raw: string): string {
   return normalizeRegistrationEmailAddress(value)
 }
 
+export function parseRegistrationIdentityBlacklistInput(input: string): string[] {
+  if (!input || !input.trim()) {
+    return []
+  }
+
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const token of input.split(REGISTRATION_ID_TOKEN_SPLIT_RE)) {
+    const item = normalizeRegistrationIdentityBlacklistItem(token)
+    const key = item.toLowerCase()
+    if (!item || seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    normalized.push(item)
+  }
+  return normalized
+}
+
+export function normalizeRegistrationIdentityBlacklist(
+  items: string[] | null | undefined
+): string[] {
+  if (!items || items.length === 0) {
+    return []
+  }
+
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const item of items) {
+    const value = normalizeRegistrationIdentityBlacklistItem(item)
+    const key = value.toLowerCase()
+    if (!value || seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    normalized.push(value)
+  }
+  return normalized
+}
+
+export function normalizeRegistrationIdentityBlacklistItem(raw: string): string {
+  const value = String(raw || '').trim()
+  if (!value || value.length > REGISTRATION_ID_MAX_LENGTH || /\s/.test(value)) {
+    return ''
+  }
+  if (/[\u0000-\u001f\u007f]/.test(value)) {
+    return ''
+  }
+  const colonIndex = value.indexOf(':')
+  if (colonIndex >= 0) {
+    const provider = value.slice(0, colonIndex).trim().toLowerCase()
+    const subject = value.slice(colonIndex + 1).trim()
+    if (!provider || !subject || !REGISTRATION_ID_PROVIDER_RE.test(provider)) {
+      return ''
+    }
+    return `${provider}:${subject}`
+  }
+  return value
+}
+
+export function parseRegistrationIPBlacklistInput(input: string): string[] {
+  if (!input || !input.trim()) {
+    return []
+  }
+
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const token of input.split(REGISTRATION_IP_TOKEN_SPLIT_RE)) {
+    const item = normalizeRegistrationIPBlacklistItem(token)
+    if (!item || seen.has(item)) {
+      continue
+    }
+    seen.add(item)
+    normalized.push(item)
+  }
+  return normalized
+}
+
+export function normalizeRegistrationIPBlacklist(
+  items: string[] | null | undefined
+): string[] {
+  if (!items || items.length === 0) {
+    return []
+  }
+
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const item of items) {
+    const value = normalizeRegistrationIPBlacklistItem(item)
+    if (!value || seen.has(value)) {
+      continue
+    }
+    seen.add(value)
+    normalized.push(value)
+  }
+  return normalized
+}
+
+export function normalizeRegistrationIPBlacklistItem(raw: string): string {
+  const value = String(raw || '').trim().toLowerCase()
+  if (!value || value.length > REGISTRATION_IP_MAX_LENGTH || /\s/.test(value)) {
+    return ''
+  }
+  const slashIndex = value.indexOf('/')
+  if (slashIndex >= 0 && slashIndex !== value.lastIndexOf('/')) {
+    return ''
+  }
+  const address = slashIndex >= 0 ? value.slice(0, slashIndex) : value
+  const prefix = slashIndex >= 0 ? value.slice(slashIndex + 1) : ''
+  if (!address || (slashIndex >= 0 && !/^\d+$/.test(prefix))) {
+    return ''
+  }
+
+  const ipv4 = normalizeIPv4Address(address)
+  if (ipv4) {
+    if (slashIndex < 0) {
+      return ipv4
+    }
+    const bits = Number(prefix)
+    return bits >= 0 && bits <= 32 ? `${ipv4}/${bits}` : ''
+  }
+
+  if (isLikelyIPv6Address(address)) {
+    if (slashIndex < 0) {
+      return address
+    }
+    const bits = Number(prefix)
+    return bits >= 0 && bits <= 128 ? `${address}/${bits}` : ''
+  }
+
+  return ''
+}
+
 function extractRegistrationEmailDomain(email: string): string {
   const raw = String(email || '').trim().toLowerCase()
   if (!raw) {
@@ -215,6 +353,29 @@ function normalizeRegistrationEmailAddress(raw: string): string {
     return ''
   }
   return `${local}@${domain}`
+}
+
+function normalizeIPv4Address(raw: string): string {
+  const parts = raw.split('.')
+  if (parts.length !== 4) {
+    return ''
+  }
+  const normalized: string[] = []
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) {
+      return ''
+    }
+    const n = Number(part)
+    if (!Number.isInteger(n) || n < 0 || n > 255) {
+      return ''
+    }
+    normalized.push(String(n))
+  }
+  return normalized.join('.')
+}
+
+function isLikelyIPv6Address(raw: string): boolean {
+  return raw.includes(':') && /^[0-9a-f:.]+$/i.test(raw)
 }
 
 export function isRegistrationEmailSuffixDomainValid(domain: string): boolean {

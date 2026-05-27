@@ -17,6 +17,22 @@ describe('buildAuthErrorMessage', () => {
     expect(message).toBe('detailed message')
   })
 
+  it('uses a friendly registration IP blacklist message', () => {
+    const message = buildAuthErrorMessage(
+      {
+        response: {
+          data: {
+            reason: 'REGISTRATION_IP_BLACKLISTED',
+            message: 'registration from this IP is not allowed',
+          },
+        },
+      },
+      { fallback: 'fallback' }
+    )
+
+    expect(message).toBe('当前暂不允许注册')
+  })
+
   it('falls back to response message when detail is unavailable', () => {
     const message = buildAuthErrorMessage(
       {

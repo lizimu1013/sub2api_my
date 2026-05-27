@@ -145,6 +145,17 @@ func (h *AuthHandler) ensureBackendModeAllowsNewUserLogin(ctx context.Context) e
 	return infraerrors.Forbidden("BACKEND_MODE_ADMIN_ONLY", "Backend mode is active. Only admin login is allowed.")
 }
 
+func (h *AuthHandler) ensureRegistrationIPAllowed(c *gin.Context) error {
+	if h == nil || h.settingSvc == nil || c == nil {
+		return nil
+	}
+	clientIP := ip.GetClientIP(c)
+	if service.IsRegistrationIPBlocked(clientIP, h.settingSvc.GetRegistrationIPBlacklist(c.Request.Context())) {
+		return service.ErrRegistrationIPBlocked
+	}
+	return nil
+}
+
 func (h *AuthHandler) isBackendModeEnabled(ctx context.Context) bool {
 	if h == nil || h.settingSvc == nil {
 		return false
@@ -162,6 +173,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if err := h.ensureRegistrationIPAllowed(c); err != nil {
+		response.ErrorFrom(c, err)
 		return
 	}
 
@@ -194,6 +209,10 @@ func (h *AuthHandler) SendVerifyCode(c *gin.Context) {
 	var req SendVerifyCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if err := h.ensureRegistrationIPAllowed(c); err != nil {
+		response.ErrorFrom(c, err)
 		return
 	}
 

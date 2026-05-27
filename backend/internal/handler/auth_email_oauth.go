@@ -173,6 +173,10 @@ func (h *AuthHandler) emailOAuthCallbackWithProfile(
 		redirectOAuthError(c, frontendCallback, infraerrors.Reason(err), infraerrors.Message(err), "")
 		return
 	} else if shouldCreate {
+		if err := h.ensureRegistrationIPAllowed(c); err != nil {
+			redirectOAuthError(c, frontendCallback, infraerrors.Reason(err), infraerrors.Message(err), "")
+			return
+		}
 		if pendingErr := h.createEmailOAuthRegistrationPendingSession(c, provider, frontendCallback, redirectTo, profile); pendingErr != nil {
 			redirectOAuthError(c, frontendCallback, infraerrors.Reason(pendingErr), infraerrors.Message(pendingErr), "")
 			return
@@ -352,6 +356,10 @@ func (h *AuthHandler) completeEmailOAuthRegistration(c *gin.Context, provider st
 		return
 	}
 	if err := h.ensureBackendModeAllowsNewUserLogin(c.Request.Context()); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if err := h.ensureRegistrationIPAllowed(c); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}

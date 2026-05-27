@@ -693,6 +693,66 @@ func TestAuthService_LoginOrRegisterOAuthWithTokenPair_ExistingUserDoesNotGrantA
 	require.Empty(t, assigner.calls)
 }
 
+func TestAuthService_LoginOrRegisterOAuthWithTokenPair_BlocksBlacklistedRegistrationIdentity(t *testing.T) {
+	repo := &userRepoStub{nextID: 62}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled:           "true",
+		SettingKeyRegistrationIdentityBlacklist: `["linuxdo:123"]`,
+	}, nil)
+	service.refreshTokenCache = &refreshTokenCacheStub{}
+
+	_, _, err := service.LoginOrRegisterOAuthWithTokenPair(
+		context.Background(),
+		"linuxdo-123@linuxdo-connect.invalid",
+		"linuxdo_user",
+		"",
+		"",
+		"linuxdo",
+		PendingAuthIdentityKey{
+			ProviderType:    "linuxdo",
+			ProviderKey:     "linuxdo",
+			ProviderSubject: "123",
+		},
+	)
+	require.ErrorIs(t, err, ErrRegistrationIDBlocked)
+	require.Empty(t, repo.created)
+}
+
+func TestAuthService_LoginOrRegisterOAuthWithTokenPair_ExistingUserIgnoresRegistrationIdentityBlacklist(t *testing.T) {
+	existing := &User{
+		ID:           89,
+		Email:        "linuxdo-123@linuxdo-connect.invalid",
+		Username:     "existing-linuxdo",
+		Role:         RoleUser,
+		Status:       StatusActive,
+		TokenVersion: 1,
+	}
+	repo := &userRepoStub{user: existing}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled:           "true",
+		SettingKeyRegistrationIdentityBlacklist: `["linuxdo:123"]`,
+	}, nil)
+	service.refreshTokenCache = &refreshTokenCacheStub{}
+
+	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(
+		context.Background(),
+		existing.Email,
+		"linuxdo_user",
+		"",
+		"",
+		"linuxdo",
+		PendingAuthIdentityKey{
+			ProviderType:    "linuxdo",
+			ProviderKey:     "linuxdo",
+			ProviderSubject: "123",
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, tokenPair)
+	require.Equal(t, existing.ID, user.ID)
+	require.Empty(t, repo.created)
+}
+
 // newAuthServiceWithDingTalkCfg 构建一个含完整 DingTalk config 的 AuthService，
 // 用于测试 canBypassRegistrationDisabledForOAuth。
 func newAuthServiceWithDingTalkCfg(settings map[string]string, dtCfg config.DingTalkConnectConfig) *AuthService {

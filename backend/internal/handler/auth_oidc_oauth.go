@@ -660,6 +660,10 @@ func (h *AuthHandler) CompleteOIDCOAuthRegistration(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if err := h.ensureRegistrationIPAllowed(c); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	email := strings.TrimSpace(session.ResolvedEmail)
 	username := pendingSessionStringValue(session.UpstreamIdentityClaims, "username")
@@ -685,7 +689,11 @@ func (h *AuthHandler) CompleteOIDCOAuthRegistration(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	tokenPair, user, err := h.authService.LoginOrRegisterOAuthWithTokenPair(c.Request.Context(), email, username, req.InvitationCode, req.AffCode, "oidc")
+	tokenPair, user, err := h.authService.LoginOrRegisterOAuthWithTokenPair(c.Request.Context(), email, username, req.InvitationCode, req.AffCode, "oidc", service.PendingAuthIdentityKey{
+		ProviderType:    session.ProviderType,
+		ProviderKey:     session.ProviderKey,
+		ProviderSubject: session.ProviderSubject,
+	})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -1235,6 +1243,13 @@ func (h *AuthHandler) tryOIDCVerifiedEmailFastPath(
 		clearOAuthPendingSessionCookie(c, isRequestHTTPS(c))
 		clearOAuthPendingBrowserCookie(c, isRequestHTTPS(c))
 		redirectOAuthError(c, frontendCallback, "login_blocked", infraerrors.Reason(err), infraerrors.Message(err))
+		return true
+	}
+	if err := h.ensureRegistrationIPAllowed(c); err != nil {
+		log.Printf("[OIDC OAuth] verified-email fast path blocked by registration ip: reason=%s", infraerrors.Reason(err))
+		clearOAuthPendingSessionCookie(c, isRequestHTTPS(c))
+		clearOAuthPendingBrowserCookie(c, isRequestHTTPS(c))
+		redirectOAuthError(c, frontendCallback, infraerrors.Reason(err), infraerrors.Message(err), "")
 		return true
 	}
 

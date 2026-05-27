@@ -252,6 +252,50 @@ func TestSettingService_UpdateSettings_RegistrationEmailBlacklist_Invalid(t *tes
 	require.Equal(t, "INVALID_REGISTRATION_EMAIL_BLACKLIST", infraerrors.Reason(err))
 }
 
+func TestSettingService_UpdateSettings_RegistrationIdentityBlacklist_Normalized(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		RegistrationIdentityBlacklist: []string{" 12345 ", "LinuxDo:ABC", "linuxdo:abc"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, `["12345","linuxdo:ABC"]`, repo.updates[SettingKeyRegistrationIdentityBlacklist])
+}
+
+func TestSettingService_UpdateSettings_RegistrationIdentityBlacklist_Invalid(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		RegistrationIdentityBlacklist: []string{"linuxdo:"},
+	})
+	require.Error(t, err)
+	require.Equal(t, "INVALID_REGISTRATION_ID_BLACKLIST", infraerrors.Reason(err))
+}
+
+func TestSettingService_UpdateSettings_RegistrationIPBlacklist_Normalized(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		RegistrationIPBlacklist: []string{" 192.0.2.1 ", "198.51.100.0/24", "192.0.2.1"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, `["192.0.2.1","198.51.100.0/24"]`, repo.updates[SettingKeyRegistrationIPBlacklist])
+}
+
+func TestSettingService_UpdateSettings_RegistrationIPBlacklist_Invalid(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		RegistrationIPBlacklist: []string{"not-an-ip"},
+	})
+	require.Error(t, err)
+	require.Equal(t, "INVALID_REGISTRATION_IP_BLACKLIST", infraerrors.Reason(err))
+}
+
 func TestParseDefaultSubscriptions_NormalizesValues(t *testing.T) {
 	got := parseDefaultSubscriptions(`[{"group_id":11,"validity_days":30},{"group_id":11,"validity_days":60},{"group_id":0,"validity_days":10},{"group_id":12,"validity_days":99999}]`)
 	require.Equal(t, []DefaultSubscriptionSetting{

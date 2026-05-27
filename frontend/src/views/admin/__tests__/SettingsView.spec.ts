@@ -284,6 +284,8 @@ const baseSettingsResponse = {
   email_verify_enabled: false,
   registration_email_suffix_whitelist: [],
   registration_email_blacklist: [],
+  registration_identity_blacklist: [],
+  registration_ip_blacklist: [],
   promo_code_enabled: true,
   invitation_code_enabled: false,
   password_reset_enabled: false,

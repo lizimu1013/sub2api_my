@@ -495,6 +495,10 @@ func (h *AuthHandler) CompleteLinuxDoOAuthRegistration(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if err := h.ensureRegistrationIPAllowed(c); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	email := strings.TrimSpace(session.ResolvedEmail)
 	username := pendingSessionStringValue(session.UpstreamIdentityClaims, "username")
@@ -520,7 +524,11 @@ func (h *AuthHandler) CompleteLinuxDoOAuthRegistration(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	tokenPair, user, err := h.authService.LoginOrRegisterOAuthWithTokenPair(c.Request.Context(), email, username, req.InvitationCode, req.AffCode, "linuxdo")
+	tokenPair, user, err := h.authService.LoginOrRegisterOAuthWithTokenPair(c.Request.Context(), email, username, req.InvitationCode, req.AffCode, "linuxdo", service.PendingAuthIdentityKey{
+		ProviderType:    session.ProviderType,
+		ProviderKey:     session.ProviderKey,
+		ProviderSubject: session.ProviderSubject,
+	})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

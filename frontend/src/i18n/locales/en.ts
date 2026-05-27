@@ -5360,6 +5360,18 @@ export default {
         emailBlacklistPlaceholder: "user{'@'}example.com or example.com",
         emailBlacklistInputHint:
           'Supports full email addresses or domains. Blacklist has priority over whitelist. Leave empty to disable blocking.',
+        identityBlacklist: 'Registration Identity ID Blacklist',
+        identityBlacklistHint:
+          'Block specified third-party identity IDs from creating new accounts to prevent signup grant abuse',
+        identityBlacklistPlaceholder: '123456 or linuxdo:123456',
+        identityBlacklistInputHint:
+          'Supports raw identity IDs or provider:ID, for example linuxdo:123456 or oidc:abc. Only new registrations are blocked; existing logins are unaffected.',
+        ipBlacklist: 'Registration IP Blacklist',
+        ipBlacklistHint:
+          'Block specified IPs or CIDR ranges from registering accounts to prevent signup grant abuse',
+        ipBlacklistPlaceholder: '192.0.2.1 or 198.51.100.0/24',
+        ipBlacklistInputHint:
+          'Supports individual IPs or CIDR ranges. Matching clients cannot request registration codes or create new accounts.',
         promoCode: 'Promo Code',
         promoCodeHint: 'Allow users to use promo codes during registration',
         invitationCode: 'Invitation Code Registration',

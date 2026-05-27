@@ -5522,6 +5522,18 @@ export default {
         emailBlacklistPlaceholder: "user{'@'}example.com 或 example.com",
         emailBlacklistInputHint:
           '支持完整邮箱或域名，黑名单优先级高于白名单，留空则不拦截',
+        identityBlacklist: '注册身份 ID 黑名单',
+        identityBlacklistHint:
+          '禁止指定第三方身份 ID 创建新账号，用于阻止批量注册领取赠送额度',
+        identityBlacklistPlaceholder: '123456 或 linuxdo:123456',
+        identityBlacklistInputHint:
+          '支持原始身份 ID 或 provider:ID，例如 linuxdo:123456、oidc:abc；仅拦截新注册，不影响已有账号登录',
+        ipBlacklist: '注册 IP 黑名单',
+        ipBlacklistHint:
+          '禁止指定 IP 或网段注册账号，用于阻止批量注册领取赠送额度',
+        ipBlacklistPlaceholder: '192.0.2.1 或 198.51.100.0/24',
+        ipBlacklistInputHint:
+          '支持单个 IP 或 CIDR 网段，命中后无法发送注册验证码或创建新账号',
         promoCode: '优惠码',
         promoCodeHint: '允许用户在注册时使用优惠码',
         invitationCode: '邀请码注册',

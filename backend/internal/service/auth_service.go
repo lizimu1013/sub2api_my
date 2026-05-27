@@ -39,6 +39,8 @@ var (
 	ErrEmailVerifyRequired     = infraerrors.BadRequest("EMAIL_VERIFY_REQUIRED", "email verification is required")
 	ErrEmailSuffixNotAllowed   = infraerrors.BadRequest("EMAIL_SUFFIX_NOT_ALLOWED", "email suffix is not allowed")
 	ErrEmailBlacklisted        = infraerrors.BadRequest("EMAIL_BLACKLISTED", "email is not allowed for registration")
+	ErrRegistrationIDBlocked   = infraerrors.BadRequest("REGISTRATION_ID_BLACKLISTED", "registration identity is not allowed")
+	ErrRegistrationIPBlocked   = infraerrors.Forbidden("REGISTRATION_IP_BLACKLISTED", "当前暂不允许注册")
 	ErrRegDisabled             = infraerrors.Forbidden("REGISTRATION_DISABLED", "registration is currently disabled")
 	ErrServiceUnavailable      = infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "service temporarily unavailable")
 	ErrInvitationCodeRequired  = infraerrors.BadRequest("INVITATION_CODE_REQUIRED", "invitation code is required")
@@ -579,7 +581,7 @@ func (s *AuthService) canBypassRegistrationDisabledForOAuth(ctx context.Context,
 // invitationCode 仅在邀请码注册模式下新用户注册时使用；已有账号登录时忽略。
 // affiliateCode 用于邀请返利绑定，仅在新用户注册时使用。
 // signupSource 标识来源渠道（"dingtalk"/"linuxdo"/"wechat"/"oidc" 等），仅用于豁免检查。
-func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, email, username, invitationCode, affiliateCode, signupSource string) (*TokenPair, *User, error) {
+func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, email, username, invitationCode, affiliateCode, signupSource string, registrationIdentity ...PendingAuthIdentityKey) (*TokenPair, *User, error) {
 	// 检查 refreshTokenCache 是否可用
 	if s.refreshTokenCache == nil {
 		return nil, nil, errors.New("refresh token cache not configured")
@@ -604,6 +606,11 @@ func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 			// OAuth 首次登录视为注册
 			if s.settingService == nil || (!s.settingService.IsRegistrationEnabled(ctx) && !s.canBypassRegistrationDisabledForOAuth(ctx, signupSource)) {
 				return nil, nil, ErrRegDisabled
+			}
+			if len(registrationIdentity) > 0 {
+				if err := s.validateRegistrationIdentityPolicy(ctx, registrationIdentity[0]); err != nil {
+					return nil, nil, err
+				}
 			}
 
 			// 检查是否需要邀请码

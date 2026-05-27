@@ -29,6 +29,8 @@ type SystemSettings struct {
 	EmailVerifyEnabled               bool                     `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist []string                 `json:"registration_email_suffix_whitelist"`
 	RegistrationEmailBlacklist       []string                 `json:"registration_email_blacklist"`
+	RegistrationIdentityBlacklist    []string                 `json:"registration_identity_blacklist"`
+	RegistrationIPBlacklist          []string                 `json:"registration_ip_blacklist"`
 	PromoCodeEnabled                 bool                     `json:"promo_code_enabled"`
 	PasswordResetEnabled             bool                     `json:"password_reset_enabled"`
 	FrontendURL                      string                   `json:"frontend_url"`

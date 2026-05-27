@@ -1507,6 +1507,22 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		normalizedBlacklist = []string{}
 	}
 	settings.RegistrationEmailBlacklist = normalizedBlacklist
+	normalizedIdentityBlacklist, err := NormalizeRegistrationIdentityBlacklist(settings.RegistrationIdentityBlacklist)
+	if err != nil {
+		return nil, infraerrors.BadRequest("INVALID_REGISTRATION_ID_BLACKLIST", err.Error())
+	}
+	if normalizedIdentityBlacklist == nil {
+		normalizedIdentityBlacklist = []string{}
+	}
+	settings.RegistrationIdentityBlacklist = normalizedIdentityBlacklist
+	normalizedIPBlacklist, err := NormalizeRegistrationIPBlacklist(settings.RegistrationIPBlacklist)
+	if err != nil {
+		return nil, infraerrors.BadRequest("INVALID_REGISTRATION_IP_BLACKLIST", err.Error())
+	}
+	if normalizedIPBlacklist == nil {
+		normalizedIPBlacklist = []string{}
+	}
+	settings.RegistrationIPBlacklist = normalizedIPBlacklist
 	alipaySource, err := normalizeVisibleMethodSettingSource("alipay", settings.PaymentVisibleMethodAlipaySource, settings.PaymentVisibleMethodAlipayEnabled)
 	if err != nil {
 		return nil, err
@@ -1563,6 +1579,16 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		return nil, fmt.Errorf("marshal registration email blacklist: %w", err)
 	}
 	updates[SettingKeyRegistrationEmailBlacklist] = string(registrationEmailBlacklistJSON)
+	registrationIdentityBlacklistJSON, err := json.Marshal(settings.RegistrationIdentityBlacklist)
+	if err != nil {
+		return nil, fmt.Errorf("marshal registration identity blacklist: %w", err)
+	}
+	updates[SettingKeyRegistrationIdentityBlacklist] = string(registrationIdentityBlacklistJSON)
+	registrationIPBlacklistJSON, err := json.Marshal(settings.RegistrationIPBlacklist)
+	if err != nil {
+		return nil, fmt.Errorf("marshal registration ip blacklist: %w", err)
+	}
+	updates[SettingKeyRegistrationIPBlacklist] = string(registrationIPBlacklistJSON)
 	updates[SettingKeyPromoCodeEnabled] = strconv.FormatBool(settings.PromoCodeEnabled)
 	updates[SettingKeyPasswordResetEnabled] = strconv.FormatBool(settings.PasswordResetEnabled)
 	updates[SettingKeyFrontendURL] = settings.FrontendURL
@@ -2189,6 +2215,24 @@ func (s *SettingService) GetRegistrationEmailBlacklist(ctx context.Context) []st
 	return ParseRegistrationEmailBlacklist(value)
 }
 
+// GetRegistrationIdentityBlacklist returns normalized registration identity blacklist.
+func (s *SettingService) GetRegistrationIdentityBlacklist(ctx context.Context) []string {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationIdentityBlacklist)
+	if err != nil {
+		return []string{}
+	}
+	return ParseRegistrationIdentityBlacklist(value)
+}
+
+// GetRegistrationIPBlacklist returns normalized registration IP blacklist.
+func (s *SettingService) GetRegistrationIPBlacklist(ctx context.Context) []string {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationIPBlacklist)
+	if err != nil {
+		return []string{}
+	}
+	return ParseRegistrationIPBlacklist(value)
+}
+
 // IsPromoCodeEnabled 检查是否启用优惠码功能
 func (s *SettingService) IsPromoCodeEnabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyPromoCodeEnabled)
@@ -2504,6 +2548,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyEmailVerifyEnabled:                        "false",
 		SettingKeyRegistrationEmailSuffixWhitelist:          "[]",
 		SettingKeyRegistrationEmailBlacklist:                "[]",
+		SettingKeyRegistrationIdentityBlacklist:             "[]",
+		SettingKeyRegistrationIPBlacklist:                   "[]",
 		SettingKeyPromoCodeEnabled:                          "true", // 默认启用优惠码功能
 		SettingKeyLoginAgreementEnabled:                     "false",
 		SettingKeyLoginAgreementMode:                        defaultLoginAgreementMode,
@@ -2680,6 +2726,8 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		EmailVerifyEnabled:               emailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist: ParseRegistrationEmailSuffixWhitelist(settings[SettingKeyRegistrationEmailSuffixWhitelist]),
 		RegistrationEmailBlacklist:       ParseRegistrationEmailBlacklist(settings[SettingKeyRegistrationEmailBlacklist]),
+		RegistrationIdentityBlacklist:    ParseRegistrationIdentityBlacklist(settings[SettingKeyRegistrationIdentityBlacklist]),
+		RegistrationIPBlacklist:          ParseRegistrationIPBlacklist(settings[SettingKeyRegistrationIPBlacklist]),
 		PromoCodeEnabled:                 settings[SettingKeyPromoCodeEnabled] != "false", // 默认启用
 		PasswordResetEnabled:             emailVerifyEnabled && settings[SettingKeyPasswordResetEnabled] == "true",
 		FrontendURL:                      settings[SettingKeyFrontendURL],

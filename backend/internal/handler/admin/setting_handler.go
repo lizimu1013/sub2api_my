@@ -123,6 +123,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		EmailVerifyEnabled:                     settings.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       settings.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailBlacklist:             settings.RegistrationEmailBlacklist,
+		RegistrationIdentityBlacklist:          settings.RegistrationIdentityBlacklist,
+		RegistrationIPBlacklist:                settings.RegistrationIPBlacklist,
 		PromoCodeEnabled:                       settings.PromoCodeEnabled,
 		PasswordResetEnabled:                   settings.PasswordResetEnabled,
 		FrontendURL:                            settings.FrontendURL,
@@ -379,6 +381,8 @@ type UpdateSettingsRequest struct {
 	EmailVerifyEnabled               bool                         `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist []string                     `json:"registration_email_suffix_whitelist"`
 	RegistrationEmailBlacklist       []string                     `json:"registration_email_blacklist"`
+	RegistrationIdentityBlacklist    []string                     `json:"registration_identity_blacklist"`
+	RegistrationIPBlacklist          []string                     `json:"registration_ip_blacklist"`
 	PromoCodeEnabled                 bool                         `json:"promo_code_enabled"`
 	PasswordResetEnabled             bool                         `json:"password_reset_enabled"`
 	FrontendURL                      string                       `json:"frontend_url"`
@@ -1444,6 +1448,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		EmailVerifyEnabled:               req.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist: req.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailBlacklist:       req.RegistrationEmailBlacklist,
+		RegistrationIdentityBlacklist:    req.RegistrationIdentityBlacklist,
+		RegistrationIPBlacklist:          req.RegistrationIPBlacklist,
 		PromoCodeEnabled:                 req.PromoCodeEnabled,
 		PasswordResetEnabled:             req.PasswordResetEnabled,
 		FrontendURL:                      req.FrontendURL,
@@ -1871,6 +1877,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		EmailVerifyEnabled:                     updatedSettings.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       updatedSettings.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailBlacklist:             updatedSettings.RegistrationEmailBlacklist,
+		RegistrationIdentityBlacklist:          updatedSettings.RegistrationIdentityBlacklist,
+		RegistrationIPBlacklist:                updatedSettings.RegistrationIPBlacklist,
 		PromoCodeEnabled:                       updatedSettings.PromoCodeEnabled,
 		PasswordResetEnabled:                   updatedSettings.PasswordResetEnabled,
 		FrontendURL:                            updatedSettings.FrontendURL,
@@ -2114,6 +2122,12 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if !equalStringSlice(before.RegistrationEmailBlacklist, after.RegistrationEmailBlacklist) {
 		changed = append(changed, "registration_email_blacklist")
+	}
+	if !equalStringSlice(before.RegistrationIdentityBlacklist, after.RegistrationIdentityBlacklist) {
+		changed = append(changed, "registration_identity_blacklist")
+	}
+	if !equalStringSlice(before.RegistrationIPBlacklist, after.RegistrationIPBlacklist) {
+		changed = append(changed, "registration_ip_blacklist")
 	}
 	if before.PromoCodeEnabled != after.PromoCodeEnabled {
 		changed = append(changed, "promo_code_enabled")

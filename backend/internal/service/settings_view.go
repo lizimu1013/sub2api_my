@@ -16,6 +16,8 @@ type SystemSettings struct {
 	EmailVerifyEnabled               bool
 	RegistrationEmailSuffixWhitelist []string
 	RegistrationEmailBlacklist       []string
+	RegistrationIdentityBlacklist    []string
+	RegistrationIPBlacklist          []string
 	PromoCodeEnabled                 bool
 	PasswordResetEnabled             bool
 	FrontendURL                      string
