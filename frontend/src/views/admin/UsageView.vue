@@ -187,6 +187,7 @@ const breakdownFilters = computed(() => {
   if (filters.value.api_key_id) f.api_key_id = filters.value.api_key_id
   if (filters.value.account_id) f.account_id = filters.value.account_id
   if (filters.value.group_id) f.group_id = filters.value.group_id
+  if (filters.value.ip_address?.trim()) f.ip_address = filters.value.ip_address.trim()
   if (filters.value.request_type != null) f.request_type = filters.value.request_type
   if (filters.value.billing_type != null) f.billing_type = filters.value.billing_type
   return f
@@ -226,7 +227,7 @@ const getGranularityForRange = (start: string, end: string): 'day' | 'hour' => {
 }
 const defaultRange = getLast24HoursRangeDates()
 const startDate = ref(defaultRange.start); const endDate = ref(defaultRange.end)
-const filters = ref<AdminUsageQueryParams>({ user_id: undefined, model: undefined, group_id: undefined, request_type: undefined, billing_type: null, start_date: startDate.value, end_date: endDate.value })
+const filters = ref<AdminUsageQueryParams>({ user_id: undefined, model: undefined, group_id: undefined, ip_address: undefined, request_type: undefined, billing_type: null, start_date: startDate.value, end_date: endDate.value })
 const pagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
 const sortState = reactive({
   sort_by: 'created_at',
@@ -249,6 +250,7 @@ const applyRouteQueryFilters = () => {
   const queryStartDate = getSingleQueryValue(route.query.start_date)
   const queryEndDate = getSingleQueryValue(route.query.end_date)
   const queryUserId = getNumericQueryValue(route.query.user_id)
+  const queryIPAddress = getSingleQueryValue(route.query.ip_address)
 
   if (queryStartDate) {
     startDate.value = queryStartDate
@@ -260,6 +262,7 @@ const applyRouteQueryFilters = () => {
   filters.value = {
     ...filters.value,
     user_id: queryUserId,
+    ip_address: queryIPAddress,
     start_date: startDate.value,
     end_date: endDate.value
   }
@@ -356,6 +359,7 @@ const loadModelStats = async (source: ModelDistributionSource, force = false) =>
       api_key_id: filters.value.api_key_id,
       account_id: filters.value.account_id,
       group_id: filters.value.group_id,
+      ip_address: filters.value.ip_address?.trim() || undefined,
       request_type: requestType,
       stream: legacyStream === null ? undefined : legacyStream,
       billing_type: filters.value.billing_type,
@@ -405,6 +409,7 @@ const loadChartData = async () => {
       api_key_id: filters.value.api_key_id,
       account_id: filters.value.account_id,
       group_id: filters.value.group_id,
+      ip_address: filters.value.ip_address?.trim() || undefined,
       request_type: requestType,
       stream: legacyStream === null ? undefined : legacyStream,
       billing_type: filters.value.billing_type,
@@ -438,7 +443,7 @@ const resetFilters = () => {
   const range = getLast24HoursRangeDates()
   startDate.value = range.start
   endDate.value = range.end
-  filters.value = { start_date: startDate.value, end_date: endDate.value, request_type: undefined, billing_type: null, billing_mode: undefined }
+  filters.value = { start_date: startDate.value, end_date: endDate.value, ip_address: undefined, request_type: undefined, billing_type: null, billing_mode: undefined }
   granularity.value = getGranularityForRange(startDate.value, endDate.value)
   applyFilters()
 }

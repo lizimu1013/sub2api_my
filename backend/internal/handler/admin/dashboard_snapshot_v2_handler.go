@@ -42,6 +42,7 @@ type dashboardSnapshotV2Filters struct {
 	AccountID   int64
 	GroupID     int64
 	Model       string
+	IPAddress   string
 	RequestType *int16
 	Stream      *bool
 	BillingType *int8
@@ -56,6 +57,7 @@ type dashboardSnapshotV2CacheKey struct {
 	AccountID         int64  `json:"account_id"`
 	GroupID           int64  `json:"group_id"`
 	Model             string `json:"model"`
+	IPAddress         string `json:"ip_address"`
 	RequestType       *int16 `json:"request_type"`
 	Stream            *bool  `json:"stream"`
 	BillingType       *int8  `json:"billing_type"`
@@ -101,6 +103,7 @@ func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
 		AccountID:         filters.AccountID,
 		GroupID:           filters.GroupID,
 		Model:             filters.Model,
+		IPAddress:         filters.IPAddress,
 		RequestType:       filters.RequestType,
 		Stream:            filters.Stream,
 		BillingType:       filters.BillingType,
@@ -181,6 +184,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			filters.AccountID,
 			filters.GroupID,
 			filters.Model,
+			filters.IPAddress,
 			filters.RequestType,
 			filters.Stream,
 			filters.BillingType,
@@ -201,6 +205,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			filters.AccountID,
 			filters.GroupID,
 			usagestats.ModelSourceRequested,
+			filters.IPAddress,
 			filters.RequestType,
 			filters.Stream,
 			filters.BillingType,
@@ -220,6 +225,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			filters.APIKeyID,
 			filters.AccountID,
 			filters.GroupID,
+			filters.IPAddress,
 			filters.RequestType,
 			filters.Stream,
 			filters.BillingType,
@@ -245,6 +251,11 @@ func parseDashboardSnapshotV2Filters(c *gin.Context) (*dashboardSnapshotV2Filter
 	filters := &dashboardSnapshotV2Filters{
 		Model: strings.TrimSpace(c.Query("model")),
 	}
+	ipAddress, err := normalizeUsageIPAddressFilter(c.Query("ip_address"))
+	if err != nil {
+		return nil, err
+	}
+	filters.IPAddress = ipAddress
 
 	if userIDStr := strings.TrimSpace(c.Query("user_id")); userIDStr != "" {
 		id, err := strconv.ParseInt(userIDStr, 10, 64)

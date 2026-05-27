@@ -1622,6 +1622,7 @@ export interface UsageQueryParams {
   account_id?: number
   group_id?: number
   model?: string
+  ip_address?: string
   request_type?: UsageRequestType
   stream?: boolean
   billing_type?: number | null

@@ -4583,6 +4583,7 @@ export default {
       billingModeImage: '按次(图片)',
       allBillingModes: '全部计费模式',
       ipAddress: 'IP',
+      ipAddressPlaceholder: '按 IP 地址搜索...',
       clickToViewBalance: '点击查看充值记录',
       failedToLoadUser: '加载用户信息失败',
       cleanup: {

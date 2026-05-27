@@ -36,6 +36,7 @@ func (s *dailyUsageRepoStub) GetUsageTrendWithFilters(
 	requestType *int16,
 	stream *bool,
 	billingType *int8,
+	ipAddress ...string,
 ) ([]usagestats.TrendDataPoint, error) {
 	s.called = true
 	s.startTime = startTime

@@ -94,11 +94,34 @@ func TestAdminUsageListExactTotalTrue(t *testing.T) {
 	require.True(t, repo.listFilters.ExactTotal)
 }
 
+func TestAdminUsageListIPAddressFilter(t *testing.T) {
+	repo := &adminUsageRepoCapture{}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage?ip_address=%2010.0.0.8%20", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "10.0.0.8", repo.listFilters.IPAddress)
+}
+
 func TestAdminUsageListInvalidExactTotal(t *testing.T) {
 	repo := &adminUsageRepoCapture{}
 	router := newAdminUsageRequestTypeTestRouter(repo)
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/usage?exact_total=oops", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestAdminUsageListInvalidIPAddressFilter(t *testing.T) {
+	repo := &adminUsageRepoCapture{}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage?ip_address=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
@@ -117,6 +140,18 @@ func TestAdminUsageStatsRequestTypePriority(t *testing.T) {
 	require.NotNil(t, repo.statsFilters.RequestType)
 	require.Equal(t, int16(service.RequestTypeStream), *repo.statsFilters.RequestType)
 	require.Nil(t, repo.statsFilters.Stream)
+}
+
+func TestAdminUsageStatsIPAddressFilter(t *testing.T) {
+	repo := &adminUsageRepoCapture{}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/stats?ip_address=2001:db8", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "2001:db8", repo.statsFilters.IPAddress)
 }
 
 func TestAdminUsageStatsInvalidRequestType(t *testing.T) {

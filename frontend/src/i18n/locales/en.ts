@@ -4427,6 +4427,7 @@ export default {
       billingModeImage: 'Image',
       allBillingModes: 'All Billing Modes',
       ipAddress: 'IP',
+      ipAddressPlaceholder: 'Search by IP address...',
       clickToViewBalance: 'Click to view balance history',
       failedToLoadUser: 'Failed to load user info',
       cleanup: {

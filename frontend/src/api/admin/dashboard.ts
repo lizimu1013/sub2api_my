@@ -51,6 +51,7 @@ export interface TrendParams {
   user_id?: number
   api_key_id?: number
   model?: string
+  ip_address?: string
   account_id?: number
   group_id?: number
   request_type?: UsageRequestType
@@ -82,6 +83,7 @@ export interface ModelStatsParams {
   api_key_id?: number
   model?: string
   model_source?: 'requested' | 'upstream' | 'mapping'
+  ip_address?: string
   account_id?: number
   group_id?: number
   request_type?: UsageRequestType
@@ -112,6 +114,7 @@ export interface GroupStatsParams {
   api_key_id?: number
   account_id?: number
   group_id?: number
+  ip_address?: string
   request_type?: UsageRequestType
   stream?: boolean
   billing_type?: number | null

@@ -306,6 +306,13 @@ func TestAppendUsageLogBillingModeWhereCondition(t *testing.T) {
 	}
 }
 
+func TestAppendUsageLogIPAddressWhereCondition(t *testing.T) {
+	conditions, args := appendUsageLogIPAddressWhereCondition(nil, nil, "ip_address", " 10.0%_ ")
+
+	require.Equal(t, []string{"ip_address ILIKE $1"}, conditions)
+	require.Equal(t, []any{"%10.0\\%\\_%"}, args)
+}
+
 func anySliceToDriverValues(values []any) []driver.Value {
 	out := make([]driver.Value, 0, len(values))
 	for _, value := range values {

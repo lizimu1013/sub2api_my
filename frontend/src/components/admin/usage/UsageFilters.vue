@@ -78,6 +78,27 @@
           </div>
         </div>
 
+        <!-- IP Address Filter -->
+        <div class="relative w-full sm:w-auto sm:min-w-[180px]">
+          <label class="input-label">{{ t('admin.usage.ipAddress') }}</label>
+          <input
+            v-model.trim="filters.ip_address"
+            type="text"
+            class="input pr-8"
+            :placeholder="t('admin.usage.ipAddressPlaceholder')"
+            @input="debounceIPAddressFilter"
+          />
+          <button
+            v-if="filters.ip_address"
+            type="button"
+            @click="clearIPAddress"
+            class="absolute right-2 top-9 text-gray-400"
+            aria-label="Clear IP filter"
+          >
+            ✕
+          </button>
+        </div>
+
         <!-- Model Filter -->
         <div class="w-full sm:w-auto sm:min-w-[220px]">
           <label class="input-label">{{ t('usage.model') }}</label>
@@ -212,6 +233,7 @@ const apiKeyKeyword = ref('')
 const apiKeyResults = ref<SimpleApiKey[]>([])
 const showApiKeyDropdown = ref(false)
 let apiKeySearchTimeout: ReturnType<typeof setTimeout> | null = null
+let ipAddressFilterTimeout: ReturnType<typeof setTimeout> | null = null
 
 interface SimpleAccount {
   id: number
@@ -246,6 +268,19 @@ const billingModeOptions = ref<SelectOption[]>([
 ])
 
 const emitChange = () => emit('change')
+
+const debounceIPAddressFilter = () => {
+  if (ipAddressFilterTimeout) clearTimeout(ipAddressFilterTimeout)
+  ipAddressFilterTimeout = setTimeout(() => {
+    emitChange()
+  }, 300)
+}
+
+const clearIPAddress = () => {
+  if (ipAddressFilterTimeout) clearTimeout(ipAddressFilterTimeout)
+  filters.value.ip_address = undefined
+  emitChange()
+}
 
 const debounceUserSearch = () => {
   if (userSearchTimeout) clearTimeout(userSearchTimeout)
@@ -447,5 +482,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
+  if (userSearchTimeout) clearTimeout(userSearchTimeout)
+  if (apiKeySearchTimeout) clearTimeout(apiKeySearchTimeout)
+  if (accountSearchTimeout) clearTimeout(accountSearchTimeout)
+  if (ipAddressFilterTimeout) clearTimeout(ipAddressFilterTimeout)
 })
 </script>

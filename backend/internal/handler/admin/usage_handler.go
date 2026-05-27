@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,6 +26,27 @@ type UsageHandler struct {
 	apiKeyService  *service.APIKeyService
 	adminService   service.AdminService
 	cleanupService *service.UsageCleanupService
+}
+
+const maxUsageIPAddressFilterLength = 64
+
+var errInvalidUsageIPAddress = errors.New("Invalid ip_address")
+
+func normalizeUsageIPAddressFilter(raw string) (string, error) {
+	ipAddress := strings.TrimSpace(raw)
+	if len(ipAddress) > maxUsageIPAddressFilterLength {
+		return "", errInvalidUsageIPAddress
+	}
+	return ipAddress, nil
+}
+
+func parseUsageIPAddressFilter(c *gin.Context) (string, bool) {
+	ipAddress, err := normalizeUsageIPAddressFilter(c.Query("ip_address"))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return "", false
+	}
+	return ipAddress, true
 }
 
 // NewUsageHandler creates a new admin usage handler
@@ -111,6 +133,10 @@ func (h *UsageHandler) List(c *gin.Context) {
 
 	model := c.Query("model")
 	billingMode := strings.TrimSpace(c.Query("billing_mode"))
+	ipAddress, ok := parseUsageIPAddressFilter(c)
+	if !ok {
+		return
+	}
 
 	var requestType *int16
 	var stream *bool
@@ -177,6 +203,7 @@ func (h *UsageHandler) List(c *gin.Context) {
 		AccountID:   accountID,
 		GroupID:     groupID,
 		Model:       model,
+		IPAddress:   ipAddress,
 		RequestType: requestType,
 		Stream:      stream,
 		BillingType: billingType,
@@ -242,6 +269,10 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 
 	model := c.Query("model")
 	billingMode := strings.TrimSpace(c.Query("billing_mode"))
+	ipAddress, ok := parseUsageIPAddressFilter(c)
+	if !ok {
+		return
+	}
 
 	var requestType *int16
 	var stream *bool
@@ -317,6 +348,7 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		AccountID:   accountID,
 		GroupID:     groupID,
 		Model:       model,
+		IPAddress:   ipAddress,
 		RequestType: requestType,
 		Stream:      stream,
 		BillingType: billingType,
