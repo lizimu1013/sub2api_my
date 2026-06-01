@@ -12,43 +12,37 @@
     <div v-else v-html="homeContent"></div>
   </div>
 
-  <!-- Default Home Page -->
+  <!-- Default Home Page - Claude / Anthropic style -->
   <div
     v-else
-    class="relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-primary-50/30 to-gray-100 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950"
+    ref="rootEl"
+    class="home-claude relative min-h-screen bg-cream text-ink antialiased transition-colors duration-300 dark:bg-night-900 dark:text-cream"
   >
-    <!-- Background Decorations -->
-    <div class="pointer-events-none absolute inset-0 overflow-hidden">
-      <div
-        class="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-primary-400/20 blur-3xl"
-      ></div>
-      <div
-        class="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-primary-500/15 blur-3xl"
-      ></div>
-      <div
-        class="absolute left-1/3 top-1/4 h-72 w-72 rounded-full bg-primary-300/10 blur-3xl"
-      ></div>
-      <div
-        class="absolute bottom-1/4 right-1/4 h-64 w-64 rounded-full bg-primary-400/10 blur-3xl"
-      ></div>
-      <div
-        class="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
-      ></div>
-    </div>
-
     <!-- Header -->
-    <header class="relative z-20 px-6 py-4">
-      <nav class="mx-auto flex max-w-6xl items-center justify-between">
+    <header
+      class="sticky top-0 z-50 transition-all duration-300"
+      :class="
+        scrolled
+          ? 'border-b border-cream-deep bg-cream/80 backdrop-blur-md dark:border-night-800 dark:bg-night-900/80'
+          : ''
+      "
+    >
+      <nav class="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
         <!-- Logo -->
-        <div class="flex items-center">
-          <div class="h-10 w-10 overflow-hidden rounded-xl shadow-md">
-            <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+        <div class="flex items-center gap-2.5">
+          <div v-if="siteLogo" class="h-8 w-8 overflow-hidden rounded-lg">
+            <img :src="siteLogo" alt="Logo" class="h-full w-full object-contain" />
           </div>
+          <svg v-else class="h-6 w-6 text-clay-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path
+              d="M12 1.5l1.6 6.3 4.8-4.2-2.6 5.9 6.4-1.1-5.4 3.6 5.4 3.6-6.4-1.1 2.6 5.9-4.8-4.2L12 22.5l-1.6-6.3-4.8 4.2 2.6-5.9-6.4 1.1 5.4-3.6L1.8 8.4l6.4 1.1L5.6 3.6l4.8 4.2L12 1.5z"
+            />
+          </svg>
+          <span class="font-serif text-lg font-semibold tracking-tight">{{ siteName }}</span>
         </div>
 
         <!-- Nav Actions -->
-        <div class="flex items-center gap-3">
-          <!-- Language Switcher -->
+        <div class="flex items-center gap-2">
           <LocaleSwitcher />
 
           <!-- Doc Link -->
@@ -57,7 +51,7 @@
             :href="docUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
+            class="rounded-lg p-2 text-ink-mute transition-colors hover:bg-cream-deep hover:text-ink dark:text-night-400 dark:hover:bg-night-800 dark:hover:text-cream"
             :title="t('home.viewDocs')"
           >
             <Icon name="book" size="md" />
@@ -66,43 +60,30 @@
           <!-- Theme Toggle -->
           <button
             @click="toggleTheme"
-            class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
+            class="rounded-lg p-2 text-ink-mute transition-colors hover:bg-cream-deep hover:text-ink dark:text-night-400 dark:hover:bg-night-800 dark:hover:text-cream"
             :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
           >
             <Icon v-if="isDark" name="sun" size="md" />
             <Icon v-else name="moon" size="md" />
           </button>
 
-          <!-- Login / Dashboard Button -->
+          <!-- Login / Dashboard -->
           <router-link
             v-if="isAuthenticated"
             :to="dashboardPath"
-            class="inline-flex items-center gap-1.5 rounded-full bg-gray-900 py-1 pl-1 pr-2.5 transition-colors hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
+            class="inline-flex items-center gap-1.5 rounded-full bg-ink py-1 pl-1 pr-2.5 text-cream-paper transition-all hover:bg-ink-soft dark:bg-cream dark:text-ink dark:hover:bg-white"
           >
             <span
-              class="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-[10px] font-semibold text-white"
+              class="flex h-5 w-5 items-center justify-center rounded-full bg-clay-500 text-[10px] font-semibold text-white"
             >
               {{ userInitial }}
             </span>
-            <span class="text-xs font-medium text-white">{{ t('home.dashboard') }}</span>
-            <svg
-              class="h-3 w-3 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
-              />
-            </svg>
+            <span class="text-xs font-medium">{{ t('home.dashboard') }}</span>
           </router-link>
           <router-link
             v-else
             to="/login"
-            class="inline-flex items-center rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
+            class="inline-flex items-center rounded-full bg-ink px-4 py-1.5 text-sm font-medium text-cream-paper transition-all hover:bg-ink-soft dark:bg-cream dark:text-ink dark:hover:bg-white"
           >
             {{ t('home.login') }}
           </router-link>
@@ -110,283 +91,255 @@
       </nav>
     </header>
 
-    <!-- Main Content -->
-    <main class="relative z-10 flex-1 px-6 py-16">
-      <div class="mx-auto max-w-6xl">
-        <!-- Hero Section - Left/Right Layout -->
-        <div class="mb-12 flex flex-col items-center justify-between gap-12 lg:flex-row lg:gap-16">
-          <!-- Left: Text Content -->
-          <div class="flex-1 text-center lg:text-left">
-            <h1
-              class="mb-4 text-4xl font-bold text-gray-900 dark:text-white md:text-5xl lg:text-6xl"
-            >
-              {{ siteName }}
-            </h1>
-            <p class="mb-8 text-lg text-gray-600 dark:text-dark-300 md:text-xl">
-              {{ siteSubtitle }}
-            </p>
-
-            <!-- CTA Button -->
-            <div>
-              <router-link
-                :to="isAuthenticated ? dashboardPath : '/login'"
-                class="btn btn-primary px-8 py-3 text-base shadow-lg shadow-primary-500/30"
+    <main class="relative z-10">
+      <!-- Hero -->
+      <section class="px-6 pb-24 pt-12 md:pt-20">
+        <div class="mx-auto max-w-5xl">
+          <div class="flex flex-col items-center gap-16 lg:flex-row lg:gap-14">
+            <!-- Left -->
+            <div class="flex-1 text-center lg:text-left">
+              <div
+                class="mb-7 inline-flex items-center gap-2 rounded-full border border-clay-200 bg-clay-50 px-3.5 py-1.5 text-xs font-medium text-clay-700 dark:border-clay-700/50 dark:bg-clay-900/20 dark:text-clay-300"
               >
-                {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
-                <Icon name="arrowRight" size="md" class="ml-2" :stroke-width="2" />
-              </router-link>
-            </div>
-          </div>
+                <span class="spark">✳</span> {{ t('home.heroBadge') }}
+              </div>
 
-          <!-- Right: Terminal Animation -->
-          <div class="flex flex-1 justify-center lg:justify-end">
-            <div class="terminal-container">
-              <div class="terminal-window">
-                <!-- Window header -->
-                <div class="terminal-header">
-                  <div class="terminal-buttons">
-                    <span class="btn-close"></span>
-                    <span class="btn-minimize"></span>
-                    <span class="btn-maximize"></span>
-                  </div>
-                  <span class="terminal-title">terminal</span>
+              <h1
+                class="mb-6 font-serif text-5xl font-semibold leading-[1.08] tracking-tight md:text-6xl lg:text-[4.25rem]"
+              >
+                {{ t('home.heroSubtitle') }}
+              </h1>
+              <p class="mx-auto mb-9 max-w-lg text-lg leading-relaxed text-ink-mute dark:text-night-300 lg:mx-0">
+                {{ t('home.heroDescription') }}
+              </p>
+
+              <div class="flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
+                <router-link
+                  :to="isAuthenticated ? dashboardPath : '/login'"
+                  class="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-clay-500 px-7 py-3.5 text-base font-medium text-white shadow-sm transition-all hover:bg-clay-600 hover:shadow-md sm:w-auto"
+                >
+                  {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
+                  <Icon name="arrowRight" size="sm" :stroke-width="2" class="transition-transform group-hover:translate-x-1" />
+                </router-link>
+                <button
+                  type="button"
+                  @click="scrollToId('features')"
+                  class="inline-flex w-full items-center justify-center rounded-xl border border-ink/15 bg-transparent px-7 py-3.5 text-base font-medium text-ink transition-all hover:border-ink/30 hover:bg-cream-deep sm:w-auto dark:border-cream/20 dark:text-cream dark:hover:bg-night-800"
+                >
+                  {{ t('home.learnMore') }}
+                </button>
+              </div>
+
+              <!-- Stats -->
+              <div class="mt-12 flex items-center justify-center gap-10 lg:justify-start">
+                <div>
+                  <div class="font-serif text-3xl font-semibold">4+</div>
+                  <div class="mt-0.5 text-xs text-ink-mute dark:text-night-400">{{ t('home.stats.models') }}</div>
                 </div>
-                <!-- Terminal content -->
-                <div class="terminal-body">
-                  <div class="code-line line-1">
-                    <span class="code-prompt">$</span>
-                    <span class="code-cmd">curl</span>
-                    <span class="code-flag">-X POST</span>
-                    <span class="code-url">/v1/messages</span>
+                <div class="h-9 w-px bg-ink/10 dark:bg-cream/10"></div>
+                <div>
+                  <div class="font-serif text-3xl font-semibold">99.9<span class="text-xl">%</span></div>
+                  <div class="mt-0.5 text-xs text-ink-mute dark:text-night-400">{{ t('home.stats.availability') }}</div>
+                </div>
+                <div class="h-9 w-px bg-ink/10 dark:bg-cream/10"></div>
+                <div>
+                  <div class="font-serif text-3xl font-semibold">{{ t('home.stats.billingValue') }}</div>
+                  <div class="mt-0.5 text-xs text-ink-mute dark:text-night-400">{{ t('home.stats.billingLabel') }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: warm terminal -->
+            <div class="flex flex-1 justify-center lg:justify-end">
+              <div class="terminal-card">
+                <div class="terminal-bar">
+                  <span class="tdot bg-clay-500"></span>
+                  <span class="tdot" style="background: #e0a387"></span>
+                  <span class="tdot" style="background: #edc7b4"></span>
+                  <span class="ml-1 flex-1 text-center font-mono text-xs text-ink-mute dark:text-night-400" style="margin-right: 42px">sub2api — bash</span>
+                </div>
+                <div class="terminal-body text-ink-soft dark:text-night-300">
+                  <div class="cl d1">
+                    <span class="font-bold text-clay-500">❯</span>
+                    <span class="text-clay-600 dark:text-clay-300">curl</span>
+                    <span class="text-ink-mute dark:text-night-400">-X POST</span>
+                    <span class="font-medium text-emerald-700 dark:text-emerald-400">/v1/messages</span>
                   </div>
-                  <div class="code-line line-2">
-                    <span class="code-comment"># Routing to upstream...</span>
+                  <div class="cl d2">
+                    <span class="italic text-ink-mute dark:text-night-400"># {{ t('home.terminalRouting') }}</span>
                   </div>
-                  <div class="code-line line-3">
-                    <span class="code-success">200 OK</span>
-                    <span class="code-response">{ "content": "Hello!" }</span>
+                  <div class="cl d3">
+                    <span class="rounded-md bg-emerald-600/10 px-2 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-400">200 OK</span>
+                    <span class="text-clay-600 dark:text-clay-300">{ "content": "Hello!" }</span>
                   </div>
-                  <div class="code-line line-4">
-                    <span class="code-prompt">$</span>
-                    <span class="cursor"></span>
+                  <div class="cl d4">
+                    <span class="font-bold text-clay-500">❯</span>
+                    <span class="caret"></span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Feature Tags - Centered -->
-        <div class="mb-12 flex flex-wrap items-center justify-center gap-4 md:gap-6">
-          <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
-          >
-            <Icon name="swap" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
-              t('home.tags.subscriptionToApi')
-            }}</span>
-          </div>
-          <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
-          >
-            <Icon name="shield" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
-              t('home.tags.stickySession')
-            }}</span>
-          </div>
-          <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
-          >
-            <Icon name="chart" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
-              t('home.tags.realtimeBilling')
-            }}</span>
+          <!-- Trust pills -->
+          <div class="mt-20 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-ink-mute dark:text-night-400">
+            <span class="flex items-center gap-2"><span class="spark">✳</span> {{ t('home.tags.subscriptionToApi') }}</span>
+            <span class="hidden h-1 w-1 rounded-full bg-ink/20 sm:block dark:bg-cream/20"></span>
+            <span class="flex items-center gap-2"><span class="spark">✳</span> {{ t('home.tags.stickySession') }}</span>
+            <span class="hidden h-1 w-1 rounded-full bg-ink/20 sm:block dark:bg-cream/20"></span>
+            <span class="flex items-center gap-2"><span class="spark">✳</span> {{ t('home.tags.realtimeBilling') }}</span>
           </div>
         </div>
+      </section>
 
-        <!-- Features Grid -->
-        <div class="mb-12 grid gap-6 md:grid-cols-3">
-          <!-- Feature 1: Unified Gateway -->
-          <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
-          >
-            <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 transition-transform group-hover:scale-110"
-            >
-              <Icon name="server" size="lg" class="text-white" />
-            </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('home.features.unifiedGateway') }}
-            </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
-              {{ t('home.features.unifiedGatewayDesc') }}
-            </p>
+      <!-- Pain Points -->
+      <section id="pain" class="px-6 py-24">
+        <div class="mx-auto max-w-5xl">
+          <div class="reveal mb-14 max-w-2xl">
+            <h2 class="font-serif text-3xl font-semibold leading-tight md:text-4xl">{{ t('home.painPoints.title') }}</h2>
           </div>
-
-          <!-- Feature 2: Account Pool -->
-          <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
-          >
+          <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/30 transition-transform group-hover:scale-110"
+              v-for="(key, i) in painKeys"
+              :key="key"
+              class="reveal card rounded-2xl p-6"
             >
-              <svg
-                class="h-6 w-6 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
-                />
-              </svg>
+              <div class="mb-4 font-serif text-2xl text-clay-500">{{ String(i + 1).padStart(2, '0') }}</div>
+              <h3 class="mb-2 font-medium">{{ t(`home.painPoints.items.${key}.title`) }}</h3>
+              <p class="text-sm leading-relaxed text-ink-mute dark:text-night-400">{{ t(`home.painPoints.items.${key}.desc`) }}</p>
             </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('home.features.multiAccount') }}
-            </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
-              {{ t('home.features.multiAccountDesc') }}
-            </p>
-          </div>
-
-          <!-- Feature 3: Billing & Quota -->
-          <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
-          >
-            <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-500/30 transition-transform group-hover:scale-110"
-            >
-              <svg
-                class="h-6 w-6 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
-                />
-              </svg>
-            </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('home.features.balanceQuota') }}
-            </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
-              {{ t('home.features.balanceQuotaDesc') }}
-            </p>
           </div>
         </div>
+      </section>
 
-        <!-- Supported Providers -->
-        <div class="mb-8 text-center">
-          <h2 class="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
-            {{ t('home.providers.title') }}
-          </h2>
-          <p class="text-sm text-gray-600 dark:text-dark-400">
-            {{ t('home.providers.description') }}
-          </p>
-        </div>
-
-        <div class="mb-16 flex flex-wrap items-center justify-center gap-4">
-          <!-- Claude - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-orange-500"
-            >
-              <span class="text-xs font-bold text-white">C</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.claude') }}</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
+      <!-- Features / Solutions -->
+      <section id="features" class="px-6 py-24">
+        <div class="mx-auto max-w-5xl">
+          <div class="reveal mb-14 max-w-2xl">
+            <p class="mb-3 text-sm font-medium uppercase tracking-widest text-clay-500">{{ t('home.solutions.title') }}</p>
+            <h2 class="font-serif text-3xl font-semibold leading-tight md:text-4xl">{{ t('home.solutions.subtitle') }}</h2>
           </div>
-          <!-- GPT - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600"
-            >
-              <span class="text-xs font-bold text-white">G</span>
+          <div class="grid gap-6 md:grid-cols-3">
+            <!-- One-Click Access -->
+            <div class="reveal card rounded-2xl p-8">
+              <div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-clay-100 text-clay-600 dark:bg-clay-900/30 dark:text-clay-300">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
+                </svg>
+              </div>
+              <h3 class="mb-2 font-serif text-xl font-semibold">{{ t('home.features.unifiedGateway') }}</h3>
+              <p class="text-sm leading-relaxed text-ink-mute dark:text-night-400">{{ t('home.features.unifiedGatewayDesc') }}</p>
             </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">GPT</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- Gemini - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600"
-            >
-              <span class="text-xs font-bold text-white">G</span>
+            <!-- Reliable -->
+            <div class="reveal card rounded-2xl p-8">
+              <div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-clay-100 text-clay-600 dark:bg-clay-900/30 dark:text-clay-300">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/>
+                </svg>
+              </div>
+              <h3 class="mb-2 font-serif text-xl font-semibold">{{ t('home.features.multiAccount') }}</h3>
+              <p class="text-sm leading-relaxed text-ink-mute dark:text-night-400">{{ t('home.features.multiAccountDesc') }}</p>
             </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.gemini') }}</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- Antigravity - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-600"
-            >
-              <span class="text-xs font-bold text-white">A</span>
+            <!-- Pay as you go -->
+            <div class="reveal card rounded-2xl p-8">
+              <div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-clay-100 text-clay-600 dark:bg-clay-900/30 dark:text-clay-300">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+                </svg>
+              </div>
+              <h3 class="mb-2 font-serif text-xl font-semibold">{{ t('home.features.balanceQuota') }}</h3>
+              <p class="text-sm leading-relaxed text-ink-mute dark:text-night-400">{{ t('home.features.balanceQuotaDesc') }}</p>
             </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.antigravity') }}</span>
-            <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- More - Coming Soon -->
-          <div
-            class="flex items-center gap-2 rounded-xl border border-gray-200/50 bg-white/40 px-5 py-3 opacity-60 backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/40"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-gray-500 to-gray-600"
-            >
-              <span class="text-xs font-bold text-white">+</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.more') }}</span>
-            <span
-              class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-dark-700 dark:text-dark-400"
-              >{{ t('home.providers.soon') }}</span
-            >
           </div>
         </div>
-      </div>
+      </section>
+
+      <!-- Comparison -->
+      <section id="compare" class="px-6 py-24">
+        <div class="mx-auto max-w-3xl">
+          <div class="reveal mb-12 text-center">
+            <h2 class="font-serif text-3xl font-semibold md:text-4xl">{{ t('home.comparison.title') }}</h2>
+          </div>
+          <div class="reveal overflow-hidden rounded-2xl border border-cream-deep bg-cream-paper dark:border-night-700 dark:bg-night-850">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-cream-deep dark:border-night-700">
+                  <th class="px-6 py-5 font-medium text-ink-mute dark:text-night-400">{{ t('home.comparison.headers.feature') }}</th>
+                  <th class="px-6 py-5 font-medium text-ink-mute dark:text-night-400">{{ t('home.comparison.headers.official') }}</th>
+                  <th class="bg-clay-50 px-6 py-5 font-serif font-semibold text-clay-700 dark:bg-clay-900/15 dark:text-clay-300">{{ t('home.comparison.headers.us') }}</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-cream-deep dark:divide-night-700/60">
+                <tr v-for="key in comparisonKeys" :key="key">
+                  <td class="px-6 py-4 font-medium">{{ t(`home.comparison.items.${key}.feature`) }}</td>
+                  <td class="px-6 py-4 text-ink-mute dark:text-night-400">{{ t(`home.comparison.items.${key}.official`) }}</td>
+                  <td class="bg-clay-50/60 px-6 py-4 dark:bg-clay-900/10">{{ t(`home.comparison.items.${key}.us`) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Providers -->
+      <section id="providers" class="px-6 py-24">
+        <div class="mx-auto max-w-5xl">
+          <div class="reveal mb-12 text-center">
+            <h2 class="font-serif text-3xl font-semibold md:text-4xl">{{ t('home.providers.title') }}</h2>
+            <p class="mt-3 text-lg text-ink-mute dark:text-night-300">{{ t('home.providers.description') }}</p>
+          </div>
+          <div class="reveal flex flex-wrap items-center justify-center gap-4">
+            <div
+              v-for="p in providers"
+              :key="p.label"
+              class="flex items-center gap-2.5 rounded-xl border border-cream-deep bg-cream-paper px-5 py-3 dark:border-night-700 dark:bg-night-850"
+            >
+              <div class="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white" :class="p.badge">
+                {{ p.glyph }}
+              </div>
+              <span class="text-sm font-medium">{{ p.label }}</span>
+              <span class="rounded bg-clay-100 px-1.5 py-0.5 text-[10px] font-medium text-clay-600 dark:bg-clay-900/30 dark:text-clay-300">{{ t('home.providers.supported') }}</span>
+            </div>
+            <!-- More - Soon -->
+            <div class="flex items-center gap-2.5 rounded-xl border border-dashed border-cream-deep bg-transparent px-5 py-3 opacity-70 dark:border-night-700">
+              <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-ink-mute/30 text-xs font-bold text-ink-mute dark:text-night-400">+</div>
+              <span class="text-sm font-medium">{{ t('home.providers.more') }}</span>
+              <span class="rounded bg-cream-deep px-1.5 py-0.5 text-[10px] font-medium text-ink-mute dark:bg-night-800 dark:text-night-400">{{ t('home.providers.soon') }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <section class="px-6 py-24">
+        <div class="reveal mx-auto max-w-4xl rounded-3xl border border-clay-200 bg-clay-50 px-8 py-16 text-center dark:border-clay-800/40 dark:bg-clay-900/15">
+          <div class="mb-4 text-2xl text-clay-500"><span class="spark">✳</span></div>
+          <h2 class="mb-3 font-serif text-3xl font-semibold md:text-4xl">{{ t('home.cta.title') }}</h2>
+          <p class="mx-auto mb-8 max-w-md text-lg text-ink-mute dark:text-night-300">{{ t('home.cta.description') }}</p>
+          <router-link
+            :to="isAuthenticated ? dashboardPath : '/login'"
+            class="group inline-flex items-center gap-2 rounded-xl bg-clay-500 px-8 py-3.5 text-base font-medium text-white shadow-sm transition-all hover:bg-clay-600 hover:shadow-md"
+          >
+            {{ isAuthenticated ? t('home.goToDashboard') : t('home.cta.button') }}
+            <Icon name="arrowRight" size="sm" :stroke-width="2" class="transition-transform group-hover:translate-x-1" />
+          </router-link>
+        </div>
+      </section>
     </main>
 
     <!-- Footer -->
-    <footer class="relative z-10 border-t border-gray-200/50 px-6 py-8 dark:border-dark-800/50">
-      <div
-        class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-4 text-center sm:flex-row sm:text-left"
-      >
-        <p class="text-sm text-gray-500 dark:text-dark-400">
-          &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
-        </p>
-        <div class="flex items-center gap-4">
+    <footer class="relative z-10 border-t border-cream-deep px-6 py-10 dark:border-night-800">
+      <div class="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+        <div class="flex items-center gap-2 text-sm text-ink-mute dark:text-night-400">
+          <span class="spark">✳</span> &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
+        </div>
+        <div class="flex items-center gap-6 text-sm">
           <a
             v-if="docUrl"
             :href="docUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
+            class="text-ink-mute transition-colors hover:text-ink dark:text-night-400 dark:hover:text-cream"
           >
             {{ t('home.docs') }}
           </a>
@@ -394,7 +347,7 @@
             :href="githubUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
+            class="text-ink-mute transition-colors hover:text-ink dark:text-night-400 dark:hover:text-cream"
           >
             GitHub
           </a>
@@ -405,7 +358,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
@@ -419,7 +372,6 @@ const appStore = useAppStore()
 // Site settings - directly from appStore (already initialized from injected config)
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
-const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform')
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
 
@@ -438,7 +390,7 @@ const githubUrl = 'https://github.com/Wei-Shaw/sub2api'
 // Auth state
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
-const dashboardPath = computed(() => isAdmin.value ? '/admin/dashboard' : '/dashboard')
+const dashboardPath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
 const userInitial = computed(() => {
   const user = authStore.user
   if (!user || !user.email) return ''
@@ -447,6 +399,16 @@ const userInitial = computed(() => {
 
 // Current year for footer
 const currentYear = computed(() => new Date().getFullYear())
+
+// Static section keys (drive v-for over i18n)
+const painKeys = ['expensive', 'complex', 'unstable', 'noControl'] as const
+const comparisonKeys = ['pricing', 'models', 'management', 'stability', 'control'] as const
+const providers = [
+  { label: 'Claude', glyph: 'C', badge: 'bg-clay-500' },
+  { label: 'GPT', glyph: 'G', badge: 'bg-emerald-600' },
+  { label: 'Gemini', glyph: 'G', badge: 'bg-blue-600' },
+  { label: 'Antigravity', glyph: 'A', badge: 'bg-rose-500' }
+]
 
 // Toggle theme
 function toggleTheme() {
@@ -458,171 +420,170 @@ function toggleTheme() {
 // Initialize theme
 function initTheme() {
   const savedTheme = localStorage.getItem('theme')
-  if (
-    savedTheme === 'dark' ||
-    (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  ) {
+  if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
     isDark.value = true
     document.documentElement.classList.add('dark')
   }
 }
 
+// Smooth-scroll to in-page section
+function scrollToId(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+// Sticky header background on scroll
+const scrolled = ref(false)
+function onScroll() {
+  scrolled.value = window.scrollY > 16
+}
+
+// Scroll-reveal animation
+const rootEl = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+
 onMounted(() => {
   initTheme()
-
-  // Check auth state
   authStore.checkAuth()
-
-  // Ensure public settings are loaded (will use cache if already loaded from injected config)
   if (!appStore.publicSettingsLoaded) {
     appStore.fetchPublicSettings()
   }
+
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+
+  nextTick(() => {
+    if (!('IntersectionObserver' in window) || !rootEl.value) return
+    observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry, i) => {
+          if (entry.isIntersecting) {
+            const el = entry.target as HTMLElement
+            el.style.transitionDelay = `${(i % 4) * 80}ms`
+            el.classList.add('visible')
+            observer?.unobserve(el)
+          }
+        })
+      },
+      { threshold: 0.12 }
+    )
+    rootEl.value.querySelectorAll('.reveal').forEach((el) => observer?.observe(el))
+  })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll)
+  observer?.disconnect()
 })
 </script>
 
 <style scoped>
-/* Terminal Container */
-.terminal-container {
-  position: relative;
+/* Paper grain — very subtle */
+.home-claude::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+:global(.dark) .home-claude::before {
+  opacity: 0.5;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+}
+
+.spark {
   display: inline-block;
+  color: #cc785c;
 }
 
-/* Terminal Window */
-.terminal-window {
-  width: 420px;
-  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-  border-radius: 14px;
+/* Terminal card */
+.terminal-card {
+  width: 100%;
+  max-width: 26rem;
+  background: #faf9f5;
+  border: 1px solid #e8e4d8;
+  border-radius: 18px;
   box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 1px 2px rgba(20, 20, 19, 0.04),
+    0 24px 48px -24px rgba(20, 20, 19, 0.18);
   overflow: hidden;
-  transform: perspective(1000px) rotateX(2deg) rotateY(-2deg);
-  transition: transform 0.3s ease;
+  transition:
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.4s;
+}
+.terminal-card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 1px 2px rgba(20, 20, 19, 0.04),
+    0 36px 64px -28px rgba(204, 120, 92, 0.28);
+}
+:global(.dark) .terminal-card {
+  background: #262624;
+  border-color: #3a3a36;
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.6);
 }
 
-.terminal-window:hover {
-  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-4px);
-}
-
-/* Terminal Header */
-.terminal-header {
+.terminal-bar {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
-  background: rgba(30, 41, 59, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 0.6rem;
+  padding: 0.85rem 1.1rem;
+  background: #f0eee6;
+  border-bottom: 1px solid #e8e4d8;
 }
-
-.terminal-buttons {
-  display: flex;
-  gap: 8px;
+:global(.dark) .terminal-bar {
+  background: #1f1e1d;
+  border-bottom-color: #3a3a36;
 }
-
-.terminal-buttons span {
-  width: 12px;
-  height: 12px;
+.tdot {
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
 }
 
-.btn-close {
-  background: #ef4444;
-}
-.btn-minimize {
-  background: #eab308;
-}
-.btn-maximize {
-  background: #22c55e;
-}
-
-.terminal-title {
-  flex: 1;
-  text-align: center;
-  font-size: 12px;
-  font-family: ui-monospace, monospace;
-  color: #64748b;
-  margin-right: 52px;
-}
-
-/* Terminal Body */
 .terminal-body {
-  padding: 20px 24px;
-  font-family: ui-monospace, 'Fira Code', monospace;
-  font-size: 14px;
-  line-height: 2;
+  padding: 1.25rem 1.35rem;
+  font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 2.05;
 }
-
-.code-line {
+.cl {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   flex-wrap: wrap;
   opacity: 0;
-  animation: line-appear 0.5s ease forwards;
+  transform: translateY(6px);
+  animation: cl-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-
-.line-1 {
-  animation-delay: 0.3s;
+.d1 {
+  animation-delay: 0.35s;
 }
-.line-2 {
-  animation-delay: 1s;
+.d2 {
+  animation-delay: 1.05s;
 }
-.line-3 {
+.d3 {
   animation-delay: 1.8s;
 }
-.line-4 {
-  animation-delay: 2.5s;
+.d4 {
+  animation-delay: 2.55s;
 }
-
-@keyframes line-appear {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
+@keyframes cl-rise {
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-
-.code-prompt {
-  color: #22c55e;
-  font-weight: bold;
-}
-.code-cmd {
-  color: #38bdf8;
-}
-.code-flag {
-  color: #a78bfa;
-}
-.code-url {
-  color: #14b8a6;
-}
-.code-comment {
-  color: #64748b;
-  font-style: italic;
-}
-.code-success {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.15);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 600;
-}
-.code-response {
-  color: #fbbf24;
-}
-
-/* Blinking Cursor */
-.cursor {
+.caret {
   display: inline-block;
-  width: 8px;
-  height: 16px;
-  background: #22c55e;
-  animation: blink 1s step-end infinite;
+  width: 7px;
+  height: 15px;
+  background: #cc785c;
+  animation: caret-blink 1s step-end infinite;
 }
-
-@keyframes blink {
+@keyframes caret-blink {
   0%,
   50% {
     opacity: 1;
@@ -633,12 +594,51 @@ onMounted(() => {
   }
 }
 
-/* Dark mode adjustments */
-:deep(.dark) .terminal-window {
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(20, 184, 166, 0.2),
-    0 0 40px rgba(20, 184, 166, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Cards */
+.card {
+  background: #faf9f5;
+  border: 1px solid #e8e4d8;
+  transition:
+    transform 0.3s,
+    box-shadow 0.3s,
+    border-color 0.3s;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 48px -28px rgba(20, 20, 19, 0.2);
+  border-color: #e0a387;
+}
+:global(.dark) .card {
+  background: #262624;
+  border-color: #30302d;
+}
+:global(.dark) .card:hover {
+  border-color: #bd5d3a;
+  box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.6);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .cl,
+  .reveal,
+  .caret {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 </style>

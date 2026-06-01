@@ -13,6 +13,15 @@ export default {
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
     heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
+    heroBadge: 'Supports Claude · GPT · Gemini & more',
+    learnMore: 'Learn More',
+    terminalRouting: 'Routing to available upstream...',
+    stats: {
+      models: 'AI Models',
+      availability: 'Availability',
+      billingValue: 'Usage',
+      billingLabel: 'Billing'
+    },
     tags: {
       subscriptionToApi: 'Subscription to API',
       stickySession: 'Session Persistence',
