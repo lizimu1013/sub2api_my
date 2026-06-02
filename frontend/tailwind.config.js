@@ -83,6 +83,7 @@ export default {
         }
       },
       fontFamily: {
+        serif: ['Georgia', 'Cambria', 'Times New Roman', 'ui-serif', 'serif'],
         sans: [
           'system-ui',
           '-apple-system',

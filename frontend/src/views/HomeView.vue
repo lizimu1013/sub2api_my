@@ -41,6 +41,13 @@
           <span class="font-serif text-lg font-semibold tracking-tight">{{ siteName }}</span>
         </div>
 
+        <div class="hidden items-center gap-9 text-sm text-ink-soft md:flex dark:text-night-300">
+          <a href="#pain" class="link-underline">{{ t('home.navLinks.pain') }}</a>
+          <a href="#features" class="link-underline">{{ t('home.navLinks.features') }}</a>
+          <a href="#compare" class="link-underline">{{ t('home.navLinks.compare') }}</a>
+          <a href="#providers" class="link-underline">{{ t('home.navLinks.providers') }}</a>
+        </div>
+
         <!-- Nav Actions -->
         <div class="flex items-center gap-2">
           <LocaleSwitcher />
@@ -107,7 +114,8 @@
               <h1
                 class="mb-6 font-serif text-5xl font-semibold leading-[1.08] tracking-tight md:text-6xl lg:text-[4.25rem]"
               >
-                {{ t('home.heroSubtitle') }}
+                {{ t('home.heroTitleLine1') }}<br />
+                {{ t('home.heroTitleLine2') }}<span class="text-clay-500">{{ t('home.heroTitleAccent') }}</span>
               </h1>
               <p class="mx-auto mb-9 max-w-lg text-lg leading-relaxed text-ink-mute dark:text-night-300 lg:mx-0">
                 {{ t('home.heroDescription') }}
@@ -188,6 +196,8 @@
             <span class="flex items-center gap-2"><span class="spark">✳</span> {{ t('home.tags.stickySession') }}</span>
             <span class="hidden h-1 w-1 rounded-full bg-ink/20 sm:block dark:bg-cream/20"></span>
             <span class="flex items-center gap-2"><span class="spark">✳</span> {{ t('home.tags.realtimeBilling') }}</span>
+            <span class="hidden h-1 w-1 rounded-full bg-ink/20 sm:block dark:bg-cream/20"></span>
+            <span class="flex items-center gap-2"><span class="spark">✳</span> {{ t('home.tags.loadBalancing') }}</span>
           </div>
         </div>
       </section>
@@ -196,7 +206,11 @@
       <section id="pain" class="px-6 py-24">
         <div class="mx-auto max-w-5xl">
           <div class="reveal mb-14 max-w-2xl">
+            <p class="mb-3 text-sm font-medium uppercase tracking-widest text-clay-500">
+              {{ t('home.painPoints.kicker') }}
+            </p>
             <h2 class="font-serif text-3xl font-semibold leading-tight md:text-4xl">{{ t('home.painPoints.title') }}</h2>
+            <p class="mt-4 text-lg text-ink-mute dark:text-night-300">{{ t('home.painPoints.description') }}</p>
           </div>
           <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <div
@@ -488,7 +502,7 @@ onUnmounted(() => {
   background-image: radial-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px);
   background-size: 4px 4px;
 }
-:global(.dark) .home-claude::before {
+:global(.dark .home-claude::before) {
   opacity: 0.5;
   background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
 }
@@ -519,7 +533,7 @@ onUnmounted(() => {
     0 1px 2px rgba(20, 20, 19, 0.04),
     0 36px 64px -28px rgba(204, 120, 92, 0.28);
 }
-:global(.dark) .terminal-card {
+:global(.dark .home-claude .terminal-card) {
   background: #262624;
   border-color: #3a3a36;
   box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.6);
@@ -533,7 +547,7 @@ onUnmounted(() => {
   background: #f0eee6;
   border-bottom: 1px solid #e8e4d8;
 }
-:global(.dark) .terminal-bar {
+:global(.dark .home-claude .terminal-bar) {
   background: #1f1e1d;
   border-bottom-color: #3a3a36;
 }
@@ -621,13 +635,25 @@ onUnmounted(() => {
   box-shadow: 0 24px 48px -28px rgba(20, 20, 19, 0.2);
   border-color: #e0a387;
 }
-:global(.dark) .card {
+:global(.dark .home-claude .card) {
   background: #262624;
   border-color: #30302d;
 }
-:global(.dark) .card:hover {
+:global(.dark .home-claude .card:hover) {
   border-color: #bd5d3a;
   box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.6);
+}
+
+.link-underline {
+  background-image: linear-gradient(#cc785c, #cc785c);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1.5px;
+  transition: background-size 0.3s;
+}
+
+.link-underline:hover {
+  background-size: 100% 1.5px;
 }
 
 /* Respect reduced motion */

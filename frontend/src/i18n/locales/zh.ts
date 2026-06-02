@@ -10,9 +10,18 @@ export default {
     login: '登录',
     getStarted: '立即开始',
     goToDashboard: '进入控制台',
+    navLinks: {
+      pain: '为什么需要',
+      features: '核心能力',
+      compare: '方案对比',
+      providers: '支持模型'
+    },
     // 新增：面向用户的价值主张
+    heroTitleLine1: '一个密钥，',
+    heroTitleLine2: '畅用',
+    heroTitleAccent: '多个 AI 模型',
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
-    heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
+    heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务，按量计费、用量可控。',
     heroBadge: '支持 Claude · GPT · Gemini 等主流模型',
     learnMore: '了解更多',
     terminalRouting: '智能路由至可用上游...',
@@ -25,11 +34,14 @@ export default {
     tags: {
       subscriptionToApi: '订阅转 API',
       stickySession: '会话保持',
-      realtimeBilling: '按量计费'
+      realtimeBilling: '按量计费',
+      loadBalancing: '多账号负载均衡'
     },
     // 用户痛点区块
     painPoints: {
+      kicker: '痛点',
       title: '你是否也遇到这些问题？',
+      description: '使用多个 AI 服务时，这些痛点你一定不陌生。',
       items: {
         expensive: {
           title: '订阅费用高',

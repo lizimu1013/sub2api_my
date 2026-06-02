@@ -10,9 +10,18 @@ export default {
     login: 'Login',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
+    navLinks: {
+      pain: 'Why It Matters',
+      features: 'Core Features',
+      compare: 'Compare',
+      providers: 'Models'
+    },
     // User-focused value proposition
+    heroTitleLine1: 'One Key,',
+    heroTitleLine2: '',
+    heroTitleAccent: 'All AI Models',
     heroSubtitle: 'One Key, All AI Models',
-    heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
+    heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with one API key, usage-based billing, and controlled spend.',
     heroBadge: 'Supports Claude · GPT · Gemini & more',
     learnMore: 'Learn More',
     terminalRouting: 'Routing to available upstream...',
@@ -25,11 +34,14 @@ export default {
     tags: {
       subscriptionToApi: 'Subscription to API',
       stickySession: 'Session Persistence',
-      realtimeBilling: 'Pay As You Go'
+      realtimeBilling: 'Pay As You Go',
+      loadBalancing: 'Multi-account Load Balancing'
     },
     // Pain points section
     painPoints: {
+      kicker: 'Pain Points',
       title: 'Sound Familiar?',
+      description: 'When using multiple AI services, these problems show up fast.',
       items: {
         expensive: {
           title: 'High Subscription Costs',
