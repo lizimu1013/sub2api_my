@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MuchuAPI — 注册页设计预览 (Claude 风格)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: { colors: {
+        clay:{50:'#fbf3ef',100:'#f6e4da',200:'#edc7b4',300:'#e0a387',400:'#d4825f',500:'#cc785c',600:'#bd5d3a',700:'#9d4a2e',800:'#7f3d28',900:'#683424'},
+        cream:{DEFAULT:'#f0eee6',paper:'#faf9f5',deep:'#e8e4d8'},
+        ink:{DEFAULT:'#141413',soft:'#3d3d3a',mute:'#73726c'},
+        night:{300:'#b7b5ac',400:'#908e85',600:'#4a4a45',700:'#3a3a36',800:'#30302d',850:'#262624',900:'#1f1e1d',950:'#191917'}
+      }, fontFamily:{ serif:['Georgia','Cambria','serif'], sans:['system-ui','-apple-system','"PingFang SC"','sans-serif'] } } }
+    }
+  </script>
+  <style>
+    body{background:#f0eee6} .dark body{background:#1f1e1d}
+    .grain::before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.4;background-image:radial-gradient(rgba(0,0,0,.025) 1px,transparent 1px);background-size:4px 4px}
+    .dark .grain::before{opacity:.5;background-image:radial-gradient(rgba(255,255,255,.02) 1px,transparent 1px)}
+    .field{width:100%;border-radius:.75rem;padding:.625rem 1rem;font-size:.875rem;border:1px solid #e8e4d8;background:#faf9f5;color:#141413;transition:all .2s}
+    .field::placeholder{color:rgba(115,114,108,.5)}
+    .field:focus{outline:none;border-color:#d4825f;box-shadow:0 0 0 2px rgba(204,120,92,.25)}
+    .field-valid{border-color:#22c55e!important;box-shadow:0 0 0 2px rgba(34,197,94,.25)}
+    .dark .field{border-color:#3a3a36;background:#1f1e1d;color:#f0eee6}
+    .dark .field::placeholder{color:#908e85}
+  </style>
+</head>
+<body class="grain font-sans text-ink antialiased dark:text-cream">
+  <button onclick="document.documentElement.classList.toggle('dark')" class="fixed right-4 top-4 z-50 rounded-lg border border-cream-deep bg-cream-paper px-3 py-1.5 text-xs text-ink-mute dark:border-night-700 dark:bg-night-850 dark:text-night-300">切换深色</button>
+
+  <div class="relative flex min-h-screen items-center justify-center overflow-hidden bg-cream p-4 transition-colors dark:bg-night-900">
+    <div class="pointer-events-none absolute inset-0 overflow-hidden">
+      <div class="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-clay-300/20 blur-3xl dark:bg-clay-700/15"></div>
+      <div class="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-clay-400/15 blur-3xl dark:bg-clay-800/15"></div>
+    </div>
+
+    <div class="relative z-10 w-full max-w-md">
+      <!-- Brand -->
+      <div class="mb-8 text-center">
+        <div class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-clay-100 text-clay-600 shadow-sm dark:bg-clay-900/30 dark:text-clay-300">
+          <svg class="h-9 w-9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5l1.6 6.3 4.8-4.2-2.6 5.9 6.4-1.1-5.4 3.6 5.4 3.6-6.4-1.1 2.6 5.9-4.8-4.2L12 22.5l-1.6-6.3-4.8 4.2 2.6-5.9-6.4 1.1 5.4-3.6L1.8 8.4l6.4 1.1L5.6 3.6l4.8 4.2L12 1.5z"/></svg>
+        </div>
+        <h1 class="mb-2 font-serif text-3xl font-semibold tracking-tight">MuchuAPI</h1>
+        <p class="text-sm text-ink-mute dark:text-night-400">注册即可开始使用 MuchuAPI</p>
+      </div>
+
+      <!-- Card -->
+      <div class="rounded-2xl border border-cream-deep bg-cream-paper p-8 shadow-[0_1px_2px_rgba(20,20,19,0.04),0_24px_48px_-28px_rgba(20,20,19,0.18)] dark:border-night-700 dark:bg-night-850 dark:shadow-[0_24px_48px_-28px_rgba(0,0,0,0.6)]">
+        <div class="space-y-6">
+          <div class="text-center">
+            <h2 class="font-serif text-2xl font-semibold">创建账户</h2>
+            <p class="mt-2 text-sm text-ink-mute dark:text-night-400">填写以下信息完成注册</p>
+          </div>
+
+          <form class="space-y-5" onsubmit="return false">
+            <!-- email -->
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-ink-soft dark:text-night-300">邮箱</label>
+              <div class="relative">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-ink-mute dark:text-night-400">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                </div>
+                <input type="email" class="field pl-11" placeholder="you@example.com" />
+              </div>
+            </div>
+
+            <!-- password -->
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-ink-soft dark:text-night-300">密码</label>
+              <div class="relative">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-ink-mute dark:text-night-400">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 00-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+                </div>
+                <input type="password" class="field pl-11 pr-11" placeholder="至少 6 位" value="secret" />
+                <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-ink-mute hover:text-ink dark:hover:text-night-300">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </button>
+              </div>
+              <p class="mt-1 text-xs text-ink-mute dark:text-night-400">密码长度至少 6 位</p>
+            </div>
+
+            <!-- invitation code (valid state) -->
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-ink-soft dark:text-night-300">邀请码</label>
+              <div class="relative">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-green-500">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
+                </div>
+                <input type="text" class="field field-valid pl-11 pr-10" value="WELCOME2026" />
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-green-500">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+              </div>
+              <div class="mt-2 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
+                <svg class="h-4 w-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-sm text-green-700 dark:text-green-400">邀请码有效</span>
+              </div>
+            </div>
+
+            <!-- submit -->
+            <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-clay-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-clay-600 hover:shadow-md active:scale-[0.98]">
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"/></svg>
+              创建账户
+            </button>
+
+            <!-- OAuth -->
+            <div class="space-y-3 pt-1">
+              <div class="flex items-center gap-3">
+                <div class="h-px flex-1 bg-cream-deep dark:bg-night-700"></div>
+                <span class="text-xs text-ink-mute dark:text-night-400">或继续使用</span>
+                <div class="h-px flex-1 bg-cream-deep dark:bg-night-700"></div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <button class="inline-flex items-center justify-center gap-2 rounded-xl border border-cream-deep bg-cream-paper px-4 py-2.5 text-sm font-medium text-ink-soft transition hover:bg-cream-deep dark:border-night-700 dark:bg-night-900 dark:text-night-300 dark:hover:bg-night-800">
+                  <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 015.79 0c2.21-1.49 3.18-1.18 3.18-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.51 11.51 0 0023.5 12C23.5 5.73 18.27.5 12 .5z"/></svg>
+                  GitHub
+                </button>
+                <button class="inline-flex items-center justify-center gap-2 rounded-xl border border-cream-deep bg-cream-paper px-4 py-2.5 text-sm font-medium text-ink-soft transition hover:bg-cream-deep dark:border-night-700 dark:bg-night-900 dark:text-night-300 dark:hover:bg-night-800">
+                  <svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.6 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.9 1.9 14.7 1 12 1 6.9 1 2.8 5.1 2.8 12S6.9 23 12 23c6.4 0 9.5-4.5 9.5-9.6 0-.6-.07-1.1-.16-1.6H12z"/></svg>
+                  Google
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="mt-6 text-center text-sm text-ink-mute dark:text-night-400">
+        已有账户？
+        <a href="#" class="font-medium text-clay-600 hover:text-clay-500 dark:text-clay-400 dark:hover:text-clay-300">立即登录</a>
+      </div>
+      <div class="mt-8 flex items-center justify-center gap-2 text-center text-xs text-ink-mute dark:text-night-400">
+        <span class="text-clay-500">✳</span> © 2026 MuchuAPI. All rights reserved.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

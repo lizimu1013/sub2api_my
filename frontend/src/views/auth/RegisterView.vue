@@ -3,10 +3,10 @@
     <div class="space-y-6">
       <!-- Title -->
       <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 class="font-serif text-2xl font-semibold text-ink dark:text-cream">
           {{ t('auth.createAccount') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="mt-2 text-sm text-ink-mute dark:text-night-400">
           {{ t('auth.signUpToStart', { siteName }) }}
         </p>
       </div>
@@ -30,12 +30,12 @@
       <form v-else @submit.prevent="handleRegister" class="space-y-5">
         <!-- Email Input -->
         <div>
-          <label for="email" class="input-label">
+          <label for="email" class="field-label">
             {{ t('auth.emailLabel') }}
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-gray-400 dark:text-dark-500" />
+              <Icon name="mail" size="md" class="text-ink-mute dark:text-night-400" />
             </div>
             <input
               id="email"
@@ -45,8 +45,8 @@
               autofocus
               autocomplete="email"
               :disabled="registrationActionDisabled"
-              class="input pl-11"
-              :class="{ 'input-error': errors.email }"
+              class="field pl-11"
+              :class="{ 'field-error': errors.email }"
               :placeholder="t('auth.emailPlaceholder')"
             />
           </div>
@@ -54,12 +54,12 @@
 
         <!-- Password Input -->
         <div>
-          <label for="password" class="input-label">
+          <label for="password" class="field-label">
             {{ t('auth.passwordLabel') }}
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-gray-400 dark:text-dark-500" />
+              <Icon name="lock" size="md" class="text-ink-mute dark:text-night-400" />
             </div>
             <input
               id="password"
@@ -68,43 +68,43 @@
               required
               autocomplete="new-password"
               :disabled="registrationActionDisabled"
-              class="input pl-11 pr-11"
-              :class="{ 'input-error': errors.password }"
+              class="field pl-11 pr-11"
+              :class="{ 'field-error': errors.password }"
               :placeholder="t('auth.createPasswordPlaceholder')"
             />
             <button
               type="button"
               :disabled="registrationActionDisabled"
               @click="showPassword = !showPassword"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-dark-300"
+              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-ink-mute transition-colors hover:text-ink dark:hover:text-night-300"
             >
               <Icon v-if="showPassword" name="eyeOff" size="md" />
               <Icon v-else name="eye" size="md" />
             </button>
           </div>
-          <p class="input-hint">
+          <p class="mt-1 text-xs text-ink-mute dark:text-night-400">
             {{ t('auth.passwordHint') }}
           </p>
         </div>
 
         <!-- Invitation Code Input (Required when enabled) -->
         <div v-if="invitationCodeEnabled">
-          <label for="invitation_code" class="input-label">
+          <label for="invitation_code" class="field-label">
             {{ t('auth.invitationCodeLabel') }}
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="key" size="md" :class="invitationValidation.valid ? 'text-green-500' : 'text-gray-400 dark:text-dark-500'" />
+              <Icon name="key" size="md" :class="invitationValidation.valid ? 'text-green-500' : 'text-ink-mute dark:text-night-400'" />
             </div>
             <input
               id="invitation_code"
               v-model="formData.invitation_code"
               type="text"
               :disabled="registrationActionDisabled"
-              class="input pl-11 pr-10"
+              class="field pl-11 pr-10"
               :class="{
-                'border-green-500 focus:border-green-500 focus:ring-green-500': invitationValidation.valid,
-                'border-red-500 focus:border-red-500 focus:ring-red-500': invitationValidation.invalid || errors.invitation_code
+                'field-valid': invitationValidation.valid,
+                'field-error': invitationValidation.invalid || errors.invitation_code
               }"
               :placeholder="t('auth.invitationCodePlaceholder')"
               @input="handleInvitationCodeInput"
@@ -136,23 +136,23 @@
 
         <!-- Promo Code Input (Optional) -->
         <div v-if="promoCodeEnabled">
-          <label for="promo_code" class="input-label">
+          <label for="promo_code" class="field-label">
             {{ t('auth.promoCodeLabel') }}
-            <span class="ml-1 text-xs font-normal text-gray-400 dark:text-dark-500">({{ t('common.optional') }})</span>
+            <span class="ml-1 text-xs font-normal text-ink-mute dark:text-night-400">({{ t('common.optional') }})</span>
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="gift" size="md" :class="promoValidation.valid ? 'text-green-500' : 'text-gray-400 dark:text-dark-500'" />
+              <Icon name="gift" size="md" :class="promoValidation.valid ? 'text-green-500' : 'text-ink-mute dark:text-night-400'" />
             </div>
             <input
               id="promo_code"
               v-model="formData.promo_code"
               type="text"
               :disabled="registrationActionDisabled"
-              class="input pl-11 pr-10"
+              class="field pl-11 pr-10"
               :class="{
-                'border-green-500 focus:border-green-500 focus:ring-green-500': promoValidation.valid,
-                'border-red-500 focus:border-red-500 focus:ring-red-500': promoValidation.invalid
+                'field-valid': promoValidation.valid,
+                'field-error': promoValidation.invalid
               }"
               :placeholder="t('auth.promoCodePlaceholder')"
               @input="handlePromoCodeInput"
@@ -209,7 +209,7 @@
         <button
           type="submit"
           :disabled="registrationActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary w-full"
+          class="primary-btn"
         >
           <svg
             v-if="isLoading"
@@ -245,11 +245,11 @@
 
       <div v-if="showOAuthLogin" class="space-y-3 pt-1">
         <div class="flex items-center gap-3">
-          <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-          <span class="text-xs text-gray-500 dark:text-dark-400">
+          <div class="h-px flex-1 bg-cream-deep dark:bg-night-700"></div>
+          <span class="text-xs text-ink-mute dark:text-night-400">
             {{ t('auth.oauthOrContinue') }}
           </span>
-          <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
+          <div class="h-px flex-1 bg-cream-deep dark:bg-night-700"></div>
         </div>
 
         <EmailOAuthButtons
@@ -284,11 +284,11 @@
 
     <!-- Footer -->
     <template #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="text-ink-mute dark:text-night-400">
         {{ t('auth.alreadyHaveAccount') }}
         <router-link
           to="/login"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-medium text-clay-600 transition-colors hover:text-clay-500 dark:text-clay-400 dark:hover:text-clay-300"
         >
           {{ t('auth.signIn') }}
         </router-link>
@@ -353,7 +353,7 @@ const promoCodeEnabled = ref<boolean>(true)
 const invitationCodeEnabled = ref<boolean>(false)
 const turnstileEnabled = ref<boolean>(false)
 const turnstileSiteKey = ref<string>('')
-const siteName = ref<string>('Sub2API')
+const siteName = ref<string>('MuchuAPI')
 const linuxdoOAuthEnabled = ref<boolean>(false)
 const wechatOAuthEnabled = ref<boolean>(false)
 const oidcOAuthEnabled = ref<boolean>(false)
@@ -461,7 +461,7 @@ onMounted(async () => {
     invitationCodeEnabled.value = settings.invitation_code_enabled
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
-    siteName.value = settings.site_name || 'Sub2API'
+    siteName.value = settings.site_name || 'MuchuAPI'
     linuxdoOAuthEnabled.value = settings.linuxdo_oauth_enabled
     wechatOAuthEnabled.value = isWeChatWebOAuthEnabled(settings)
     oidcOAuthEnabled.value = settings.oidc_oauth_enabled
@@ -927,5 +927,42 @@ async function handleRegister(): Promise<void> {
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+/* ===== Claude-style form controls (scoped — does not touch global .input/.btn) ===== */
+.field-label {
+  @apply mb-1.5 block text-sm font-medium text-ink-soft dark:text-night-300;
+}
+
+.field {
+  @apply w-full rounded-xl px-4 py-2.5 text-sm;
+  @apply border border-cream-deep bg-cream-paper text-ink;
+  @apply placeholder:text-ink-mute/50;
+  @apply transition-all duration-200;
+  @apply focus:border-clay-400 focus:outline-none focus:ring-2 focus:ring-clay-500/25;
+  @apply disabled:cursor-not-allowed disabled:opacity-60;
+  @apply dark:border-night-700 dark:bg-night-900 dark:text-cream dark:placeholder:text-night-400;
+}
+
+.field-error {
+  @apply border-red-500 focus:border-red-500 focus:ring-red-500/30;
+}
+
+.field-valid {
+  @apply border-green-500 focus:border-green-500 focus:ring-green-500/30;
+}
+
+.primary-btn {
+  @apply inline-flex w-full items-center justify-center gap-2;
+  @apply rounded-xl px-4 py-2.5 text-sm font-medium;
+  @apply bg-clay-500 text-white shadow-sm;
+  @apply transition-all duration-200 ease-out;
+  @apply hover:bg-clay-600 hover:shadow-md;
+  @apply focus:outline-none focus:ring-2 focus:ring-clay-500/40 focus:ring-offset-2;
+  @apply active:scale-[0.98];
+  @apply disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-clay-500 disabled:hover:shadow-sm;
+}
+:global(.dark) .primary-btn {
+  @apply focus:ring-offset-night-850;
 }
 </style>
