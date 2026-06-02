@@ -29,7 +29,7 @@
               autofocus
               autocomplete="email"
               :disabled="authActionDisabled"
-              class="field pl-11"
+              class="field field-icon-left"
               :class="{ 'field-error': errors.email }"
               :placeholder="t('auth.emailPlaceholder')"
             />
@@ -52,7 +52,7 @@
               required
               autocomplete="current-password"
               :disabled="authActionDisabled"
-              class="field pl-11 pr-11"
+              class="field field-icon-left field-icon-right"
               :class="{ 'field-error': errors.password }"
               :placeholder="t('auth.passwordPlaceholder')"
             />
@@ -577,6 +577,14 @@ function handle2FACancel(): void {
   @apply focus:border-clay-400 focus:outline-none focus:ring-2 focus:ring-clay-500/25;
   @apply disabled:cursor-not-allowed disabled:opacity-60;
   @apply dark:border-night-700 dark:bg-night-900 dark:text-cream dark:placeholder:text-night-400;
+}
+
+.field-icon-left {
+  padding-left: 3rem;
+}
+
+.field-icon-right {
+  padding-right: 3rem;
 }
 
 .field-error {
