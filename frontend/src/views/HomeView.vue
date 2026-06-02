@@ -156,7 +156,7 @@
                   <span class="tdot bg-clay-500"></span>
                   <span class="tdot" style="background: #e0a387"></span>
                   <span class="tdot" style="background: #edc7b4"></span>
-                  <span class="ml-1 flex-1 text-center font-mono text-xs text-ink-mute dark:text-night-400" style="margin-right: 42px">sub2api — bash</span>
+                  <span class="ml-1 flex-1 text-center font-mono text-xs text-ink-mute dark:text-night-400" style="margin-right: 42px">muchuapi — bash</span>
                 </div>
                 <div class="terminal-body text-ink-soft dark:text-night-300">
                   <div class="cl d1">
@@ -370,7 +370,7 @@ const authStore = useAuthStore()
 const appStore = useAppStore()
 
 // Site settings - directly from appStore (already initialized from injected config)
-const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
+const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'MuchuAPI')
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
