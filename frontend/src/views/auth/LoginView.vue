@@ -3,10 +3,10 @@
     <div class="space-y-6">
       <!-- Title -->
       <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 class="font-serif text-2xl font-semibold text-ink dark:text-cream">
           {{ t('auth.welcomeBack') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="mt-2 text-sm text-ink-mute dark:text-night-400">
           {{ t('auth.signInToAccount') }}
         </p>
       </div>
@@ -14,12 +14,12 @@
       <form @submit.prevent="handleLogin" class="space-y-5">
         <!-- Email Input -->
         <div>
-          <label for="email" class="input-label">
+          <label for="email" class="field-label">
             {{ t('auth.emailLabel') }}
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-gray-400 dark:text-dark-500" />
+              <Icon name="mail" size="md" class="text-ink-mute dark:text-night-400" />
             </div>
             <input
               id="email"
@@ -29,8 +29,8 @@
               autofocus
               autocomplete="email"
               :disabled="authActionDisabled"
-              class="input pl-11"
-              :class="{ 'input-error': errors.email }"
+              class="field pl-11"
+              :class="{ 'field-error': errors.email }"
               :placeholder="t('auth.emailPlaceholder')"
             />
           </div>
@@ -38,12 +38,12 @@
 
         <!-- Password Input -->
         <div>
-          <label for="password" class="input-label">
+          <label for="password" class="field-label">
             {{ t('auth.passwordLabel') }}
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-gray-400 dark:text-dark-500" />
+              <Icon name="lock" size="md" class="text-ink-mute dark:text-night-400" />
             </div>
             <input
               id="password"
@@ -52,15 +52,15 @@
               required
               autocomplete="current-password"
               :disabled="authActionDisabled"
-              class="input pl-11 pr-11"
-              :class="{ 'input-error': errors.password }"
+              class="field pl-11 pr-11"
+              :class="{ 'field-error': errors.password }"
               :placeholder="t('auth.passwordPlaceholder')"
             />
             <button
               type="button"
               @click="showPassword = !showPassword"
               :disabled="authActionDisabled"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-dark-300"
+              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-ink-mute transition-colors hover:text-ink dark:hover:text-night-300"
             >
               <Icon v-if="showPassword" name="eyeOff" size="md" />
               <Icon v-else name="eye" size="md" />
@@ -71,7 +71,7 @@
             <router-link
               v-if="passwordResetEnabled && !backendModeEnabled"
               to="/forgot-password"
-              class="text-sm font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+              class="text-sm font-medium text-clay-600 transition-colors hover:text-clay-500 dark:text-clay-400 dark:hover:text-clay-300"
             >
               {{ t('auth.forgotPassword') }}
             </router-link>
@@ -93,7 +93,7 @@
         <button
           type="submit"
           :disabled="authActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary w-full"
+          class="primary-btn"
         >
           <svg
             v-if="isLoading"
@@ -133,11 +133,11 @@
 
         <div v-if="showOAuthLogin" class="space-y-3 pt-1">
           <div class="flex items-center gap-3">
-            <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-            <span class="text-xs text-gray-500 dark:text-dark-400">
+            <div class="h-px flex-1 bg-cream-deep dark:bg-night-700"></div>
+            <span class="text-xs text-ink-mute dark:text-night-400">
               {{ t('auth.oauthOrContinue') }}
             </span>
-            <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
+            <div class="h-px flex-1 bg-cream-deep dark:bg-night-700"></div>
           </div>
 
           <EmailOAuthButtons
@@ -174,11 +174,11 @@
 
     <!-- Footer -->
     <template v-if="!backendModeEnabled" #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="text-ink-mute dark:text-night-400">
         {{ t('auth.dontHaveAccount') }}
         <router-link
           to="/register"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-medium text-clay-600 transition-colors hover:text-clay-500 dark:text-clay-400 dark:hover:text-clay-300"
         >
           {{ t('auth.signUp') }}
         </router-link>
@@ -562,5 +562,38 @@ function handle2FACancel(): void {
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+/* ===== Claude-style form controls (scoped — does not touch global .input/.btn) ===== */
+.field-label {
+  @apply mb-1.5 block text-sm font-medium text-ink-soft dark:text-night-300;
+}
+
+.field {
+  @apply w-full rounded-xl px-4 py-2.5 text-sm;
+  @apply border border-cream-deep bg-cream-paper text-ink;
+  @apply placeholder:text-ink-mute/50;
+  @apply transition-all duration-200;
+  @apply focus:border-clay-400 focus:outline-none focus:ring-2 focus:ring-clay-500/25;
+  @apply disabled:cursor-not-allowed disabled:opacity-60;
+  @apply dark:border-night-700 dark:bg-night-900 dark:text-cream dark:placeholder:text-night-400;
+}
+
+.field-error {
+  @apply border-red-500 focus:border-red-500 focus:ring-red-500/30;
+}
+
+.primary-btn {
+  @apply inline-flex w-full items-center justify-center gap-2;
+  @apply rounded-xl px-4 py-2.5 text-sm font-medium;
+  @apply bg-clay-500 text-white shadow-sm;
+  @apply transition-all duration-200 ease-out;
+  @apply hover:bg-clay-600 hover:shadow-md;
+  @apply focus:outline-none focus:ring-2 focus:ring-clay-500/40 focus:ring-offset-2;
+  @apply active:scale-[0.98];
+  @apply disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-clay-500 disabled:hover:shadow-sm;
+}
+:global(.dark) .primary-btn {
+  @apply focus:ring-offset-night-850;
 }
 </style>

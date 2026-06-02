@@ -1,51 +1,47 @@
 <template>
-  <div class="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
-    <!-- Background -->
-    <div
-      class="absolute inset-0 bg-gradient-to-br from-gray-50 via-primary-50/30 to-gray-100 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950"
-    ></div>
-
-    <!-- Decorative Elements -->
+  <div
+    class="auth-claude relative flex min-h-screen items-center justify-center overflow-hidden bg-cream p-4 text-ink transition-colors duration-300 dark:bg-night-900 dark:text-cream"
+  >
+    <!-- Decorative warm blobs -->
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
-      <!-- Gradient Orbs -->
-      <div
-        class="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-primary-400/20 blur-3xl"
-      ></div>
-      <div
-        class="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary-500/15 blur-3xl"
-      ></div>
-      <div
-        class="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-300/10 blur-3xl"
-      ></div>
-
-      <!-- Grid Pattern -->
-      <div
-        class="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
-      ></div>
+      <div class="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-clay-300/20 blur-3xl dark:bg-clay-700/15"></div>
+      <div class="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-clay-400/15 blur-3xl dark:bg-clay-800/15"></div>
     </div>
 
     <!-- Content Container -->
     <div class="relative z-10 w-full max-w-md">
-      <!-- Logo/Brand -->
+      <!-- Logo / Brand -->
       <div class="mb-8 text-center">
-        <!-- Custom Logo or Default Logo -->
         <template v-if="settingsLoaded">
           <div
-            class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-lg shadow-primary-500/30"
+            v-if="siteLogo"
+            class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-cream-paper shadow-sm ring-1 ring-cream-deep dark:bg-night-850 dark:ring-night-700"
           >
-            <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+            <img :src="siteLogo" alt="Logo" class="h-full w-full object-contain" />
           </div>
-          <h1 class="text-gradient mb-2 text-3xl font-bold">
+          <div
+            v-else
+            class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-clay-100 text-clay-600 shadow-sm dark:bg-clay-900/30 dark:text-clay-300"
+          >
+            <svg class="h-9 w-9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M12 1.5l1.6 6.3 4.8-4.2-2.6 5.9 6.4-1.1-5.4 3.6 5.4 3.6-6.4-1.1 2.6 5.9-4.8-4.2L12 22.5l-1.6-6.3-4.8 4.2 2.6-5.9-6.4 1.1 5.4-3.6L1.8 8.4l6.4 1.1L5.6 3.6l4.8 4.2L12 1.5z"
+              />
+            </svg>
+          </div>
+          <h1 class="mb-2 font-serif text-3xl font-semibold tracking-tight text-ink dark:text-cream">
             {{ siteName }}
           </h1>
-          <p class="text-sm text-gray-500 dark:text-dark-400">
+          <p class="text-sm text-ink-mute dark:text-night-400">
             {{ siteSubtitle }}
           </p>
         </template>
       </div>
 
-      <!-- Card Container -->
-      <div class="card-glass rounded-2xl p-8 shadow-glass">
+      <!-- Card -->
+      <div
+        class="rounded-2xl border border-cream-deep bg-cream-paper p-8 shadow-[0_1px_2px_rgba(20,20,19,0.04),0_24px_48px_-28px_rgba(20,20,19,0.18)] dark:border-night-700 dark:bg-night-850 dark:shadow-[0_24px_48px_-28px_rgba(0,0,0,0.6)]"
+      >
         <slot />
       </div>
 
@@ -55,7 +51,8 @@
       </div>
 
       <!-- Copyright -->
-      <div class="mt-8 text-center text-xs text-gray-400 dark:text-dark-500">
+      <div class="mt-8 flex items-center justify-center gap-2 text-center text-xs text-ink-mute dark:text-night-400">
+        <span class="text-clay-500">✳</span>
         &copy; {{ currentYear }} {{ siteName }}. All rights reserved.
       </div>
     </div>
@@ -69,7 +66,7 @@ import { sanitizeUrl } from '@/utils/url'
 
 const appStore = useAppStore()
 
-const siteName = computed(() => appStore.siteName || 'Sub2API')
+const siteName = computed(() => appStore.siteName || 'MuchuAPI')
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'Subscription to API Conversion Platform')
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
@@ -82,7 +79,19 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.text-gradient {
-  @apply bg-gradient-to-r from-primary-600 to-primary-500 bg-clip-text text-transparent;
+/* Subtle paper grain — matches the landing page */
+.auth-claude::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+:global(.dark) .auth-claude::before {
+  opacity: 0.5;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
 }
 </style>

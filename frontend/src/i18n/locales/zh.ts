@@ -13,6 +13,15 @@ export default {
     // 新增：面向用户的价值主张
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
     heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
+    heroBadge: '支持 Claude · GPT · Gemini 等主流模型',
+    learnMore: '了解更多',
+    terminalRouting: '智能路由至可用上游...',
+    stats: {
+      models: '主流模型',
+      availability: '服务可用性',
+      billingValue: '按量',
+      billingLabel: '计费透明'
+    },
     tags: {
       subscriptionToApi: '订阅转 API',
       stickySession: '会话保持',
