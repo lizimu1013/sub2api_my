@@ -5709,6 +5709,21 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
 
+	// Determine billing type before calculating cost so balance billing can
+	// optionally use the user-visible display multiplier at low balances.
+	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
+	billingType := BillingTypeBalance
+	if isSubscriptionBilling {
+		billingType = BillingTypeSubscription
+	}
+	billingMultiplier := multiplier
+	billingImageMultiplier := imageMultiplier
+	if !isSubscriptionBilling && s.shouldUseLowBalanceDisplayRate(ctx, user, apiKey) {
+		displayMultiplier := apiKey.Group.UserVisibleRateMultiplier()
+		billingMultiplier = displayMultiplier
+		billingImageMultiplier = displayMultiplier
+	}
+
 	var cost *CostBreakdown
 	var err error
 	billingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
@@ -5733,7 +5748,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if result.ServiceTier != nil {
 		serviceTier = strings.TrimSpace(*result.ServiceTier)
 	}
-	cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, tokens, serviceTier)
+	cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, billingMultiplier, billingImageMultiplier, tokens, serviceTier)
 	if err != nil {
 		if !isUsagePricingUnavailableError(err) {
 			return err
@@ -5748,13 +5763,6 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			zap.Int64("account_id", account.ID),
 		).Warn("openai_usage.pricing_missing_record_zero_cost", zap.Error(err))
 		cost = &CostBreakdown{BillingMode: string(BillingModeToken)}
-	}
-
-	// Determine billing type
-	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
-	billingType := BillingTypeBalance
-	if isSubscriptionBilling {
-		billingType = BillingTypeSubscription
 	}
 
 	// Create usage log
@@ -5802,9 +5810,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.ActualCost = cost.ActualCost
 	}
 	if result.ImageCount > 0 {
-		usageLog.RateMultiplier = imageMultiplier
+		usageLog.RateMultiplier = billingImageMultiplier
 	} else {
-		usageLog.RateMultiplier = multiplier
+		usageLog.RateMultiplier = billingMultiplier
 	}
 	usageLog.AccountRateMultiplier = &accountRateMultiplier
 	usageLog.BillingType = billingType
@@ -5881,6 +5889,20 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
 
 	return nil
+}
+
+func (s *OpenAIGatewayService) shouldUseLowBalanceDisplayRate(ctx context.Context, user *User, apiKey *APIKey) bool {
+	if user == nil || apiKey == nil || apiKey.Group == nil {
+		return false
+	}
+	if apiKey.Group.DisplayRateMultiplier <= 0 {
+		return false
+	}
+	threshold := LowBalanceDisplayRateThresholdDefault
+	if s != nil && s.settingService != nil {
+		threshold = s.settingService.GetLowBalanceDisplayRateThreshold(ctx)
+	}
+	return user.Balance <= threshold
 }
 
 func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(

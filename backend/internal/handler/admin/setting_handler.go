@@ -237,6 +237,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AffiliateRebatePerInviteeCap:           settings.AffiliateRebatePerInviteeCap,
 		DefaultUserRPMLimit:                    settings.DefaultUserRPMLimit,
 		UserUsageVisibleDays:                   settings.UserUsageVisibleDays,
+		LowBalanceDisplayRateThreshold:         settings.LowBalanceDisplayRateThreshold,
 		DefaultSubscriptions:                   defaultSubscriptions,
 		EnableModelFallback:                    settings.EnableModelFallback,
 		FallbackModelAnthropic:                 settings.FallbackModelAnthropic,
@@ -521,6 +522,7 @@ type UpdateSettingsRequest struct {
 	AffiliateRebatePerInviteeCap              *float64                          `json:"affiliate_rebate_per_invitee_cap"`
 	DefaultUserRPMLimit                       int                               `json:"default_user_rpm_limit"`
 	UserUsageVisibleDays                      *int                              `json:"user_usage_visible_days"`
+	LowBalanceDisplayRateThreshold            *float64                          `json:"low_balance_display_rate_threshold"`
 	DefaultSubscriptions                      []dto.DefaultSubscriptionSetting  `json:"default_subscriptions"`
 	AuthSourceDefaultEmailBalance             *float64                          `json:"auth_source_default_email_balance"`
 	AuthSourceDefaultEmailConcurrency         *int                              `json:"auth_source_default_email_concurrency"`
@@ -698,6 +700,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	userUsageVisibleDays := previousSettings.UserUsageVisibleDays
 	if req.UserUsageVisibleDays != nil {
 		userUsageVisibleDays = service.NormalizeUserUsageVisibleDays(*req.UserUsageVisibleDays)
+	}
+	lowBalanceDisplayRateThreshold := previousSettings.LowBalanceDisplayRateThreshold
+	if req.LowBalanceDisplayRateThreshold != nil {
+		lowBalanceDisplayRateThreshold = service.NormalizeLowBalanceDisplayRateThreshold(*req.LowBalanceDisplayRateThreshold)
 	}
 	affiliateRebateRate := previousSettings.AffiliateRebateRate
 	if req.AffiliateRebateRate != nil {
@@ -1595,6 +1601,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebatePerInviteeCap:           affiliateRebatePerInviteeCap,
 		DefaultUserRPMLimit:                    req.DefaultUserRPMLimit,
 		UserUsageVisibleDays:                   userUsageVisibleDays,
+		LowBalanceDisplayRateThreshold:         lowBalanceDisplayRateThreshold,
 		DefaultSubscriptions:                   defaultSubscriptions,
 		EnableModelFallback:                    req.EnableModelFallback,
 		FallbackModelAnthropic:                 req.FallbackModelAnthropic,
@@ -2036,6 +2043,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebatePerInviteeCap:           updatedSettings.AffiliateRebatePerInviteeCap,
 		DefaultUserRPMLimit:                    updatedSettings.DefaultUserRPMLimit,
 		UserUsageVisibleDays:                   updatedSettings.UserUsageVisibleDays,
+		LowBalanceDisplayRateThreshold:         updatedSettings.LowBalanceDisplayRateThreshold,
 		DefaultSubscriptions:                   updatedDefaultSubscriptions,
 		EnableModelFallback:                    updatedSettings.EnableModelFallback,
 		FallbackModelAnthropic:                 updatedSettings.FallbackModelAnthropic,
@@ -2441,6 +2449,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.UserUsageVisibleDays != after.UserUsageVisibleDays {
 		changed = append(changed, "user_usage_visible_days")
+	}
+	if before.LowBalanceDisplayRateThreshold != after.LowBalanceDisplayRateThreshold {
+		changed = append(changed, "low_balance_display_rate_threshold")
 	}
 	if before.AffiliateRebateRate != after.AffiliateRebateRate {
 		changed = append(changed, "affiliate_rebate_rate")

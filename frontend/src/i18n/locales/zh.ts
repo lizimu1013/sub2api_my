@@ -5810,6 +5810,8 @@ export default {
         defaultUserRpmLimitHint: '新用户默认每分钟最大请求数，0 = 不限制；仅作用于新用户创建时初始化',
         userUsageVisibleDays: '用户使用记录可见天数',
         userUsageVisibleDaysHint: '普通用户只能查看最近 N 天记录；-1 = 不限制，0 = 仅当天',
+        lowBalanceDisplayRateThreshold: '低余额展示倍率阈值',
+        lowBalanceDisplayRateThresholdHint: '用户余额小于等于该值时，余额扣费按分组展示倍率计算；默认 2',
         defaultSubscriptions: '默认订阅列表',
         defaultSubscriptionsHint: '新用户创建或注册时自动分配这些订阅',
         addDefaultSubscription: '添加默认订阅',

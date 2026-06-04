@@ -3319,6 +3319,24 @@
                     {{ t("admin.settings.defaults.userUsageVisibleDaysHint") }}
                   </p>
                 </div>
+                <div>
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.defaults.lowBalanceDisplayRateThreshold") }}
+                  </label>
+                  <input
+                    v-model.number="form.low_balance_display_rate_threshold"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="input"
+                    placeholder="2"
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.defaults.lowBalanceDisplayRateThresholdHint") }}
+                  </p>
+                </div>
               </div>
 
               <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
@@ -7220,6 +7238,7 @@ const form = reactive<SettingsForm>({
   force_email_on_third_party_signup: false,
   default_user_rpm_limit: 0,
   user_usage_visible_days: -1,
+  low_balance_display_rate_threshold: 2,
   site_name: "Sub2API",
   site_logo: "",
   site_subtitle: "Subscription to API Conversion Platform",
@@ -8572,6 +8591,10 @@ async function saveSettings() {
       user_usage_visible_days: Math.max(
         -1,
         Math.min(3650, Math.floor(Number(form.user_usage_visible_days) || 0)),
+      ),
+      low_balance_display_rate_threshold: Math.max(
+        0,
+        Number(form.low_balance_display_rate_threshold) || 0,
       ),
       site_name: form.site_name,
       site_logo: form.site_logo,

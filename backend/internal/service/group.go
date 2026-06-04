@@ -16,7 +16,7 @@ type Group struct {
 	Description    string
 	Platform       string
 	RateMultiplier float64
-	// DisplayRateMultiplier 仅用于用户界面展示，不参与实际计费。
+	// DisplayRateMultiplier 主要用于用户界面展示；低余额展示倍率扣费命中时也会用于余额扣费。
 	DisplayRateMultiplier float64
 	IsExclusive           bool
 	Status                string

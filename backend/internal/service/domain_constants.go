@@ -259,11 +259,12 @@ const (
 	SettingKeyCustomEndpoints             = "custom_endpoints"              // 自定义端点列表（JSON 数组）
 
 	// 默认配置
-	SettingKeyDefaultConcurrency   = "default_concurrency"     // 新用户默认并发量
-	SettingKeyDefaultBalance       = "default_balance"         // 新用户默认余额
-	SettingKeyDefaultSubscriptions = "default_subscriptions"   // 新用户默认订阅列表（JSON）
-	SettingKeyDefaultUserRPMLimit  = "default_user_rpm_limit"  // 新用户默认 RPM 限制（0 = 不限制）
-	SettingKeyUserUsageVisibleDays = "user_usage_visible_days" // 普通用户可查看的最近使用记录天数（-1 = 不限制，0 = 当天）
+	SettingKeyDefaultConcurrency             = "default_concurrency"                // 新用户默认并发量
+	SettingKeyDefaultBalance                 = "default_balance"                    // 新用户默认余额
+	SettingKeyDefaultSubscriptions           = "default_subscriptions"              // 新用户默认订阅列表（JSON）
+	SettingKeyDefaultUserRPMLimit            = "default_user_rpm_limit"             // 新用户默认 RPM 限制（0 = 不限制）
+	SettingKeyUserUsageVisibleDays           = "user_usage_visible_days"            // 普通用户可查看的最近使用记录天数（-1 = 不限制，0 = 当天）
+	SettingKeyLowBalanceDisplayRateThreshold = "low_balance_display_rate_threshold" // 余额小于等于该值时按展示倍率扣费
 
 	// 第三方认证来源默认授予配置
 	SettingKeyAuthSourceDefaultEmailBalance             = "auth_source_default_email_balance"

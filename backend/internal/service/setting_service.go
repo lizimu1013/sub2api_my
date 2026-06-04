@@ -59,6 +59,8 @@ var (
 const (
 	UserUsageVisibleDaysUnlimited = -1
 	UserUsageVisibleDaysMax       = 3650
+
+	LowBalanceDisplayRateThresholdDefault = 2.0
 )
 
 // NormalizeUserUsageVisibleDays coerces the admin setting into the supported range.
@@ -71,6 +73,15 @@ func NormalizeUserUsageVisibleDays(days int) int {
 		return UserUsageVisibleDaysMax
 	}
 	return days
+}
+
+// NormalizeLowBalanceDisplayRateThreshold coerces the admin setting into a
+// non-negative balance threshold. 0 means only zero/negative balances match.
+func NormalizeLowBalanceDisplayRateThreshold(threshold float64) float64 {
+	if math.IsNaN(threshold) || math.IsInf(threshold, 0) || threshold < 0 {
+		return 0
+	}
+	return threshold
 }
 
 type SettingRepository interface {
@@ -135,6 +146,15 @@ const gatewayForwardingCacheTTL = 60 * time.Second
 const gatewayForwardingErrorTTL = 5 * time.Second
 const gatewayForwardingDBTimeout = 5 * time.Second
 
+type cachedLowBalanceDisplayRateThreshold struct {
+	value     float64
+	expiresAt int64 // unix nano
+}
+
+const lowBalanceDisplayRateThresholdCacheTTL = 60 * time.Second
+const lowBalanceDisplayRateThresholdErrorTTL = 5 * time.Second
+const lowBalanceDisplayRateThresholdDBTimeout = 5 * time.Second
+
 // cachedAntigravityUserAgentVersion 缓存 Antigravity UA 版本号（进程内缓存，60s TTL）
 type cachedAntigravityUserAgentVersion struct {
 	version   string
@@ -191,19 +211,21 @@ type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[i
 
 // SettingService 系统设置服务
 type SettingService struct {
-	settingRepo                 SettingRepository
-	defaultSubGroupReader       DefaultSubscriptionGroupReader
-	proxyRepo                   ProxyRepository // for resolving websearch provider proxy URLs
-	cfg                         *config.Config
-	onUpdate                    func() // Callback when settings are updated (for cache invalidation)
-	version                     string // Application version
-	webSearchManagerBuilder     WebSearchManagerBuilder
-	antigravityUAVersionCache   atomic.Value // *cachedAntigravityUserAgentVersion
-	antigravityUAVersionSF      singleflight.Group
-	openAICodexUACache          atomic.Value // *cachedOpenAICodexUserAgent
-	openAICodexUASF             singleflight.Group
-	openAIAllowCodexPluginCache atomic.Value // *cachedOpenAIAllowCodexPlugin
-	openAIAllowCodexPluginSF    singleflight.Group
+	settingRepo                         SettingRepository
+	defaultSubGroupReader               DefaultSubscriptionGroupReader
+	proxyRepo                           ProxyRepository // for resolving websearch provider proxy URLs
+	cfg                                 *config.Config
+	onUpdate                            func() // Callback when settings are updated (for cache invalidation)
+	version                             string // Application version
+	webSearchManagerBuilder             WebSearchManagerBuilder
+	antigravityUAVersionCache           atomic.Value // *cachedAntigravityUserAgentVersion
+	antigravityUAVersionSF              singleflight.Group
+	openAICodexUACache                  atomic.Value // *cachedOpenAICodexUserAgent
+	openAICodexUASF                     singleflight.Group
+	openAIAllowCodexPluginCache         atomic.Value // *cachedOpenAIAllowCodexPlugin
+	openAIAllowCodexPluginSF            singleflight.Group
+	lowBalanceDisplayRateThresholdCache atomic.Value // *cachedLowBalanceDisplayRateThreshold
+	lowBalanceDisplayRateThresholdSF    singleflight.Group
 
 	// openAIQuotaAutoPauseSettingsCache holds the most recently observed quota auto-pause
 	// settings. GetOpenAIQuotaAutoPauseSettings reads this atomic.Value on the request hot
@@ -1896,6 +1918,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyAffiliateRebatePerInviteeCap] = strconv.FormatFloat(settings.AffiliateRebatePerInviteeCap, 'f', 8, 64)
 	updates[SettingKeyDefaultUserRPMLimit] = strconv.Itoa(settings.DefaultUserRPMLimit)
 	updates[SettingKeyUserUsageVisibleDays] = strconv.Itoa(NormalizeUserUsageVisibleDays(settings.UserUsageVisibleDays))
+	updates[SettingKeyLowBalanceDisplayRateThreshold] = strconv.FormatFloat(NormalizeLowBalanceDisplayRateThreshold(settings.LowBalanceDisplayRateThreshold), 'f', 8, 64)
 	defaultSubsJSON, err := json.Marshal(settings.DefaultSubscriptions)
 	if err != nil {
 		return nil, fmt.Errorf("marshal default subscriptions: %w", err)
@@ -2080,6 +2103,11 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 		anthropicCacheTTL1hInjection: settings.EnableAnthropicCacheTTL1hInjection,
 		rewriteMessageCacheControl:   settings.RewriteMessageCacheControl,
 		expiresAt:                    time.Now().Add(gatewayForwardingCacheTTL).UnixNano(),
+	})
+	s.lowBalanceDisplayRateThresholdSF.Forget("low_balance_display_rate_threshold")
+	s.lowBalanceDisplayRateThresholdCache.Store(&cachedLowBalanceDisplayRateThreshold{
+		value:     NormalizeLowBalanceDisplayRateThreshold(settings.LowBalanceDisplayRateThreshold),
+		expiresAt: time.Now().Add(lowBalanceDisplayRateThresholdCacheTTL).UnixNano(),
 	})
 	s.antigravityUAVersionSF.Forget("antigravity_user_agent_version")
 	antigravityUserAgentVersion := antigravity.NormalizeUserAgentVersion(settings.AntigravityUserAgentVersion)
@@ -2617,6 +2645,58 @@ func (s *SettingService) GetUserUsageVisibleDays(ctx context.Context) int {
 	return NormalizeUserUsageVisibleDays(days)
 }
 
+// GetLowBalanceDisplayRateThreshold returns the balance threshold for applying
+// the display rate multiplier to balance billing.
+func (s *SettingService) GetLowBalanceDisplayRateThreshold(ctx context.Context) float64 {
+	if s == nil || s.settingRepo == nil {
+		return LowBalanceDisplayRateThresholdDefault
+	}
+	if cached, ok := s.lowBalanceDisplayRateThresholdCache.Load().(*cachedLowBalanceDisplayRateThreshold); ok && cached != nil {
+		if time.Now().UnixNano() < cached.expiresAt {
+			return cached.value
+		}
+	}
+
+	result, _, _ := s.lowBalanceDisplayRateThresholdSF.Do("low_balance_display_rate_threshold", func() (any, error) {
+		if cached, ok := s.lowBalanceDisplayRateThresholdCache.Load().(*cachedLowBalanceDisplayRateThreshold); ok && cached != nil {
+			if time.Now().UnixNano() < cached.expiresAt {
+				return cached.value, nil
+			}
+		}
+		baseCtx := context.Background()
+		if ctx != nil {
+			baseCtx = context.WithoutCancel(ctx)
+		}
+		dbCtx, cancel := context.WithTimeout(baseCtx, lowBalanceDisplayRateThresholdDBTimeout)
+		defer cancel()
+
+		threshold := LowBalanceDisplayRateThresholdDefault
+		ttl := lowBalanceDisplayRateThresholdCacheTTL
+		value, err := s.settingRepo.GetValue(dbCtx, SettingKeyLowBalanceDisplayRateThreshold)
+		if err != nil {
+			ttl = lowBalanceDisplayRateThresholdErrorTTL
+			if !errors.Is(err, ErrSettingNotFound) {
+				slog.Warn("failed to get low_balance_display_rate_threshold setting", "error", err)
+			}
+		} else if raw := strings.TrimSpace(value); raw != "" {
+			if parsed, parseErr := strconv.ParseFloat(raw, 64); parseErr == nil {
+				threshold = NormalizeLowBalanceDisplayRateThreshold(parsed)
+			} else {
+				slog.Warn("invalid low_balance_display_rate_threshold setting", "value", raw, "error", parseErr)
+			}
+		}
+		s.lowBalanceDisplayRateThresholdCache.Store(&cachedLowBalanceDisplayRateThreshold{
+			value:     threshold,
+			expiresAt: time.Now().Add(ttl).UnixNano(),
+		})
+		return threshold, nil
+	})
+	if threshold, ok := result.(float64); ok {
+		return threshold
+	}
+	return LowBalanceDisplayRateThresholdDefault
+}
+
 // GetDefaultSubscriptions 获取新用户默认订阅配置列表。
 func (s *SettingService) GetDefaultSubscriptions(ctx context.Context) []DefaultSubscriptionSetting {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyDefaultSubscriptions)
@@ -2838,6 +2918,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAffiliateRebatePerInviteeCap:              strconv.FormatFloat(AffiliateRebatePerInviteeCapDefault, 'f', 2, 64),
 		SettingKeyDefaultUserRPMLimit:                       "0",
 		SettingKeyUserUsageVisibleDays:                      strconv.Itoa(UserUsageVisibleDaysUnlimited),
+		SettingKeyLowBalanceDisplayRateThreshold:            strconv.FormatFloat(LowBalanceDisplayRateThresholdDefault, 'f', 8, 64),
 		SettingKeyDefaultSubscriptions:                      "[]",
 		SettingKeyAuthSourceDefaultEmailBalance:             "0",
 		SettingKeyAuthSourceDefaultEmailConcurrency:         "5",
@@ -3004,6 +3085,10 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.UserUsageVisibleDays = UserUsageVisibleDaysUnlimited
 	if days, err := strconv.Atoi(settings[SettingKeyUserUsageVisibleDays]); err == nil {
 		result.UserUsageVisibleDays = NormalizeUserUsageVisibleDays(days)
+	}
+	result.LowBalanceDisplayRateThreshold = LowBalanceDisplayRateThresholdDefault
+	if threshold, err := strconv.ParseFloat(settings[SettingKeyLowBalanceDisplayRateThreshold], 64); err == nil {
+		result.LowBalanceDisplayRateThreshold = NormalizeLowBalanceDisplayRateThreshold(threshold)
 	}
 
 	// 解析浮点数类型

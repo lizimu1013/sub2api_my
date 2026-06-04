@@ -5654,6 +5654,8 @@ export default {
         defaultUserRpmLimitHint: 'Default max requests per minute for new users; 0 = unlimited. Only applied at new user creation.',
         userUsageVisibleDays: 'User Usage Visible Days',
         userUsageVisibleDaysHint: 'Limit ordinary users to recent N days; -1 = unlimited, 0 = today only',
+        lowBalanceDisplayRateThreshold: 'Low Balance Display Rate Threshold',
+        lowBalanceDisplayRateThresholdHint: 'When user balance is less than or equal to this value, balance billing uses the group display multiplier. Default: 2',
         defaultSubscriptions: 'Default Subscriptions',
         defaultSubscriptionsHint: 'Auto-assign these subscriptions when a new user is created or registered',
         addDefaultSubscription: 'Add Default Subscription',
