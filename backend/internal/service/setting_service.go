@@ -56,6 +56,23 @@ var (
 	)
 )
 
+const (
+	UserUsageVisibleDaysUnlimited = -1
+	UserUsageVisibleDaysMax       = 3650
+)
+
+// NormalizeUserUsageVisibleDays coerces the admin setting into the supported range.
+// -1 means unlimited, 0 means today only, positive values mean since N days ago.
+func NormalizeUserUsageVisibleDays(days int) int {
+	if days < UserUsageVisibleDaysUnlimited {
+		return UserUsageVisibleDaysUnlimited
+	}
+	if days > UserUsageVisibleDaysMax {
+		return UserUsageVisibleDaysMax
+	}
+	return days
+}
+
 type SettingRepository interface {
 	Get(ctx context.Context, key string) (*Setting, error)
 	GetValue(ctx context.Context, key string) (string, error)
@@ -1878,6 +1895,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 	updates[SettingKeyAffiliateRebatePerInviteeCap] = strconv.FormatFloat(settings.AffiliateRebatePerInviteeCap, 'f', 8, 64)
 	updates[SettingKeyDefaultUserRPMLimit] = strconv.Itoa(settings.DefaultUserRPMLimit)
+	updates[SettingKeyUserUsageVisibleDays] = strconv.Itoa(NormalizeUserUsageVisibleDays(settings.UserUsageVisibleDays))
 	defaultSubsJSON, err := json.Marshal(settings.DefaultSubscriptions)
 	if err != nil {
 		return nil, fmt.Errorf("marshal default subscriptions: %w", err)
@@ -2582,6 +2600,23 @@ func (s *SettingService) GetDefaultUserRPMLimit(ctx context.Context) int {
 	return 0
 }
 
+// GetUserUsageVisibleDays 获取普通用户可查看的最近使用记录天数。
+// -1 = 不限制，0 = 当天，正数 = 从 N 天前 00:00 起可见。
+func (s *SettingService) GetUserUsageVisibleDays(ctx context.Context) int {
+	if s == nil || s.settingRepo == nil {
+		return UserUsageVisibleDaysUnlimited
+	}
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyUserUsageVisibleDays)
+	if err != nil || strings.TrimSpace(value) == "" {
+		return UserUsageVisibleDaysUnlimited
+	}
+	days, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return UserUsageVisibleDaysUnlimited
+	}
+	return NormalizeUserUsageVisibleDays(days)
+}
+
 // GetDefaultSubscriptions 获取新用户默认订阅配置列表。
 func (s *SettingService) GetDefaultSubscriptions(ctx context.Context) []DefaultSubscriptionSetting {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyDefaultSubscriptions)
@@ -2802,6 +2837,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAffiliateRebateDurationDays:               strconv.Itoa(AffiliateRebateDurationDaysDefault),
 		SettingKeyAffiliateRebatePerInviteeCap:              strconv.FormatFloat(AffiliateRebatePerInviteeCapDefault, 'f', 2, 64),
 		SettingKeyDefaultUserRPMLimit:                       "0",
+		SettingKeyUserUsageVisibleDays:                      strconv.Itoa(UserUsageVisibleDaysUnlimited),
 		SettingKeyDefaultSubscriptions:                      "[]",
 		SettingKeyAuthSourceDefaultEmailBalance:             "0",
 		SettingKeyAuthSourceDefaultEmailConcurrency:         "5",
@@ -2964,6 +3000,10 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	if rpm, err := strconv.Atoi(settings[SettingKeyDefaultUserRPMLimit]); err == nil && rpm >= 0 {
 		result.DefaultUserRPMLimit = rpm
+	}
+	result.UserUsageVisibleDays = UserUsageVisibleDaysUnlimited
+	if days, err := strconv.Atoi(settings[SettingKeyUserUsageVisibleDays]); err == nil {
+		result.UserUsageVisibleDays = NormalizeUserUsageVisibleDays(days)
 	}
 
 	// 解析浮点数类型

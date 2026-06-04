@@ -3300,6 +3300,25 @@
                     {{ t("admin.settings.defaults.defaultUserRpmLimitHint") }}
                   </p>
                 </div>
+                <div>
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.defaults.userUsageVisibleDays") }}
+                  </label>
+                  <input
+                    v-model.number="form.user_usage_visible_days"
+                    type="number"
+                    min="-1"
+                    max="3650"
+                    step="1"
+                    class="input"
+                    placeholder="-1"
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.defaults.userUsageVisibleDaysHint") }}
+                  </p>
+                </div>
               </div>
 
               <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
@@ -7200,6 +7219,7 @@ const form = reactive<SettingsForm>({
   default_subscriptions: [],
   force_email_on_third_party_signup: false,
   default_user_rpm_limit: 0,
+  user_usage_visible_days: -1,
   site_name: "Sub2API",
   site_logo: "",
   site_subtitle: "Subscription to API Conversion Platform",
@@ -8549,6 +8569,10 @@ async function saveSettings() {
       default_subscriptions: normalizedDefaultSubscriptions,
       force_email_on_third_party_signup: form.force_email_on_third_party_signup,
       default_user_rpm_limit: form.default_user_rpm_limit,
+      user_usage_visible_days: Math.max(
+        -1,
+        Math.min(3650, Math.floor(Number(form.user_usage_visible_days) || 0)),
+      ),
       site_name: form.site_name,
       site_logo: form.site_logo,
       site_subtitle: form.site_subtitle,

@@ -5652,6 +5652,8 @@ export default {
         defaultConcurrencyHint: 'Maximum concurrent requests for new users',
         defaultUserRpmLimit: 'Default User RPM Limit',
         defaultUserRpmLimitHint: 'Default max requests per minute for new users; 0 = unlimited. Only applied at new user creation.',
+        userUsageVisibleDays: 'User Usage Visible Days',
+        userUsageVisibleDaysHint: 'Limit ordinary users to recent N days; -1 = unlimited, 0 = today only',
         defaultSubscriptions: 'Default Subscriptions',
         defaultSubscriptionsHint: 'Auto-assign these subscriptions when a new user is created or registered',
         addDefaultSubscription: 'Add Default Subscription',

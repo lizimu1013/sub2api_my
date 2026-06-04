@@ -18,16 +18,56 @@ import (
 
 // UsageHandler handles usage-related requests
 type UsageHandler struct {
-	usageService  *service.UsageService
-	apiKeyService *service.APIKeyService
+	usageService   *service.UsageService
+	apiKeyService  *service.APIKeyService
+	settingService *service.SettingService
 }
 
 // NewUsageHandler creates a new UsageHandler
-func NewUsageHandler(usageService *service.UsageService, apiKeyService *service.APIKeyService) *UsageHandler {
+func NewUsageHandler(usageService *service.UsageService, apiKeyService *service.APIKeyService, settingService *service.SettingService) *UsageHandler {
 	return &UsageHandler{
-		usageService:  usageService,
-		apiKeyService: apiKeyService,
+		usageService:   usageService,
+		apiKeyService:  apiKeyService,
+		settingService: settingService,
 	}
+}
+
+type userUsageVisibilityPolicy struct {
+	Limited bool
+	Since   time.Time
+}
+
+func (h *UsageHandler) userUsageVisibilityPolicy(c *gin.Context, userTZ string) userUsageVisibilityPolicy {
+	if h == nil || h.settingService == nil {
+		return userUsageVisibilityPolicy{}
+	}
+	days := h.settingService.GetUserUsageVisibleDays(c.Request.Context())
+	if days < 0 {
+		return userUsageVisibilityPolicy{}
+	}
+	now := timezone.NowInUserLocation(userTZ)
+	return userUsageVisibilityPolicy{
+		Limited: true,
+		Since:   timezone.StartOfDayInUserLocation(now.AddDate(0, 0, -days), userTZ),
+	}
+}
+
+func applyUsageVisibilityFilterRange(startTime, endTime *time.Time, policy userUsageVisibilityPolicy) (*time.Time, *time.Time) {
+	if !policy.Limited {
+		return startTime, endTime
+	}
+
+	start := policy.Since
+	if startTime != nil && startTime.After(start) {
+		start = *startTime
+	}
+
+	if endTime != nil && endTime.Before(start) {
+		end := start
+		return &start, &end
+	}
+
+	return &start, endTime
 }
 
 // List handles listing usage records with pagination
@@ -118,6 +158,8 @@ func (h *UsageHandler) List(c *gin.Context) {
 		t = t.AddDate(0, 0, 1)
 		endTime = &t
 	}
+	visibilityPolicy := h.userUsageVisibilityPolicy(c, userTZ)
+	startTime, endTime = applyUsageVisibilityFilterRange(startTime, endTime, visibilityPolicy)
 
 	params := pagination.PaginationParams{
 		Page:      page,
@@ -173,6 +215,11 @@ func (h *UsageHandler) GetByID(c *gin.Context) {
 	// 验证所有权
 	if record.UserID != subject.UserID {
 		response.Forbidden(c, "Not authorized to access this record")
+		return
+	}
+	visibilityPolicy := h.userUsageVisibilityPolicy(c, c.Query("timezone"))
+	if visibilityPolicy.Limited && record.CreatedAt.Before(visibilityPolicy.Since) {
+		response.Forbidden(c, "Usage record is outside the allowed visible range")
 		return
 	}
 

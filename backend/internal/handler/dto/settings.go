@@ -152,6 +152,7 @@ type SystemSettings struct {
 	AffiliateRebateDurationDays  int                          `json:"affiliate_rebate_duration_days"`
 	AffiliateRebatePerInviteeCap float64                      `json:"affiliate_rebate_per_invitee_cap"`
 	DefaultUserRPMLimit          int                          `json:"default_user_rpm_limit"`
+	UserUsageVisibleDays         int                          `json:"user_usage_visible_days"`
 	DefaultSubscriptions         []DefaultSubscriptionSetting `json:"default_subscriptions"`
 
 	// Model fallback configuration

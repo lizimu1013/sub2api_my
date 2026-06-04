@@ -154,6 +154,7 @@ type SystemSettings struct {
 	AffiliateRebateDurationDays  int
 	AffiliateRebatePerInviteeCap float64
 	DefaultUserRPMLimit          int
+	UserUsageVisibleDays         int
 	DefaultSubscriptions         []DefaultSubscriptionSetting
 
 	// Model fallback configuration

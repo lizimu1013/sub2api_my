@@ -236,6 +236,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:            settings.AffiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:           settings.AffiliateRebatePerInviteeCap,
 		DefaultUserRPMLimit:                    settings.DefaultUserRPMLimit,
+		UserUsageVisibleDays:                   settings.UserUsageVisibleDays,
 		DefaultSubscriptions:                   defaultSubscriptions,
 		EnableModelFallback:                    settings.EnableModelFallback,
 		FallbackModelAnthropic:                 settings.FallbackModelAnthropic,
@@ -519,6 +520,7 @@ type UpdateSettingsRequest struct {
 	AffiliateRebateDurationDays               *int                              `json:"affiliate_rebate_duration_days"`
 	AffiliateRebatePerInviteeCap              *float64                          `json:"affiliate_rebate_per_invitee_cap"`
 	DefaultUserRPMLimit                       int                               `json:"default_user_rpm_limit"`
+	UserUsageVisibleDays                      *int                              `json:"user_usage_visible_days"`
 	DefaultSubscriptions                      []dto.DefaultSubscriptionSetting  `json:"default_subscriptions"`
 	AuthSourceDefaultEmailBalance             *float64                          `json:"auth_source_default_email_balance"`
 	AuthSourceDefaultEmailConcurrency         *int                              `json:"auth_source_default_email_concurrency"`
@@ -692,6 +694,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	}
 	if req.DefaultBalance < 0 {
 		req.DefaultBalance = 0
+	}
+	userUsageVisibleDays := previousSettings.UserUsageVisibleDays
+	if req.UserUsageVisibleDays != nil {
+		userUsageVisibleDays = service.NormalizeUserUsageVisibleDays(*req.UserUsageVisibleDays)
 	}
 	affiliateRebateRate := previousSettings.AffiliateRebateRate
 	if req.AffiliateRebateRate != nil {
@@ -1588,6 +1594,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:            affiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:           affiliateRebatePerInviteeCap,
 		DefaultUserRPMLimit:                    req.DefaultUserRPMLimit,
+		UserUsageVisibleDays:                   userUsageVisibleDays,
 		DefaultSubscriptions:                   defaultSubscriptions,
 		EnableModelFallback:                    req.EnableModelFallback,
 		FallbackModelAnthropic:                 req.FallbackModelAnthropic,
@@ -2028,6 +2035,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:            updatedSettings.AffiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:           updatedSettings.AffiliateRebatePerInviteeCap,
 		DefaultUserRPMLimit:                    updatedSettings.DefaultUserRPMLimit,
+		UserUsageVisibleDays:                   updatedSettings.UserUsageVisibleDays,
 		DefaultSubscriptions:                   updatedDefaultSubscriptions,
 		EnableModelFallback:                    updatedSettings.EnableModelFallback,
 		FallbackModelAnthropic:                 updatedSettings.FallbackModelAnthropic,
@@ -2430,6 +2438,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.DefaultBalance != after.DefaultBalance {
 		changed = append(changed, "default_balance")
+	}
+	if before.UserUsageVisibleDays != after.UserUsageVisibleDays {
+		changed = append(changed, "user_usage_visible_days")
 	}
 	if before.AffiliateRebateRate != after.AffiliateRebateRate {
 		changed = append(changed, "affiliate_rebate_rate")

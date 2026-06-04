@@ -148,6 +148,30 @@ func TestUsageLogFromService_FallsBackToLegacyModelWhenRequestedModelMissing(t *
 	require.Equal(t, "claude-3", adminDTO.Model)
 }
 
+func TestUsageLogFromService_UserCostUsesDisplayMultiplier(t *testing.T) {
+	t.Parallel()
+
+	log := &service.UsageLog{
+		RequestID:      "req_display_cost",
+		Model:          "gpt-5.5",
+		TotalCost:      0.2,
+		ActualCost:     1.4,
+		RateMultiplier: 7,
+		Group: &service.Group{
+			RateMultiplier:        7,
+			DisplayRateMultiplier: 1.5,
+		},
+	}
+
+	userDTO := UsageLogFromService(log)
+	adminDTO := UsageLogFromServiceAdmin(log)
+
+	require.InDelta(t, 0.3, userDTO.ActualCost, 1e-12)
+	require.InDelta(t, 1.5, userDTO.RateMultiplier, 1e-12)
+	require.InDelta(t, 1.4, adminDTO.ActualCost, 1e-12)
+	require.InDelta(t, 7.0, adminDTO.RateMultiplier, 1e-12)
+}
+
 func TestUsageLogFromService_IncludesImageBillingMetadataForUserAndAdmin(t *testing.T) {
 	t.Parallel()
 

@@ -598,6 +598,8 @@ func AccountSummaryFromService(a *service.Account) *AccountSummary {
 
 func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 	// 普通用户 DTO：严禁包含管理员字段（例如 account_rate_multiplier、ip_address、account）。
+	displayRateMultiplier := l.Group.UserVisibleRateMultiplier()
+	displayActualCost := l.TotalCost * displayRateMultiplier
 	requestType := l.EffectiveRequestType()
 	stream, openAIWSMode := service.ApplyLegacyRequestFields(requestType, l.Stream, l.OpenAIWSMode)
 	requestedModel := l.RequestedModel
@@ -628,8 +630,8 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		CacheCreationCost:     l.CacheCreationCost,
 		CacheReadCost:         l.CacheReadCost,
 		TotalCost:             l.TotalCost,
-		ActualCost:            l.ActualCost,
-		RateMultiplier:        l.Group.UserVisibleRateMultiplier(),
+		ActualCost:            displayActualCost,
+		RateMultiplier:        displayRateMultiplier,
 		BillingType:           l.BillingType,
 		RequestType:           requestType.String(),
 		Stream:                stream,
@@ -672,6 +674,7 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	}
 	base := usageLogFromServiceUser(l)
 	base.RateMultiplier = l.RateMultiplier
+	base.ActualCost = l.ActualCost
 	base.APIKey = APIKeyFromService(l.APIKey)
 	base.Group = GroupFromServiceShallow(l.Group)
 	if l.Subscription != nil {
