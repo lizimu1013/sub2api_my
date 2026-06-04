@@ -5902,7 +5902,13 @@ func (s *OpenAIGatewayService) shouldUseLowBalanceDisplayRate(ctx context.Contex
 	if s != nil && s.settingService != nil {
 		threshold = s.settingService.GetLowBalanceDisplayRateThreshold(ctx)
 	}
-	return user.Balance <= threshold
+	balance := user.Balance
+	if s != nil && s.billingCacheService != nil && user.ID > 0 {
+		if currentBalance, err := s.billingCacheService.GetUserBalance(ctx, user.ID); err == nil {
+			balance = currentBalance
+		}
+	}
+	return balance <= threshold
 }
 
 func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(

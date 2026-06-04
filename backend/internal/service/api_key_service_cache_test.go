@@ -201,13 +201,14 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 				Concurrency: 3,
 			},
 			Group: &APIKeyAuthGroupSnapshot{
-				ID:                  groupID,
-				Name:                "g",
-				Platform:            PlatformAnthropic,
-				Status:              StatusActive,
-				SubscriptionType:    SubscriptionTypeStandard,
-				RateMultiplier:      1,
-				ModelRoutingEnabled: true,
+				ID:                    groupID,
+				Name:                  "g",
+				Platform:              PlatformAnthropic,
+				Status:                StatusActive,
+				SubscriptionType:      SubscriptionTypeStandard,
+				RateMultiplier:        1,
+				DisplayRateMultiplier: 1.25,
+				ModelRoutingEnabled:   true,
 				ModelRouting: map[string][]int64{
 					"claude-opus-*": {1, 2},
 				},
@@ -223,6 +224,7 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 	require.Equal(t, int64(1), apiKey.ID)
 	require.Equal(t, int64(2), apiKey.User.ID)
 	require.Equal(t, groupID, apiKey.Group.ID)
+	require.Equal(t, 1.25, apiKey.Group.DisplayRateMultiplier)
 	require.True(t, apiKey.Group.ModelRoutingEnabled)
 	require.Equal(t, map[string][]int64{"claude-opus-*": {1, 2}}, apiKey.Group.ModelRouting)
 }
@@ -251,6 +253,7 @@ func TestAPIKeyService_SnapshotRoundTrip_PreservesMessagesDispatchModelConfig(t 
 			Status:                StatusActive,
 			SubscriptionType:      SubscriptionTypeStandard,
 			RateMultiplier:        1,
+			DisplayRateMultiplier: 1.35,
 			AllowMessagesDispatch: true,
 			DefaultMappedModel:    "gpt-5.4",
 			MessagesDispatchModelConfig: OpenAIMessagesDispatchModelConfig{
@@ -270,6 +273,7 @@ func TestAPIKeyService_SnapshotRoundTrip_PreservesMessagesDispatchModelConfig(t 
 	require.NotNil(t, roundTrip)
 	require.Equal(t, apiKey.Name, roundTrip.Name)
 	require.NotNil(t, roundTrip.Group)
+	require.Equal(t, apiKey.Group.DisplayRateMultiplier, roundTrip.Group.DisplayRateMultiplier)
 	require.Equal(t, apiKey.Group.MessagesDispatchModelConfig, roundTrip.Group.MessagesDispatchModelConfig)
 }
 

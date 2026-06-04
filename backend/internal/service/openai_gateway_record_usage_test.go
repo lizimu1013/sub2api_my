@@ -127,6 +127,80 @@ func (s *openAIUserGroupRateRepoStub) GetByUserAndGroup(ctx context.Context, use
 	return s.rate, nil
 }
 
+type openAIRecordUsageBalanceCacheStub struct {
+	balance float64
+	err     error
+	calls   int
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) GetUserBalance(ctx context.Context, userID int64) (float64, error) {
+	s.calls++
+	if s.err != nil {
+		return 0, s.err
+	}
+	return s.balance, nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) SetUserBalance(ctx context.Context, userID int64, balance float64) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) DeductUserBalance(ctx context.Context, userID int64, amount float64) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) InvalidateUserBalance(ctx context.Context, userID int64) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) GetSubscriptionCache(ctx context.Context, userID, groupID int64) (*SubscriptionCacheData, error) {
+	return nil, nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) SetSubscriptionCache(ctx context.Context, userID, groupID int64, data *SubscriptionCacheData) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) UpdateSubscriptionUsage(ctx context.Context, userID, groupID int64, cost float64) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) InvalidateSubscriptionCache(ctx context.Context, userID, groupID int64) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) GetAPIKeyRateLimit(ctx context.Context, keyID int64) (*APIKeyRateLimitCacheData, error) {
+	return nil, nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) SetAPIKeyRateLimit(ctx context.Context, keyID int64, data *APIKeyRateLimitCacheData) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) UpdateAPIKeyRateLimitUsage(ctx context.Context, keyID int64, cost float64) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) InvalidateAPIKeyRateLimit(ctx context.Context, keyID int64) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) GetUserPlatformQuotaCache(ctx context.Context, userID int64, platform string) (*UserPlatformQuotaCacheEntry, bool, error) {
+	return nil, false, nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) SetUserPlatformQuotaCache(ctx context.Context, userID int64, platform string, entry *UserPlatformQuotaCacheEntry, ttl time.Duration) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) DeleteUserPlatformQuotaCache(ctx context.Context, userID int64, platform string) error {
+	return nil
+}
+
+func (s *openAIRecordUsageBalanceCacheStub) IncrUserPlatformQuotaUsageCache(ctx context.Context, userID int64, platform string, cost float64, ttl time.Duration) error {
+	return nil
+}
+
 func i64p(v int64) *int64 {
 	return &v
 }
@@ -425,6 +499,51 @@ func TestOpenAIGatewayServiceRecordUsage_HighBalanceKeepsRealRateForBalanceBilli
 	require.Equal(t, userRate, usageRepo.lastLog.RateMultiplier)
 
 	expected := expectedOpenAICost(t, svc, "gpt-5.1", usage, userRate)
+	require.InDelta(t, expected.ActualCost, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, expected.ActualCost, billingRepo.lastCmd.BalanceCost, 1e-12)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_LowBalanceUsesCurrentBalanceOverAuthSnapshot(t *testing.T) {
+	groupID := int64(13)
+	groupRate := 2.1
+	displayRate := 1.0
+	usage := OpenAIUsage{InputTokens: 20, OutputTokens: 5}
+
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	billingRepo := &openAIRecordUsageBillingRepoStub{}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	subRepo := &openAIRecordUsageSubRepoStub{}
+	balanceCache := &openAIRecordUsageBalanceCacheStub{balance: LowBalanceDisplayRateThresholdDefault - 0.5}
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc.billingCacheService = &BillingCacheService{cache: balanceCache}
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_low_balance_current_balance",
+			Usage:     usage,
+			Model:     "gpt-5.1",
+			Duration:  time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      1004,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                    groupID,
+				RateMultiplier:        groupRate,
+				DisplayRateMultiplier: displayRate,
+			},
+		},
+		User:    &User{ID: 2004, Balance: LowBalanceDisplayRateThresholdDefault + 10},
+		Account: &Account{ID: 3004},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, balanceCache.calls)
+	require.NotNil(t, usageRepo.lastLog)
+	require.NotNil(t, billingRepo.lastCmd)
+	require.Equal(t, displayRate, usageRepo.lastLog.RateMultiplier)
+
+	expected := expectedOpenAICost(t, svc, "gpt-5.1", usage, displayRate)
 	require.InDelta(t, expected.ActualCost, usageRepo.lastLog.ActualCost, 1e-12)
 	require.InDelta(t, expected.ActualCost, billingRepo.lastCmd.BalanceCost, 1e-12)
 }
