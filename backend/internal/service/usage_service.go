@@ -383,3 +383,21 @@ func (s *UsageService) GetStatsWithFilters(ctx context.Context, filters usagesta
 	}
 	return stats, nil
 }
+
+// GetTopAccountLatencyStats returns first-token and duration metrics for top accounts.
+func (s *UsageService) GetTopAccountLatencyStats(ctx context.Context, filters usagestats.UsageLogFilters, limit int) ([]usagestats.AccountLatencyStat, error) {
+	stats, err := s.usageRepo.GetTopAccountLatencyStats(ctx, filters, limit)
+	if err != nil {
+		return nil, fmt.Errorf("get top account latency stats: %w", err)
+	}
+	return stats, nil
+}
+
+// GetAccountLatencyTrend returns first-token and duration trend for top accounts.
+func (s *UsageService) GetAccountLatencyTrend(ctx context.Context, filters usagestats.UsageLogFilters, granularity string, limit int) ([]usagestats.AccountLatencyTrendSeries, error) {
+	trend, err := s.usageRepo.GetAccountLatencyTrend(ctx, filters, granularity, limit)
+	if err != nil {
+		return nil, fmt.Errorf("get account latency trend: %w", err)
+	}
+	return trend, nil
+}

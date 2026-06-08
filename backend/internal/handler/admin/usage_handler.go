@@ -28,7 +28,10 @@ type UsageHandler struct {
 	cleanupService *service.UsageCleanupService
 }
 
-const maxUsageIPAddressFilterLength = 64
+const (
+	maxUsageIPAddressFilterLength = 64
+	maxUsageAccountLatencyLimit   = 20
+)
 
 var errInvalidUsageIPAddress = errors.New("Invalid ip_address")
 
@@ -364,6 +367,187 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 	}
 
 	response.Success(c, stats)
+}
+
+// AccountLatency handles first-token and duration metrics for top accounts.
+// GET /api/v1/admin/usage/account-latency
+func (h *UsageHandler) AccountLatency(c *gin.Context) {
+	limit := maxUsageAccountLatencyLimit
+	if limitStr := strings.TrimSpace(c.Query("limit")); limitStr != "" {
+		parsed, err := strconv.Atoi(limitStr)
+		if err != nil || parsed <= 0 {
+			response.BadRequest(c, "Invalid limit")
+			return
+		}
+		if parsed < limit {
+			limit = parsed
+		}
+	}
+
+	filters, ok := parseUsageAccountLatencyFilters(c)
+	if !ok {
+		return
+	}
+	stats, err := h.usageService.GetTopAccountLatencyStats(c.Request.Context(), filters, limit)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, stats)
+}
+
+// AccountLatencyTrend handles first-token and duration trend for top accounts.
+// GET /api/v1/admin/usage/account-latency/trend
+func (h *UsageHandler) AccountLatencyTrend(c *gin.Context) {
+	limit := maxUsageAccountLatencyLimit
+	if limitStr := strings.TrimSpace(c.Query("limit")); limitStr != "" {
+		parsed, err := strconv.Atoi(limitStr)
+		if err != nil || parsed <= 0 {
+			response.BadRequest(c, "Invalid limit")
+			return
+		}
+		if parsed < limit {
+			limit = parsed
+		}
+	}
+
+	granularity := strings.TrimSpace(c.DefaultQuery("granularity", "hour"))
+	switch granularity {
+	case "hour", "day":
+	default:
+		response.BadRequest(c, "Invalid granularity")
+		return
+	}
+
+	filters, ok := parseUsageAccountLatencyFilters(c)
+	if !ok {
+		return
+	}
+	trend, err := h.usageService.GetAccountLatencyTrend(c.Request.Context(), filters, granularity, limit)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, trend)
+}
+
+func parseUsageAccountLatencyFilters(c *gin.Context) (usagestats.UsageLogFilters, bool) {
+	var userID, apiKeyID, accountID, groupID int64
+	if userIDStr := c.Query("user_id"); userIDStr != "" {
+		id, err := strconv.ParseInt(userIDStr, 10, 64)
+		if err != nil {
+			response.BadRequest(c, "Invalid user_id")
+			return usagestats.UsageLogFilters{}, false
+		}
+		userID = id
+	}
+	if apiKeyIDStr := c.Query("api_key_id"); apiKeyIDStr != "" {
+		id, err := strconv.ParseInt(apiKeyIDStr, 10, 64)
+		if err != nil {
+			response.BadRequest(c, "Invalid api_key_id")
+			return usagestats.UsageLogFilters{}, false
+		}
+		apiKeyID = id
+	}
+	if accountIDStr := c.Query("account_id"); accountIDStr != "" {
+		id, err := strconv.ParseInt(accountIDStr, 10, 64)
+		if err != nil {
+			response.BadRequest(c, "Invalid account_id")
+			return usagestats.UsageLogFilters{}, false
+		}
+		accountID = id
+	}
+	if groupIDStr := c.Query("group_id"); groupIDStr != "" {
+		id, err := strconv.ParseInt(groupIDStr, 10, 64)
+		if err != nil {
+			response.BadRequest(c, "Invalid group_id")
+			return usagestats.UsageLogFilters{}, false
+		}
+		groupID = id
+	}
+
+	ipAddress, ok := parseUsageIPAddressFilter(c)
+	if !ok {
+		return usagestats.UsageLogFilters{}, false
+	}
+
+	var requestType *int16
+	var stream *bool
+	if requestTypeStr := strings.TrimSpace(c.Query("request_type")); requestTypeStr != "" {
+		parsed, err := service.ParseUsageRequestType(requestTypeStr)
+		if err != nil {
+			response.BadRequest(c, err.Error())
+			return usagestats.UsageLogFilters{}, false
+		}
+		value := int16(parsed)
+		requestType = &value
+	} else if streamStr := c.Query("stream"); streamStr != "" {
+		val, err := strconv.ParseBool(streamStr)
+		if err != nil {
+			response.BadRequest(c, "Invalid stream value, use true or false")
+			return usagestats.UsageLogFilters{}, false
+		}
+		stream = &val
+	}
+
+	var billingType *int8
+	if billingTypeStr := c.Query("billing_type"); billingTypeStr != "" {
+		val, err := strconv.ParseInt(billingTypeStr, 10, 8)
+		if err != nil {
+			response.BadRequest(c, "Invalid billing_type")
+			return usagestats.UsageLogFilters{}, false
+		}
+		bt := int8(val)
+		billingType = &bt
+	}
+
+	userTZ := c.Query("timezone")
+	now := timezone.NowInUserLocation(userTZ)
+	var startTime, endTime time.Time
+	startDateStr := c.Query("start_date")
+	endDateStr := c.Query("end_date")
+	if startDateStr != "" && endDateStr != "" {
+		var err error
+		startTime, err = timezone.ParseInUserLocation("2006-01-02", startDateStr, userTZ)
+		if err != nil {
+			response.BadRequest(c, "Invalid start_date format, use YYYY-MM-DD")
+			return usagestats.UsageLogFilters{}, false
+		}
+		endTime, err = timezone.ParseInUserLocation("2006-01-02", endDateStr, userTZ)
+		if err != nil {
+			response.BadRequest(c, "Invalid end_date format, use YYYY-MM-DD")
+			return usagestats.UsageLogFilters{}, false
+		}
+		endTime = endTime.AddDate(0, 0, 1)
+	} else {
+		period := c.DefaultQuery("period", "today")
+		switch period {
+		case "today":
+			startTime = timezone.StartOfDayInUserLocation(now, userTZ)
+		case "week":
+			startTime = now.AddDate(0, 0, -7)
+		case "month":
+			startTime = now.AddDate(0, -1, 0)
+		default:
+			startTime = timezone.StartOfDayInUserLocation(now, userTZ)
+		}
+		endTime = now
+	}
+
+	return usagestats.UsageLogFilters{
+		UserID:      userID,
+		APIKeyID:    apiKeyID,
+		AccountID:   accountID,
+		GroupID:     groupID,
+		Model:       c.Query("model"),
+		IPAddress:   ipAddress,
+		RequestType: requestType,
+		Stream:      stream,
+		BillingType: billingType,
+		BillingMode: strings.TrimSpace(c.Query("billing_mode")),
+		StartTime:   &startTime,
+		EndTime:     &endTime,
+	}, true
 }
 
 // SearchUsers handles searching users by email keyword

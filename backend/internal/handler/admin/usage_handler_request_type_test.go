@@ -15,9 +15,12 @@ import (
 
 type adminUsageRepoCapture struct {
 	service.UsageLogRepository
-	listParams   pagination.PaginationParams
-	listFilters  usagestats.UsageLogFilters
-	statsFilters usagestats.UsageLogFilters
+	listParams        pagination.PaginationParams
+	listFilters       usagestats.UsageLogFilters
+	statsFilters      usagestats.UsageLogFilters
+	latencyFilters    usagestats.UsageLogFilters
+	accountLatencyLim int
+	trendGranularity  string
 }
 
 func (s *adminUsageRepoCapture) ListWithFilters(ctx context.Context, params pagination.PaginationParams, filters usagestats.UsageLogFilters) ([]service.UsageLog, *pagination.PaginationResult, error) {
@@ -36,6 +39,19 @@ func (s *adminUsageRepoCapture) GetStatsWithFilters(ctx context.Context, filters
 	return &usagestats.UsageStats{}, nil
 }
 
+func (s *adminUsageRepoCapture) GetTopAccountLatencyStats(ctx context.Context, filters usagestats.UsageLogFilters, limit int) ([]usagestats.AccountLatencyStat, error) {
+	s.latencyFilters = filters
+	s.accountLatencyLim = limit
+	return []usagestats.AccountLatencyStat{}, nil
+}
+
+func (s *adminUsageRepoCapture) GetAccountLatencyTrend(ctx context.Context, filters usagestats.UsageLogFilters, granularity string, limit int) ([]usagestats.AccountLatencyTrendSeries, error) {
+	s.latencyFilters = filters
+	s.accountLatencyLim = limit
+	s.trendGranularity = granularity
+	return []usagestats.AccountLatencyTrendSeries{}, nil
+}
+
 func newAdminUsageRequestTypeTestRouter(repo *adminUsageRepoCapture) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	usageSvc := service.NewUsageService(repo, nil, nil, nil)
@@ -43,6 +59,8 @@ func newAdminUsageRequestTypeTestRouter(repo *adminUsageRepoCapture) *gin.Engine
 	router := gin.New()
 	router.GET("/admin/usage", handler.List)
 	router.GET("/admin/usage/stats", handler.Stats)
+	router.GET("/admin/usage/account-latency", handler.AccountLatency)
+	router.GET("/admin/usage/account-latency/trend", handler.AccountLatencyTrend)
 	return router
 }
 
@@ -170,6 +188,57 @@ func TestAdminUsageStatsInvalidStream(t *testing.T) {
 	router := newAdminUsageRequestTypeTestRouter(repo)
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/usage/stats?stream=oops", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestAdminUsageAccountLatencyLimitCappedAtTop20(t *testing.T) {
+	repo := &adminUsageRepoCapture{}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/account-latency?limit=99", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, 20, repo.accountLatencyLim)
+}
+
+func TestAdminUsageAccountLatencyRequestTypePriority(t *testing.T) {
+	repo := &adminUsageRepoCapture{}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/account-latency?request_type=stream&stream=false&ip_address=10.0.0.8", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NotNil(t, repo.latencyFilters.RequestType)
+	require.Equal(t, int16(service.RequestTypeStream), *repo.latencyFilters.RequestType)
+	require.Nil(t, repo.latencyFilters.Stream)
+	require.Equal(t, "10.0.0.8", repo.latencyFilters.IPAddress)
+}
+
+func TestAdminUsageAccountLatencyTrendParams(t *testing.T) {
+	repo := &adminUsageRepoCapture{}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/account-latency/trend?granularity=day&limit=8", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, 8, repo.accountLatencyLim)
+	require.Equal(t, "day", repo.trendGranularity)
+}
+
+func TestAdminUsageAccountLatencyTrendInvalidGranularity(t *testing.T) {
+	repo := &adminUsageRepoCapture{}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/account-latency/trend?granularity=minute", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 

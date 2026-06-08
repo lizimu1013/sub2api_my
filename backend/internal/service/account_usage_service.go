@@ -67,6 +67,8 @@ type UsageLogRepository interface {
 	ListWithFilters(ctx context.Context, params pagination.PaginationParams, filters usagestats.UsageLogFilters) ([]UsageLog, *pagination.PaginationResult, error)
 	GetGlobalStats(ctx context.Context, startTime, endTime time.Time) (*usagestats.UsageStats, error)
 	GetStatsWithFilters(ctx context.Context, filters usagestats.UsageLogFilters) (*usagestats.UsageStats, error)
+	GetTopAccountLatencyStats(ctx context.Context, filters usagestats.UsageLogFilters, limit int) ([]usagestats.AccountLatencyStat, error)
+	GetAccountLatencyTrend(ctx context.Context, filters usagestats.UsageLogFilters, granularity string, limit int) ([]usagestats.AccountLatencyTrendSeries, error)
 
 	// Account stats
 	GetAccountUsageStats(ctx context.Context, accountID int64, startTime, endTime time.Time) (*usagestats.AccountUsageStatsResponse, error)

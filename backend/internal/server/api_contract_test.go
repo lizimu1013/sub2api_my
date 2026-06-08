@@ -2492,6 +2492,15 @@ func (r *stubUsageLogRepo) GetAccountUsageStats(ctx context.Context, accountID i
 func (r *stubUsageLogRepo) GetStatsWithFilters(ctx context.Context, filters usagestats.UsageLogFilters) (*usagestats.UsageStats, error) {
 	return nil, errors.New("not implemented")
 }
+
+func (r *stubUsageLogRepo) GetTopAccountLatencyStats(ctx context.Context, filters usagestats.UsageLogFilters, limit int) ([]usagestats.AccountLatencyStat, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *stubUsageLogRepo) GetAccountLatencyTrend(ctx context.Context, filters usagestats.UsageLogFilters, granularity string, limit int) ([]usagestats.AccountLatencyTrendSeries, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (r *stubUsageLogRepo) GetAllGroupUsageSummary(ctx context.Context, todayStart time.Time) ([]usagestats.GroupUsageSummary, error) {
 	return nil, errors.New("not implemented")
 }

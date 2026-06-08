@@ -115,6 +115,39 @@ type EndpointStat struct {
 	ActualCost  float64 `json:"actual_cost"` // 实际扣除
 }
 
+// AccountLatencyStat represents first-token and duration metrics for a top account.
+type AccountLatencyStat struct {
+	AccountID         int64      `json:"account_id"`
+	AccountName       string     `json:"account_name"`
+	AccountPlatform   *string    `json:"account_platform,omitempty"`
+	AccountStatus     *string    `json:"account_status,omitempty"`
+	Requests          int64      `json:"requests"`
+	TotalTokens       int64      `json:"total_tokens"`
+	ActualCost        float64    `json:"actual_cost"`
+	FirstTokenSamples int64      `json:"first_token_samples"`
+	AvgFirstTokenMs   *float64   `json:"avg_first_token_ms"`
+	MaxFirstTokenMs   *int       `json:"max_first_token_ms"`
+	AvgDurationMs     *float64   `json:"avg_duration_ms"`
+	MaxDurationMs     *int       `json:"max_duration_ms"`
+	LastUsedAt         *time.Time `json:"last_used_at,omitempty"`
+}
+
+// AccountLatencyTrendPoint represents one time bucket for account latency trend.
+type AccountLatencyTrendPoint struct {
+	Date              string   `json:"date"`
+	Requests          int64    `json:"requests"`
+	FirstTokenSamples int64    `json:"first_token_samples"`
+	AvgFirstTokenMs   *float64 `json:"avg_first_token_ms"`
+	AvgDurationMs     *float64 `json:"avg_duration_ms"`
+}
+
+// AccountLatencyTrendSeries represents a top account's latency trend.
+type AccountLatencyTrendSeries struct {
+	AccountID   int64                      `json:"account_id"`
+	AccountName string                     `json:"account_name"`
+	Points      []AccountLatencyTrendPoint `json:"points"`
+}
+
 // GroupUsageSummary represents today's and cumulative cost for a single group.
 type GroupUsageSummary struct {
 	GroupID   int64   `json:"group_id"`

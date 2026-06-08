@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import UsageView from '../UsageView.vue'
 
-const { list, getStats, getSnapshotV2, getById } = vi.hoisted(() => {
+const { list, getStats, getAccountLatency, getAccountLatencyTrend, getSnapshotV2, getModelStats, getById } = vi.hoisted(() => {
   vi.stubGlobal('localStorage', {
     getItem: vi.fn(() => null),
     setItem: vi.fn(),
@@ -13,7 +13,10 @@ const { list, getStats, getSnapshotV2, getById } = vi.hoisted(() => {
   return {
     list: vi.fn(),
     getStats: vi.fn(),
+    getAccountLatency: vi.fn(),
+    getAccountLatencyTrend: vi.fn(),
     getSnapshotV2: vi.fn(),
+    getModelStats: vi.fn(),
     getById: vi.fn(),
   }
 })
@@ -37,9 +40,12 @@ vi.mock('@/api/admin', () => ({
     usage: {
       list,
       getStats,
+      getAccountLatency,
+      getAccountLatencyTrend,
     },
     dashboard: {
       getSnapshotV2,
+      getModelStats,
     },
     users: {
       getById,
@@ -110,7 +116,10 @@ describe('admin UsageView distribution metric toggles', () => {
     vi.useFakeTimers()
     list.mockReset()
     getStats.mockReset()
+    getAccountLatency.mockReset()
+    getAccountLatencyTrend.mockReset()
     getSnapshotV2.mockReset()
+    getModelStats.mockReset()
     getById.mockReset()
 
     list.mockResolvedValue({
@@ -128,10 +137,15 @@ describe('admin UsageView distribution metric toggles', () => {
       total_actual_cost: 0,
       average_duration_ms: 0,
     })
+    getAccountLatency.mockResolvedValue([])
+    getAccountLatencyTrend.mockResolvedValue([])
     getSnapshotV2.mockResolvedValue({
       trend: [],
       models: [],
       groups: [],
+    })
+    getModelStats.mockResolvedValue({
+      models: [],
     })
   })
 
@@ -149,6 +163,7 @@ describe('admin UsageView distribution metric toggles', () => {
           UsageTable: true,
           UsageExportProgress: true,
           UsageCleanupDialog: true,
+          AccountLatencyCheck: true,
           UserBalanceHistoryModal: true,
           Pagination: true,
           Select: true,

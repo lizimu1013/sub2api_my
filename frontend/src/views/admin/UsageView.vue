@@ -63,6 +63,13 @@
           />
           <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
         </div>
+        <AccountLatencyCheck
+          :items="accountLatencyStats"
+          :loading="accountLatencyLoading"
+          :trend-items="accountLatencyTrend"
+          :trend-loading="accountLatencyLoading"
+          @refresh="loadAccountLatencyStats"
+        />
       </div>
       <UsageFilters v-model="filters" :start-date="startDate" :end-date="endDate" :exporting="exporting" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
         <template #after-reset>
@@ -143,11 +150,12 @@ import AppLayout from '@/components/layout/AppLayout.vue'; import Pagination fro
 import UsageStatsCards from '@/components/admin/usage/UsageStatsCards.vue'; import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
 import UsageTable from '@/components/admin/usage/UsageTable.vue'; import UsageExportProgress from '@/components/admin/usage/UsageExportProgress.vue'
 import UsageCleanupDialog from '@/components/admin/usage/UsageCleanupDialog.vue'
+import AccountLatencyCheck from '@/components/admin/usage/AccountLatencyCheck.vue'
 import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'; import GroupDistributionChart from '@/components/charts/GroupDistributionChart.vue'; import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'
 import Icon from '@/components/icons/Icon.vue'
-import type { AdminUsageLog, TrendDataPoint, ModelStat, GroupStat, EndpointStat, AdminUser } from '@/types'; import type { AdminUsageStatsResponse, AdminUsageQueryParams } from '@/api/admin/usage'
+import type { AdminUsageLog, TrendDataPoint, ModelStat, GroupStat, EndpointStat, AdminUser } from '@/types'; import type { AccountLatencyStat, AccountLatencyTrendSeries, AdminUsageStatsResponse, AdminUsageQueryParams } from '@/api/admin/usage'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -171,10 +179,14 @@ const inboundEndpointStats = ref<EndpointStat[]>([])
 const upstreamEndpointStats = ref<EndpointStat[]>([])
 const endpointPathStats = ref<EndpointStat[]>([])
 const endpointStatsLoading = ref(false)
+const accountLatencyStats = ref<AccountLatencyStat[]>([])
+const accountLatencyTrend = ref<AccountLatencyTrendSeries[]>([])
+const accountLatencyLoading = ref(false)
 let abortController: AbortController | null = null; let exportAbortController: AbortController | null = null
 let chartReqSeq = 0
 let statsReqSeq = 0
 let modelStatsReqSeq = 0
+let accountLatencyReqSeq = 0
 const exportProgress = reactive({ show: false, progress: 0, current: 0, total: 0, estimatedTime: '' })
 const cleanupDialogVisible = ref(false)
 // Balance history modal state
@@ -332,6 +344,43 @@ const loadStats = async () => {
   }
 }
 
+const buildUsageMetricsParams = (): AdminUsageQueryParams & { limit: number; granularity: 'day' | 'hour' } => {
+  const requestType = filters.value.request_type
+  const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
+  return {
+    ...filters.value,
+    start_date: filters.value.start_date || startDate.value,
+    end_date: filters.value.end_date || endDate.value,
+    ip_address: filters.value.ip_address?.trim() || undefined,
+    request_type: requestType,
+    stream: legacyStream === null ? undefined : legacyStream,
+    limit: 20,
+    granularity: granularity.value
+  }
+}
+
+const loadAccountLatencyStats = async () => {
+  const seq = ++accountLatencyReqSeq
+  accountLatencyLoading.value = true
+  try {
+    const params = buildUsageMetricsParams()
+    const [stats, trend] = await Promise.all([
+      adminAPI.usage.getAccountLatency(params),
+      adminAPI.usage.getAccountLatencyTrend(params)
+    ])
+    if (seq !== accountLatencyReqSeq) return
+    accountLatencyStats.value = stats
+    accountLatencyTrend.value = trend
+  } catch (error) {
+    if (seq !== accountLatencyReqSeq) return
+    console.error('Failed to load account latency stats:', error)
+    accountLatencyStats.value = []
+    accountLatencyTrend.value = []
+  } finally {
+    if (seq === accountLatencyReqSeq) accountLatencyLoading.value = false
+  }
+}
+
 const resetModelStatsCache = () => {
   requestedModelStats.value = []
   upstreamModelStats.value = []
@@ -429,6 +478,7 @@ const applyFilters = () => {
   resetModelStatsCache()
   loadLogs()
   loadStats()
+  loadAccountLatencyStats()
   loadModelStats(modelDistributionSource.value, true)
   loadChartData()
 }
@@ -436,6 +486,7 @@ const refreshData = () => {
   resetModelStatsCache()
   loadLogs()
   loadStats()
+  loadAccountLatencyStats()
   loadModelStats(modelDistributionSource.value, true)
   loadChartData()
 }
@@ -604,6 +655,7 @@ onMounted(() => {
   applyRouteQueryFilters()
   loadLogs()
   loadStats()
+  loadAccountLatencyStats()
   loadModelStats(modelDistributionSource.value, true)
   window.setTimeout(() => {
     void loadChartData()

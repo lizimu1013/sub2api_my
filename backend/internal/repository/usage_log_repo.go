@@ -3570,6 +3570,310 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 	return stats, nil
 }
 
+func qualifiedUsageLogColumn(alias, column string) string {
+	if strings.TrimSpace(alias) == "" {
+		return column
+	}
+	return alias + "." + column
+}
+
+func appendUsageLogRequestTypeOrStreamWhereCondition(conditions []string, args []any, alias string, requestType *int16, stream *bool) ([]string, []any) {
+	col := func(column string) string { return qualifiedUsageLogColumn(alias, column) }
+	if requestType != nil {
+		normalized := service.RequestTypeFromInt16(*requestType)
+		placeholder := fmt.Sprintf("$%d", len(args)+1)
+		args = append(args, int16(normalized))
+		switch normalized {
+		case service.RequestTypeSync:
+			conditions = append(conditions, fmt.Sprintf("(%s = %s OR (%s = %d AND %s = FALSE AND %s = FALSE))", col("request_type"), placeholder, col("request_type"), int16(service.RequestTypeUnknown), col("stream"), col("openai_ws_mode")))
+		case service.RequestTypeStream:
+			conditions = append(conditions, fmt.Sprintf("(%s = %s OR (%s = %d AND %s = TRUE AND %s = FALSE))", col("request_type"), placeholder, col("request_type"), int16(service.RequestTypeUnknown), col("stream"), col("openai_ws_mode")))
+		case service.RequestTypeWSV2:
+			conditions = append(conditions, fmt.Sprintf("(%s = %s OR (%s = %d AND %s = TRUE))", col("request_type"), placeholder, col("request_type"), int16(service.RequestTypeUnknown), col("openai_ws_mode")))
+		default:
+			conditions = append(conditions, fmt.Sprintf("%s = %s", col("request_type"), placeholder))
+		}
+		return conditions, args
+	}
+	if stream != nil {
+		conditions = append(conditions, fmt.Sprintf("%s = $%d", col("stream"), len(args)+1))
+		args = append(args, *stream)
+	}
+	return conditions, args
+}
+
+func appendUsageLogBillingModeWhereConditionForAlias(conditions []string, args []any, alias, billingMode string) ([]string, []any) {
+	mode := strings.TrimSpace(billingMode)
+	if mode == "" {
+		return conditions, args
+	}
+	column := qualifiedUsageLogColumn(alias, "billing_mode")
+	imageCount := qualifiedUsageLogColumn(alias, "image_count")
+	placeholder := fmt.Sprintf("$%d", len(args)+1)
+	switch service.BillingMode(mode) {
+	case service.BillingModeImage:
+		conditions = append(conditions, fmt.Sprintf("(%s = %s OR COALESCE(%s, 0) > 0)", column, placeholder, imageCount))
+	case service.BillingModeToken:
+		conditions = append(conditions, fmt.Sprintf("(%s = %s OR ((%s IS NULL OR %s = '') AND COALESCE(%s, 0) <= 0))", column, placeholder, column, column, imageCount))
+	default:
+		conditions = append(conditions, fmt.Sprintf("%s = %s", column, placeholder))
+	}
+	args = append(args, mode)
+	return conditions, args
+}
+
+func buildAccountLatencyFilterConditions(filters UsageLogFilters, alias string) ([]string, []any) {
+	conditions := []string{qualifiedUsageLogColumn(alias, "account_id") + " > 0"}
+	args := make([]any, 0, 10)
+	if filters.UserID > 0 {
+		conditions = append(conditions, fmt.Sprintf("%s = $%d", qualifiedUsageLogColumn(alias, "user_id"), len(args)+1))
+		args = append(args, filters.UserID)
+	}
+	if filters.APIKeyID > 0 {
+		conditions = append(conditions, fmt.Sprintf("%s = $%d", qualifiedUsageLogColumn(alias, "api_key_id"), len(args)+1))
+		args = append(args, filters.APIKeyID)
+	}
+	if filters.AccountID > 0 {
+		conditions = append(conditions, fmt.Sprintf("%s = $%d", qualifiedUsageLogColumn(alias, "account_id"), len(args)+1))
+		args = append(args, filters.AccountID)
+	}
+	if filters.GroupID > 0 {
+		conditions = append(conditions, fmt.Sprintf("%s = $%d", qualifiedUsageLogColumn(alias, "group_id"), len(args)+1))
+		args = append(args, filters.GroupID)
+	}
+	if strings.TrimSpace(filters.Model) != "" {
+		conditions = append(conditions, fmt.Sprintf("%s = $%d", qualifiedUsageLogColumn(alias, rawUsageLogModelColumn), len(args)+1))
+		args = append(args, filters.Model)
+	}
+	conditions, args = appendUsageLogIPAddressWhereCondition(conditions, args, qualifiedUsageLogColumn(alias, "ip_address"), filters.IPAddress)
+	conditions, args = appendUsageLogRequestTypeOrStreamWhereCondition(conditions, args, alias, filters.RequestType, filters.Stream)
+	if filters.BillingType != nil {
+		conditions = append(conditions, fmt.Sprintf("%s = $%d", qualifiedUsageLogColumn(alias, "billing_type"), len(args)+1))
+		args = append(args, int16(*filters.BillingType))
+	}
+	conditions, args = appendUsageLogBillingModeWhereConditionForAlias(conditions, args, alias, filters.BillingMode)
+	if filters.StartTime != nil {
+		conditions = append(conditions, fmt.Sprintf("%s >= $%d", qualifiedUsageLogColumn(alias, "created_at"), len(args)+1))
+		args = append(args, *filters.StartTime)
+	}
+	if filters.EndTime != nil {
+		conditions = append(conditions, fmt.Sprintf("%s < $%d", qualifiedUsageLogColumn(alias, "created_at"), len(args)+1))
+		args = append(args, *filters.EndTime)
+	}
+	return conditions, args
+}
+
+// GetTopAccountLatencyStats returns first-token and duration metrics for top accounts.
+func (r *usageLogRepository) GetTopAccountLatencyStats(ctx context.Context, filters UsageLogFilters, limit int) ([]usagestats.AccountLatencyStat, error) {
+	if limit <= 0 {
+		return []usagestats.AccountLatencyStat{}, nil
+	}
+
+	conditions, args := buildAccountLatencyFilterConditions(filters, "")
+
+	args = append(args, limit)
+	limitPlaceholder := fmt.Sprintf("$%d", len(args))
+	query := fmt.Sprintf(`
+		WITH top_accounts AS (
+			SELECT
+				account_id,
+				COUNT(*) AS requests,
+				COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS total_tokens,
+				COALESCE(SUM(actual_cost), 0) AS actual_cost,
+				COUNT(first_token_ms) AS first_token_samples,
+				AVG(first_token_ms) AS avg_first_token_ms,
+				MAX(first_token_ms) AS max_first_token_ms,
+				AVG(duration_ms) AS avg_duration_ms,
+				MAX(duration_ms) AS max_duration_ms,
+				MAX(created_at) AS last_used_at
+			FROM usage_logs
+			%s
+			GROUP BY account_id
+			ORDER BY requests DESC, avg_duration_ms DESC NULLS LAST, account_id ASC
+			LIMIT %s
+		)
+		SELECT
+			ta.account_id,
+			COALESCE(NULLIF(a.name, ''), 'Account #' || ta.account_id::text) AS account_name,
+			a.platform,
+			a.status,
+			ta.requests,
+			ta.total_tokens,
+			ta.actual_cost,
+			ta.first_token_samples,
+			ta.avg_first_token_ms,
+			ta.max_first_token_ms,
+			ta.avg_duration_ms,
+			ta.max_duration_ms,
+			ta.last_used_at
+		FROM top_accounts ta
+		LEFT JOIN accounts a ON a.id = ta.account_id
+		ORDER BY ta.requests DESC, ta.avg_duration_ms DESC NULLS LAST, ta.account_id ASC
+	`, buildWhere(conditions), limitPlaceholder)
+
+	rows, err := r.sql.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := make([]usagestats.AccountLatencyStat, 0, limit)
+	for rows.Next() {
+		var row usagestats.AccountLatencyStat
+		var platform, status sql.NullString
+		var avgFirstToken, avgDuration sql.NullFloat64
+		var maxFirstToken, maxDuration sql.NullInt64
+		var lastUsedAt sql.NullTime
+		if err := rows.Scan(
+			&row.AccountID,
+			&row.AccountName,
+			&platform,
+			&status,
+			&row.Requests,
+			&row.TotalTokens,
+			&row.ActualCost,
+			&row.FirstTokenSamples,
+			&avgFirstToken,
+			&maxFirstToken,
+			&avgDuration,
+			&maxDuration,
+			&lastUsedAt,
+		); err != nil {
+			return nil, err
+		}
+		if platform.Valid {
+			v := platform.String
+			row.AccountPlatform = &v
+		}
+		if status.Valid {
+			v := status.String
+			row.AccountStatus = &v
+		}
+		row.AvgFirstTokenMs = nullFloat64Ptr(avgFirstToken)
+		if maxFirstToken.Valid {
+			v := int(maxFirstToken.Int64)
+			row.MaxFirstTokenMs = &v
+		}
+		row.AvgDurationMs = nullFloat64Ptr(avgDuration)
+		if maxDuration.Valid {
+			v := int(maxDuration.Int64)
+			row.MaxDurationMs = &v
+		}
+		if lastUsedAt.Valid {
+			v := lastUsedAt.Time
+			row.LastUsedAt = &v
+		}
+		results = append(results, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// GetAccountLatencyTrend returns first-token and duration trend for top accounts.
+func (r *usageLogRepository) GetAccountLatencyTrend(ctx context.Context, filters UsageLogFilters, granularity string, limit int) ([]usagestats.AccountLatencyTrendSeries, error) {
+	if limit <= 0 {
+		return []usagestats.AccountLatencyTrendSeries{}, nil
+	}
+
+	dateFormat := safeDateFormat(granularity)
+	conditions, args := buildAccountLatencyFilterConditions(filters, "ul")
+	args = append(args, limit)
+	limitPlaceholder := fmt.Sprintf("$%d", len(args))
+	bucketExpr := fmt.Sprintf("TO_CHAR(f.created_at, '%s')", dateFormat)
+	accountNameExpr := "COALESCE(NULLIF(a.name, ''), 'Account #' || f.account_id::text)"
+	query := fmt.Sprintf(`
+		WITH filtered AS (
+			SELECT
+				ul.account_id,
+				ul.created_at,
+				ul.first_token_ms,
+				ul.duration_ms
+			FROM usage_logs ul
+			%s
+		),
+		top_accounts AS (
+			SELECT
+				account_id,
+				requests,
+				ROW_NUMBER() OVER (ORDER BY requests DESC, account_id ASC) AS account_rank
+			FROM (
+				SELECT account_id, COUNT(*) AS requests
+				FROM filtered
+				GROUP BY account_id
+			) ranked
+			ORDER BY requests DESC, account_id ASC
+			LIMIT %s
+		)
+		SELECT
+			ta.account_rank,
+			%s AS bucket,
+			f.account_id,
+			%s AS account_name,
+			COUNT(*) AS requests,
+			COUNT(f.first_token_ms) AS first_token_samples,
+			AVG(f.first_token_ms) AS avg_first_token_ms,
+			AVG(f.duration_ms) AS avg_duration_ms
+		FROM filtered f
+		JOIN top_accounts ta ON ta.account_id = f.account_id
+		LEFT JOIN accounts a ON a.id = f.account_id
+		GROUP BY ta.account_rank, %s, f.account_id, %s
+		ORDER BY ta.account_rank ASC, bucket ASC
+	`, buildWhere(conditions), limitPlaceholder, bucketExpr, accountNameExpr, bucketExpr, accountNameExpr)
+
+	rows, err := r.sql.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	seriesByAccount := make(map[int64]*usagestats.AccountLatencyTrendSeries)
+	accountOrder := make([]int64, 0, limit)
+	for rows.Next() {
+		var accountRank int
+		var point usagestats.AccountLatencyTrendPoint
+		var accountID int64
+		var accountName string
+		var avgFirstToken, avgDuration sql.NullFloat64
+		if err := rows.Scan(
+			&accountRank,
+			&point.Date,
+			&accountID,
+			&accountName,
+			&point.Requests,
+			&point.FirstTokenSamples,
+			&avgFirstToken,
+			&avgDuration,
+		); err != nil {
+			return nil, err
+		}
+		point.AvgFirstTokenMs = nullFloat64Ptr(avgFirstToken)
+		point.AvgDurationMs = nullFloat64Ptr(avgDuration)
+
+		series, ok := seriesByAccount[accountID]
+		if !ok {
+			series = &usagestats.AccountLatencyTrendSeries{
+				AccountID:   accountID,
+				AccountName: accountName,
+				Points:      []usagestats.AccountLatencyTrendPoint{},
+			}
+			seriesByAccount[accountID] = series
+			accountOrder = append(accountOrder, accountID)
+		}
+		series.Points = append(series.Points, point)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	results := make([]usagestats.AccountLatencyTrendSeries, 0, len(accountOrder))
+	for _, accountID := range accountOrder {
+		results = append(results, *seriesByAccount[accountID])
+	}
+	return results, nil
+}
+
 // AccountUsageHistory represents daily usage history for an account
 type AccountUsageHistory = usagestats.AccountUsageHistory
 

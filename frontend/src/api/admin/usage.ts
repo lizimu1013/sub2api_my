@@ -35,6 +35,36 @@ export interface SimpleApiKey {
   user_id: number
 }
 
+export interface AccountLatencyStat {
+  account_id: number
+  account_name: string
+  account_platform?: string | null
+  account_status?: string | null
+  requests: number
+  total_tokens: number
+  actual_cost: number
+  first_token_samples: number
+  avg_first_token_ms?: number | null
+  max_first_token_ms?: number | null
+  avg_duration_ms?: number | null
+  max_duration_ms?: number | null
+  last_used_at?: string | null
+}
+
+export interface AccountLatencyTrendPoint {
+  date: string
+  requests: number
+  first_token_samples: number
+  avg_first_token_ms?: number | null
+  avg_duration_ms?: number | null
+}
+
+export interface AccountLatencyTrendSeries {
+  account_id: number
+  account_name: string
+  points: AccountLatencyTrendPoint[]
+}
+
 export interface UsageCleanupFilters {
   start_time: string
   end_time: string
@@ -130,6 +160,32 @@ export async function getStats(params: {
 }
 
 /**
+ * Get first-token and duration metrics for top accounts (admin only)
+ * @param params - Query parameters for filtering
+ * @returns Top account latency stats
+ */
+export async function getAccountLatency(params: AdminUsageQueryParams & { limit?: number }): Promise<AccountLatencyStat[]> {
+  const { data } = await apiClient.get<AccountLatencyStat[]>('/admin/usage/account-latency', {
+    params
+  })
+  return data ?? []
+}
+
+/**
+ * Get first-token and duration trends for top accounts (admin only)
+ * @param params - Query parameters for filtering
+ * @returns Top account latency trend series
+ */
+export async function getAccountLatencyTrend(
+  params: AdminUsageQueryParams & { limit?: number; granularity?: 'hour' | 'day' }
+): Promise<AccountLatencyTrendSeries[]> {
+  const { data } = await apiClient.get<AccountLatencyTrendSeries[]>('/admin/usage/account-latency/trend', {
+    params
+  })
+  return data ?? []
+}
+
+/**
  * Search users by email keyword (admin only)
  * @param keyword - Email keyword to search
  * @returns List of matching users (max 30)
@@ -201,6 +257,8 @@ export async function cancelCleanupTask(taskId: number): Promise<{ id: number; s
 export const adminUsageAPI = {
   list,
   getStats,
+  getAccountLatency,
+  getAccountLatencyTrend,
   searchUsers,
   searchApiKeys,
   listCleanupTasks,
