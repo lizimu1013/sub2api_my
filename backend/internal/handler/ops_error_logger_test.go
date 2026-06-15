@@ -465,7 +465,7 @@ func TestClassifyOpsLocalBusinessLimitErrorsExcludedFromSLA(t *testing.T) {
 		{
 			name:        "gateway group RPM limit",
 			errType:     "api_error",
-			message:     "group requests-per-minute limit exceeded",
+			message:     "Group is currently busy. Please try again later or switch to another group.",
 			code:        "rate_limit_exceeded",
 			status:      http.StatusTooManyRequests,
 			wantErrType: "api_error",
