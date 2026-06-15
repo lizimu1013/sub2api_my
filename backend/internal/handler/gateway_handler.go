@@ -260,6 +260,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		h.handleStreamingAwareError(c, status, code, message, streamStarted)
 		return
 	}
+	if !waitForGroupFirstTokenDelay(c.Request.Context(), apiKey.Group) {
+		return
+	}
 
 	// 设置请求所属分组 ID（用于渠道级功能判断，如 WebSearch 模拟）
 	parsedReq.GroupID = apiKey.GroupID
@@ -818,6 +821,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 								c.Header("Retry-After", strconv.Itoa(retryAfter))
 							}
 							h.handleStreamingAwareError(c, status, code, message, streamStarted)
+							return
+						}
+						if !waitForGroupFirstTokenDelay(c.Request.Context(), fallbackGroup) {
 							return
 						}
 						// 兜底重试按"直接请求兜底分组"处理：清除强制平台，允许按分组平台调度

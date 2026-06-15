@@ -92,6 +92,9 @@ type APIKeyAuthGroupSnapshot struct {
 
 	// RPMLimit 分组级每分钟请求数上限（0 = 不限制）；用于 billing_cache_service.checkRPM 级联判断。
 	RPMLimit int `json:"rpm_limit"`
+
+	// FirstTokenDelayMS 分组额外首 token 延迟（毫秒），用于网关转发前等待。
+	FirstTokenDelayMS int `json:"first_token_delay_ms"`
 }
 
 // APIKeyAuthCacheEntry 缓存条目，支持负缓存

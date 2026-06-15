@@ -672,6 +672,27 @@ func (_u *GroupUpdate) AddRpmLimit(v int) *GroupUpdate {
 	return _u
 }
 
+// SetFirstTokenDelayMs sets the "first_token_delay_ms" field.
+func (_u *GroupUpdate) SetFirstTokenDelayMs(v int) *GroupUpdate {
+	_u.mutation.ResetFirstTokenDelayMs()
+	_u.mutation.SetFirstTokenDelayMs(v)
+	return _u
+}
+
+// SetNillableFirstTokenDelayMs sets the "first_token_delay_ms" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableFirstTokenDelayMs(v *int) *GroupUpdate {
+	if v != nil {
+		_u.SetFirstTokenDelayMs(*v)
+	}
+	return _u
+}
+
+// AddFirstTokenDelayMs adds value to the "first_token_delay_ms" field.
+func (_u *GroupUpdate) AddFirstTokenDelayMs(v int) *GroupUpdate {
+	_u.mutation.AddFirstTokenDelayMs(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdate) AddAPIKeyIDs(ids ...int64) *GroupUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -1161,6 +1182,12 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(group.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.FirstTokenDelayMs(); ok {
+		_spec.SetField(group.FieldFirstTokenDelayMs, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedFirstTokenDelayMs(); ok {
+		_spec.AddField(group.FieldFirstTokenDelayMs, field.TypeInt, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -2112,6 +2139,27 @@ func (_u *GroupUpdateOne) AddRpmLimit(v int) *GroupUpdateOne {
 	return _u
 }
 
+// SetFirstTokenDelayMs sets the "first_token_delay_ms" field.
+func (_u *GroupUpdateOne) SetFirstTokenDelayMs(v int) *GroupUpdateOne {
+	_u.mutation.ResetFirstTokenDelayMs()
+	_u.mutation.SetFirstTokenDelayMs(v)
+	return _u
+}
+
+// SetNillableFirstTokenDelayMs sets the "first_token_delay_ms" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableFirstTokenDelayMs(v *int) *GroupUpdateOne {
+	if v != nil {
+		_u.SetFirstTokenDelayMs(*v)
+	}
+	return _u
+}
+
+// AddFirstTokenDelayMs adds value to the "first_token_delay_ms" field.
+func (_u *GroupUpdateOne) AddFirstTokenDelayMs(v int) *GroupUpdateOne {
+	_u.mutation.AddFirstTokenDelayMs(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *GroupUpdateOne) AddAPIKeyIDs(ids ...int64) *GroupUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -2631,6 +2679,12 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(group.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.FirstTokenDelayMs(); ok {
+		_spec.SetField(group.FieldFirstTokenDelayMs, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedFirstTokenDelayMs(); ok {
+		_spec.AddField(group.FieldFirstTokenDelayMs, field.TypeInt, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -154,6 +154,9 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		h.responsesErrorResponse(c, status, code, message)
 		return
 	}
+	if !waitForGroupFirstTokenDelay(c.Request.Context(), apiKey.Group) {
+		return
+	}
 
 	// Parse request for session hash
 	parsedReq, _ := service.ParseGatewayRequest(body, "responses")

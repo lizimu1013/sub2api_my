@@ -215,6 +215,11 @@ func RpmLimit(v int) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldRpmLimit, v))
 }
 
+// FirstTokenDelayMs applies equality check predicate on the "first_token_delay_ms" field. It's identical to FirstTokenDelayMsEQ.
+func FirstTokenDelayMs(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldFirstTokenDelayMs, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldCreatedAt, v))
@@ -1483,6 +1488,46 @@ func RpmLimitLT(v int) predicate.Group {
 // RpmLimitLTE applies the LTE predicate on the "rpm_limit" field.
 func RpmLimitLTE(v int) predicate.Group {
 	return predicate.Group(sql.FieldLTE(FieldRpmLimit, v))
+}
+
+// FirstTokenDelayMsEQ applies the EQ predicate on the "first_token_delay_ms" field.
+func FirstTokenDelayMsEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldFirstTokenDelayMs, v))
+}
+
+// FirstTokenDelayMsNEQ applies the NEQ predicate on the "first_token_delay_ms" field.
+func FirstTokenDelayMsNEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldFirstTokenDelayMs, v))
+}
+
+// FirstTokenDelayMsIn applies the In predicate on the "first_token_delay_ms" field.
+func FirstTokenDelayMsIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldFirstTokenDelayMs, vs...))
+}
+
+// FirstTokenDelayMsNotIn applies the NotIn predicate on the "first_token_delay_ms" field.
+func FirstTokenDelayMsNotIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldFirstTokenDelayMs, vs...))
+}
+
+// FirstTokenDelayMsGT applies the GT predicate on the "first_token_delay_ms" field.
+func FirstTokenDelayMsGT(v int) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldFirstTokenDelayMs, v))
+}
+
+// FirstTokenDelayMsGTE applies the GTE predicate on the "first_token_delay_ms" field.
+func FirstTokenDelayMsGTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldFirstTokenDelayMs, v))
+}
+
+// FirstTokenDelayMsLT applies the LT predicate on the "first_token_delay_ms" field.
+func FirstTokenDelayMsLT(v int) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldFirstTokenDelayMs, v))
+}
+
+// FirstTokenDelayMsLTE applies the LTE predicate on the "first_token_delay_ms" field.
+func FirstTokenDelayMsLTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldFirstTokenDelayMs, v))
 }
 
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.

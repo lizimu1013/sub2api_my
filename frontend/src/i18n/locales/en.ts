@@ -2101,7 +2101,10 @@ export default {
         exclusive: 'Exclusive Group',
         rpmLimit: 'Requests Per Minute (RPM)',
         rpmLimitPlaceholder: '0 = unlimited',
-        rpmLimitHint: 'Max requests per minute for each user in this group; 0 = unlimited. Once set, it takes over per-user rate limiting in this group (overrides the user-level rpm_limit fallback).'
+        rpmLimitHint: 'Max requests per minute for each user in this group; 0 = unlimited. Once set, it takes over per-user rate limiting in this group (overrides the user-level rpm_limit fallback).',
+        firstTokenDelayMs: 'First Token Delay (ms)',
+        firstTokenDelayMsPlaceholder: '0 = no delay',
+        firstTokenDelayMsHint: 'Extra wait before the first token is returned. Admin-only setting; hidden from regular users.'
       },
       enterGroupName: 'Enter group name',
       optionalDescription: 'Optional description',

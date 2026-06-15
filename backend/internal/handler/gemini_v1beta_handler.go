@@ -256,6 +256,9 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		googleError(c, status, message)
 		return
 	}
+	if !waitForGroupFirstTokenDelay(c.Request.Context(), apiKey.Group) {
+		return
+	}
 
 	// 3) select account (sticky session based on request body)
 	// 优先使用 Gemini CLI 的会话标识（privileged-user-id + tmp 目录哈希）

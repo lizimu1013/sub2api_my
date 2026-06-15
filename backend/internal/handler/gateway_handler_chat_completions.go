@@ -149,6 +149,9 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		h.chatCompletionsErrorResponse(c, status, code, message)
 		return
 	}
+	if !waitForGroupFirstTokenDelay(c.Request.Context(), apiKey.Group) {
+		return
+	}
 
 	// Parse request for session hash
 	parsedReq, _ := service.ParseGatewayRequest(body, "chat_completions")

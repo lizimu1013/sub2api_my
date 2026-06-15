@@ -150,6 +150,9 @@ type AdminGroup struct {
 
 	// 分组排序
 	SortOrder int `json:"sort_order"`
+
+	// FirstTokenDelayMS 分组额外首 token 延迟（毫秒），仅管理员可见/可配置。
+	FirstTokenDelayMS int `json:"first_token_delay_ms"`
 }
 
 type Account struct {

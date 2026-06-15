@@ -882,6 +882,10 @@ func init() {
 	groupDescRpmLimit := groupFields[32].Descriptor()
 	// group.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	group.DefaultRpmLimit = groupDescRpmLimit.Default.(int)
+	// groupDescFirstTokenDelayMs is the schema descriptor for first_token_delay_ms field.
+	groupDescFirstTokenDelayMs := groupFields[33].Descriptor()
+	// group.DefaultFirstTokenDelayMs holds the default value on creation for the first_token_delay_ms field.
+	group.DefaultFirstTokenDelayMs = groupDescFirstTokenDelayMs.Default.(int)
 	idempotencyrecordMixin := schema.IdempotencyRecord{}.Mixin()
 	idempotencyrecordMixinFields0 := idempotencyrecordMixin[0].Fields()
 	_ = idempotencyrecordMixinFields0

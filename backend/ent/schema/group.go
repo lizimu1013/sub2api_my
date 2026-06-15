@@ -168,6 +168,9 @@ func (Group) Fields() []ent.Field {
 		field.Int("rpm_limit").
 			Default(0).
 			Comment("分组 RPM 上限，0 表示不限制；设置后接管该分组用户的限流"),
+		field.Int("first_token_delay_ms").
+			Default(0).
+			Comment("分组额外首 token 延迟（毫秒），0 表示不延迟；仅管理员可配置"),
 	}
 }
 

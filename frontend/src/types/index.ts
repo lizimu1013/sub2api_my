@@ -531,6 +531,8 @@ export interface Group {
 }
 
 export interface AdminGroup extends Group {
+  first_token_delay_ms?: number // Admin-only extra first token delay in milliseconds (0 = no delay)
+
   // 模型路由配置（仅管理员可见，内部信息）
   model_routing: Record<string, number[]> | null
   model_routing_enabled: boolean
@@ -647,6 +649,7 @@ export interface CreateGroupRequest {
   model_routing?: Record<string, number[]> | null
   model_routing_enabled?: boolean
   rpm_limit?: number
+  first_token_delay_ms?: number
   require_oauth_only?: boolean
   require_privacy_set?: boolean
   // 从指定分组复制账号
@@ -683,6 +686,7 @@ export interface UpdateGroupRequest {
   model_routing?: Record<string, number[]> | null
   model_routing_enabled?: boolean
   rpm_limit?: number
+  first_token_delay_ms?: number
   require_oauth_only?: boolean
   require_privacy_set?: boolean
   copy_accounts_from_group_ids?: number[]

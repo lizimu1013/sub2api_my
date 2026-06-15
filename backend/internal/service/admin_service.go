@@ -224,6 +224,8 @@ type CreateGroupInput struct {
 	ModelsListConfig            GroupModelsListConfig
 	// RPMLimit 分组 RPM 上限（0 = 不限制）
 	RPMLimit int
+	// FirstTokenDelayMS 分组额外首 token 延迟（毫秒，0 = 不延迟）
+	FirstTokenDelayMS int
 	// 从指定分组复制账号（创建分组后在同一事务内绑定）
 	CopyAccountsFromGroupIDs []int64
 }
@@ -266,6 +268,8 @@ type UpdateGroupInput struct {
 	ModelsListConfig            *GroupModelsListConfig
 	// RPMLimit 分组 RPM 上限（0 = 不限制），nil 表示未提供不改动。
 	RPMLimit *int
+	// FirstTokenDelayMS 分组额外首 token 延迟（毫秒，0 = 不延迟），nil 表示未提供不改动。
+	FirstTokenDelayMS *int
 	// 从指定分组复制账号（同步操作：先清空当前分组的账号绑定，再绑定源分组的账号）
 	CopyAccountsFromGroupIDs []int64
 }
@@ -1669,6 +1673,9 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	if input.RateMultiplier <= 0 {
 		return nil, errors.New("rate_multiplier must be > 0")
 	}
+	if input.FirstTokenDelayMS < 0 {
+		return nil, errors.New("first_token_delay_ms must be >= 0")
+	}
 	displayRateMultiplier := 1.0
 	if input.DisplayRateMultiplier != nil {
 		if *input.DisplayRateMultiplier <= 0 {
@@ -1790,6 +1797,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		MessagesDispatchModelConfig:     normalizeOpenAIMessagesDispatchModelConfig(input.MessagesDispatchModelConfig),
 		ModelsListConfig:                normalizeGroupModelsListConfig(input.ModelsListConfig),
 		RPMLimit:                        input.RPMLimit,
+		FirstTokenDelayMS:               input.FirstTokenDelayMS,
 	}
 	sanitizeGroupMessagesDispatchFields(group)
 	if err := s.groupRepo.Create(ctx, group); err != nil {
@@ -2047,6 +2055,12 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	}
 	if input.RPMLimit != nil {
 		group.RPMLimit = *input.RPMLimit
+	}
+	if input.FirstTokenDelayMS != nil {
+		if *input.FirstTokenDelayMS < 0 {
+			return nil, errors.New("first_token_delay_ms must be >= 0")
+		}
+		group.FirstTokenDelayMS = *input.FirstTokenDelayMS
 	}
 	sanitizeGroupMessagesDispatchFields(group)
 

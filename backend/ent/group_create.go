@@ -509,6 +509,20 @@ func (_c *GroupCreate) SetNillableRpmLimit(v *int) *GroupCreate {
 	return _c
 }
 
+// SetFirstTokenDelayMs sets the "first_token_delay_ms" field.
+func (_c *GroupCreate) SetFirstTokenDelayMs(v int) *GroupCreate {
+	_c.mutation.SetFirstTokenDelayMs(v)
+	return _c
+}
+
+// SetNillableFirstTokenDelayMs sets the "first_token_delay_ms" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableFirstTokenDelayMs(v *int) *GroupCreate {
+	if v != nil {
+		_c.SetFirstTokenDelayMs(*v)
+	}
+	return _c
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_c *GroupCreate) AddAPIKeyIDs(ids ...int64) *GroupCreate {
 	_c.mutation.AddAPIKeyIDs(ids...)
@@ -738,6 +752,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultRpmLimit
 		_c.mutation.SetRpmLimit(v)
 	}
+	if _, ok := _c.mutation.FirstTokenDelayMs(); !ok {
+		v := group.DefaultFirstTokenDelayMs
+		_c.mutation.SetFirstTokenDelayMs(v)
+	}
 	return nil
 }
 
@@ -842,6 +860,9 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.RpmLimit(); !ok {
 		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "Group.rpm_limit"`)}
+	}
+	if _, ok := _c.mutation.FirstTokenDelayMs(); !ok {
+		return &ValidationError{Name: "first_token_delay_ms", err: errors.New(`ent: missing required field "Group.first_token_delay_ms"`)}
 	}
 	return nil
 }
@@ -1013,6 +1034,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RpmLimit(); ok {
 		_spec.SetField(group.FieldRpmLimit, field.TypeInt, value)
 		_node.RpmLimit = value
+	}
+	if value, ok := _c.mutation.FirstTokenDelayMs(); ok {
+		_spec.SetField(group.FieldFirstTokenDelayMs, field.TypeInt, value)
+		_node.FirstTokenDelayMs = value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1740,6 +1765,24 @@ func (u *GroupUpsert) AddRpmLimit(v int) *GroupUpsert {
 	return u
 }
 
+// SetFirstTokenDelayMs sets the "first_token_delay_ms" field.
+func (u *GroupUpsert) SetFirstTokenDelayMs(v int) *GroupUpsert {
+	u.Set(group.FieldFirstTokenDelayMs, v)
+	return u
+}
+
+// UpdateFirstTokenDelayMs sets the "first_token_delay_ms" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateFirstTokenDelayMs() *GroupUpsert {
+	u.SetExcluded(group.FieldFirstTokenDelayMs)
+	return u
+}
+
+// AddFirstTokenDelayMs adds v to the "first_token_delay_ms" field.
+func (u *GroupUpsert) AddFirstTokenDelayMs(v int) *GroupUpsert {
+	u.Add(group.FieldFirstTokenDelayMs, v)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -2447,6 +2490,27 @@ func (u *GroupUpsertOne) AddRpmLimit(v int) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateRpmLimit() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetFirstTokenDelayMs sets the "first_token_delay_ms" field.
+func (u *GroupUpsertOne) SetFirstTokenDelayMs(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetFirstTokenDelayMs(v)
+	})
+}
+
+// AddFirstTokenDelayMs adds v to the "first_token_delay_ms" field.
+func (u *GroupUpsertOne) AddFirstTokenDelayMs(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddFirstTokenDelayMs(v)
+	})
+}
+
+// UpdateFirstTokenDelayMs sets the "first_token_delay_ms" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateFirstTokenDelayMs() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateFirstTokenDelayMs()
 	})
 }
 
@@ -3323,6 +3387,27 @@ func (u *GroupUpsertBulk) AddRpmLimit(v int) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateRpmLimit() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetFirstTokenDelayMs sets the "first_token_delay_ms" field.
+func (u *GroupUpsertBulk) SetFirstTokenDelayMs(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetFirstTokenDelayMs(v)
+	})
+}
+
+// AddFirstTokenDelayMs adds v to the "first_token_delay_ms" field.
+func (u *GroupUpsertBulk) AddFirstTokenDelayMs(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddFirstTokenDelayMs(v)
+	})
+}
+
+// UpdateFirstTokenDelayMs sets the "first_token_delay_ms" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateFirstTokenDelayMs() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateFirstTokenDelayMs()
 	})
 }
 

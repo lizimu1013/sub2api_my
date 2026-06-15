@@ -529,6 +529,22 @@
           />
           <p class="input-hint">{{ t("admin.groups.form.rpmLimitHint") }}</p>
         </div>
+        <div>
+          <label class="input-label">{{
+            t("admin.groups.form.firstTokenDelayMs")
+          }}</label>
+          <input
+            v-model.number="createForm.first_token_delay_ms"
+            type="number"
+            min="0"
+            step="1"
+            class="input"
+            :placeholder="t('admin.groups.form.firstTokenDelayMsPlaceholder')"
+          />
+          <p class="input-hint">
+            {{ t("admin.groups.form.firstTokenDelayMsHint") }}
+          </p>
+        </div>
         <div
           v-if="createForm.subscription_type !== 'subscription'"
           data-tour="group-form-exclusive"
@@ -1828,6 +1844,22 @@
             :placeholder="t('admin.groups.form.rpmLimitPlaceholder')"
           />
           <p class="input-hint">{{ t("admin.groups.form.rpmLimitHint") }}</p>
+        </div>
+        <div>
+          <label class="input-label">{{
+            t("admin.groups.form.firstTokenDelayMs")
+          }}</label>
+          <input
+            v-model.number="editForm.first_token_delay_ms"
+            type="number"
+            min="0"
+            step="1"
+            class="input"
+            :placeholder="t('admin.groups.form.firstTokenDelayMsPlaceholder')"
+          />
+          <p class="input-hint">
+            {{ t("admin.groups.form.firstTokenDelayMsHint") }}
+          </p>
         </div>
         <div v-if="editForm.subscription_type !== 'subscription'">
           <div class="mb-1.5 flex items-center gap-1">
@@ -3403,6 +3435,8 @@ const createForm = reactive({
   copy_accounts_from_group_ids: [] as number[],
   // 分组级 RPM 限制（每用户每分钟最大请求数；0 = 不限制）
   rpm_limit: 0 as number,
+  // 分组额外首 token 延迟（毫秒；0 = 不延迟，仅管理员可见）
+  first_token_delay_ms: 0 as number,
 });
 
 // 简单账号类型（用于模型路由选择）
@@ -3736,6 +3770,8 @@ const editForm = reactive({
   copy_accounts_from_group_ids: [] as number[],
   // 分组级 RPM 限制（每用户每分钟最大请求数；0 = 不限制）
   rpm_limit: 0 as number,
+  // 分组额外首 token 延迟（毫秒；0 = 不延迟，仅管理员可见）
+  first_token_delay_ms: 0 as number,
 });
 
 type ImagePricingFormState = {
@@ -3974,6 +4010,7 @@ const closeCreateModal = () => {
   createForm.mcp_xml_inject = true;
   createForm.copy_accounts_from_group_ids = [];
   createForm.rpm_limit = 0;
+  createForm.first_token_delay_ms = 0;
   resetModelsListState(createModelsListState);
   createModelRoutingRules.value = [];
 };
@@ -4015,6 +4052,16 @@ const normalizeDisplayRateMultiplier = (
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+};
+
+const normalizeNonNegativeInt = (
+  value: number | string | null | undefined,
+): number => {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.trunc(parsed) : 0;
 };
 
 const handleCreateGroup = async () => {
@@ -4065,6 +4112,9 @@ const handleCreateGroup = async () => {
     );
     requestData.display_rate_multiplier = normalizeDisplayRateMultiplier(
       requestData.display_rate_multiplier,
+    );
+    requestData.first_token_delay_ms = normalizeNonNegativeInt(
+      requestData.first_token_delay_ms,
     );
     await adminAPI.groups.create(requestData);
     appStore.showSuccess(t("admin.groups.groupCreated"));
@@ -4130,6 +4180,7 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.mcp_xml_inject = group.mcp_xml_inject ?? true;
   editForm.copy_accounts_from_group_ids = []; // 复制账号字段每次编辑时重置为空
   editForm.rpm_limit = group.rpm_limit ?? 0;
+  editForm.first_token_delay_ms = group.first_token_delay_ms ?? 0;
   resetModelsListState(editModelsListState, group.models_list_config);
   // 加载模型路由规则（异步加载账号名称）
   editModelRoutingRules.value = await convertApiFormatToRoutingRules(
@@ -4208,6 +4259,9 @@ const handleUpdateGroup = async () => {
     );
     payload.display_rate_multiplier = normalizeDisplayRateMultiplier(
       payload.display_rate_multiplier,
+    );
+    payload.first_token_delay_ms = normalizeNonNegativeInt(
+      payload.first_token_delay_ms,
     );
     await adminAPI.groups.update(editingGroup.value.id, payload);
     appStore.showSuccess(t("admin.groups.groupUpdated"));

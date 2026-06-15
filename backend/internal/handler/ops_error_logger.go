@@ -1233,6 +1233,7 @@ func isOpsLocalBusinessLimitError(code string, msg string) bool {
 		strings.Contains(msg, "monthly usage limit exceeded") ||
 		strings.Contains(msg, "usage quota exhausted for this platform") ||
 		strings.Contains(msg, "requests-per-minute limit exceeded") ||
+		strings.Contains(msg, "group is currently busy") ||
 		strings.Contains(msg, "too many pending requests") ||
 		strings.Contains(msg, "concurrency limit exceeded") ||
 		strings.Contains(msg, "image generation concurrency limit exceeded") ||
