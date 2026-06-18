@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 13 // v13: reload snapshots for group first_token_delay_ms
+const apiKeyAuthSnapshotVersion = 14 // v14: reload snapshots after auth query started selecting group first_token_delay_ms
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
