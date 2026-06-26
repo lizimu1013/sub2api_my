@@ -5721,7 +5721,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if !isSubscriptionBilling && s.shouldUseLowBalanceDisplayRate(ctx, user, apiKey) {
 		displayMultiplier := apiKey.Group.UserVisibleRateMultiplier()
 		billingMultiplier = displayMultiplier
-		billingImageMultiplier = displayMultiplier
+		if !apiKey.Group.ImageRateIndependent {
+			billingImageMultiplier = displayMultiplier
+		}
 	}
 
 	var cost *CostBreakdown

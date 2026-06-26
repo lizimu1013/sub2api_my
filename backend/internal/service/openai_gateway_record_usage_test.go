@@ -1833,6 +1833,54 @@ func TestOpenAIGatewayServiceRecordUsage_ImageIndependentMultiplierUsesImageRate
 	require.Equal(t, string(BillingModeImage), *usageRepo.lastLog.BillingMode)
 }
 
+func TestOpenAIGatewayServiceRecordUsage_LowBalanceDoesNotOverrideIndependentImageRate(t *testing.T) {
+	imagePrice2K := 0.8
+	groupID := int64(126)
+
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	billingRepo := &openAIRecordUsageBillingRepoStub{}
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(
+		usageRepo,
+		billingRepo,
+		&openAIRecordUsageUserRepoStub{},
+		&openAIRecordUsageSubRepoStub{},
+		nil,
+	)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:  "resp_low_balance_independent_image_rate",
+			Model:      "gpt-image-2",
+			ImageCount: 1,
+			ImageSize:  "2K",
+			Duration:   time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      10126,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                    groupID,
+				RateMultiplier:        2.5,
+				DisplayRateMultiplier: 2.0,
+				ImageRateIndependent:  true,
+				ImageRateMultiplier:   1.0,
+				ImagePrice2K:          &imagePrice2K,
+			},
+		},
+		User:    &User{ID: 20126, Balance: LowBalanceDisplayRateThresholdDefault},
+		Account: &Account{ID: 30126},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.NotNil(t, billingRepo.lastCmd)
+	require.InDelta(t, 0.8, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.8, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, 1.0, usageRepo.lastLog.RateMultiplier, 1e-12)
+	require.InDelta(t, 0.8, billingRepo.lastCmd.BalanceCost, 1e-12)
+	require.Zero(t, billingRepo.lastCmd.SubscriptionCost)
+}
+
 func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndSharedMultiplier(t *testing.T) {
 	groupID := int64(123)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
