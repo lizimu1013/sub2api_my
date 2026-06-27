@@ -10,10 +10,23 @@ import type {
   UsageStatsResponse,
   PaginatedResponse,
   TrendDataPoint,
-  ModelStat
+  ModelStat,
+  UserErrorRequest,
+  UserErrorRequestDetail,
+  UserErrorListParams
 } from '@/types'
 
 // ==================== Dashboard Types ====================
+
+export interface PlatformDashboardStats {
+  platform: string
+  total_requests: number
+  total_tokens: number
+  total_actual_cost: number
+  today_requests: number
+  today_tokens: number
+  today_actual_cost: number
+}
 
 export interface UserDashboardStats {
   total_api_keys: number
@@ -37,6 +50,7 @@ export interface UserDashboardStats {
   average_duration_ms: number
   rpm: number // 近5分钟平均每分钟请求数
   tpm: number // 近5分钟平均每分钟Token数
+  by_platform?: PlatformDashboardStats[]
 }
 
 export interface TrendParams {
@@ -293,6 +307,22 @@ export async function getDashboardApiKeysUsage(
   return data
 }
 
+export async function listMyErrorRequests(
+  params: UserErrorListParams,
+  config: { signal?: AbortSignal } = {}
+): Promise<PaginatedResponse<UserErrorRequest>> {
+  const { data } = await apiClient.get<PaginatedResponse<UserErrorRequest>>('/usage/errors', {
+    ...config,
+    params
+  })
+  return data
+}
+
+export async function getMyErrorDetail(id: number): Promise<UserErrorRequestDetail> {
+  const { data } = await apiClient.get<UserErrorRequestDetail>(`/usage/errors/${id}`)
+  return data
+}
+
 export const usageAPI = {
   list,
   query,
@@ -305,7 +335,10 @@ export const usageAPI = {
   getDashboardTrend,
   getDashboardModels,
   getMyApiKeyDailyUsage,
-  getDashboardApiKeysUsage
+  getDashboardApiKeysUsage,
+  // Error requests
+  listMyErrorRequests,
+  getMyErrorDetail,
 }
 
 export default usageAPI

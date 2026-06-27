@@ -59,7 +59,7 @@ func newUserUsageRequestTypeTestRouterWithSettings(repo *userUsageRepoCapture, s
 	if settingValues != nil {
 		settingSvc = service.NewSettingService(&userUsageSettingRepoStub{values: settingValues}, &config.Config{})
 	}
-	handler := NewUsageHandler(usageSvc, nil, settingSvc)
+	handler := NewUsageHandler(usageSvc, nil, nil, settingSvc)
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
 		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 42})
