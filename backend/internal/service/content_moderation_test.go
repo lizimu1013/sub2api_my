@@ -385,7 +385,7 @@ func (c *contentModerationTestHashCache) snapshotDeleted() []string {
 	return out
 }
 
-func TestBuildContentModerationLog_RedactsInputExcerpt(t *testing.T) {
+func TestBuildContentModerationLog_KeepsAdminInputExcerptUnredacted(t *testing.T) {
 	svc := &ContentModerationService{}
 	cfg := defaultContentModerationConfig()
 	input := ContentModerationCheckInput{
@@ -393,11 +393,14 @@ func TestBuildContentModerationLog_RedactsInputExcerpt(t *testing.T) {
 		Endpoint:  "/v1/chat/completions",
 		Provider:  "openai",
 	}
+	longTail := strings.Repeat("x", 260)
 
-	log := svc.buildLog(input, cfg, ContentModerationActionAllow, true, "sexual", 0.8, map[string]float64{"sexual": 0.8}, "hello sk-proj-1234567890abcdef", nil, nil, "")
+	log := svc.buildLog(input, cfg, ContentModerationActionAllow, true, "sexual", 0.8, map[string]float64{"sexual": 0.8}, "hello sk-proj-1234567890abcdef "+longTail+" 病毒", nil, nil, "")
 
-	require.NotContains(t, log.InputExcerpt, "sk-proj-1234567890abcdef")
-	require.Contains(t, log.InputExcerpt, "[已脱敏]")
+	require.Contains(t, log.InputExcerpt, "sk-proj-1234567890abcdef")
+	require.Contains(t, log.InputExcerpt, "病毒")
+	require.NotContains(t, log.InputExcerpt, "[已脱敏]")
+	require.Greater(t, len([]rune(log.InputExcerpt)), 240)
 }
 
 func TestRedactContentModerationSecrets_LongHexAndTokens(t *testing.T) {
@@ -485,6 +488,7 @@ func TestContentModerationCheck_PreBlockKeywordHitSkipsUpstreamCall(t *testing.T
 	require.True(t, logs[0].Flagged)
 	require.Equal(t, ContentModerationActionKeywordBlock, logs[0].Action)
 	require.Equal(t, contentModerationKeywordCategory, logs[0].HighestCategory)
+	require.Equal(t, "secret-token", logs[0].MatchedKeyword)
 }
 
 func TestContentModerationCheck_KeywordsIgnoredInObserveMode(t *testing.T) {

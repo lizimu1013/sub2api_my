@@ -172,6 +172,35 @@ func TestUsageLogFromService_UserCostUsesDisplayMultiplier(t *testing.T) {
 	require.InDelta(t, 7.0, adminDTO.RateMultiplier, 1e-12)
 }
 
+func TestUsageLogFromService_IndependentImageRateDoesNotUseDisplayMultiplier(t *testing.T) {
+	t.Parallel()
+
+	billingMode := string(service.BillingModeImage)
+	log := &service.UsageLog{
+		RequestID:      "req_independent_image_display_cost",
+		Model:          "gpt-image-2",
+		TotalCost:      0.8,
+		ActualCost:     0.8,
+		RateMultiplier: 1,
+		ImageCount:     1,
+		BillingMode:    &billingMode,
+		Group: &service.Group{
+			RateMultiplier:        2.5,
+			DisplayRateMultiplier: 2,
+			ImageRateIndependent:  true,
+			ImageRateMultiplier:   1,
+		},
+	}
+
+	userDTO := UsageLogFromService(log)
+	adminDTO := UsageLogFromServiceAdmin(log)
+
+	require.InDelta(t, 0.8, userDTO.ActualCost, 1e-12)
+	require.InDelta(t, 1.0, userDTO.RateMultiplier, 1e-12)
+	require.InDelta(t, 0.8, adminDTO.ActualCost, 1e-12)
+	require.InDelta(t, 1.0, adminDTO.RateMultiplier, 1e-12)
+}
+
 func TestUsageLogFromService_IncludesImageBillingMetadataForUserAndAdmin(t *testing.T) {
 	t.Parallel()
 

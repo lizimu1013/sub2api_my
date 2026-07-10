@@ -608,6 +608,10 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 	// 普通用户 DTO：严禁包含管理员字段（例如 account_rate_multiplier、ip_address、account）。
 	displayRateMultiplier := l.Group.UserVisibleRateMultiplier()
 	displayActualCost := l.TotalCost * displayRateMultiplier
+	if usageLogUsesIndependentImageRate(l) {
+		displayRateMultiplier = l.RateMultiplier
+		displayActualCost = l.ActualCost
+	}
 	requestType := l.EffectiveRequestType()
 	stream, openAIWSMode := service.ApplyLegacyRequestFields(requestType, l.Stream, l.OpenAIWSMode)
 	requestedModel := l.RequestedModel
@@ -664,6 +668,13 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		Group:                 GroupFromServiceUser(l.Group),
 		Subscription:          UserSubscriptionFromService(l.Subscription),
 	}
+}
+
+func usageLogUsesIndependentImageRate(l *service.UsageLog) bool {
+	if l == nil || l.Group == nil || !l.Group.ImageRateIndependent || l.ImageCount <= 0 {
+		return false
+	}
+	return l.BillingMode == nil || *l.BillingMode == "" || *l.BillingMode == string(service.BillingModeImage)
 }
 
 // UsageLogFromService converts a service UsageLog to DTO for regular users.

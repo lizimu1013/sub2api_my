@@ -60,7 +60,8 @@ const (
 	defaultContentModerationTimeoutMS = 3000
 	maxContentModerationTimeoutMS     = 30000
 	maxModerationInputRunes           = 12000
-	maxModerationExcerptRunes         = 240
+	maxModerationExcerptRunes         = maxModerationInputRunes
+	maxModerationErrorExcerptRunes    = 960
 
 	defaultContentModerationWorkerCount          = 4
 	maxContentModerationWorkerCount              = 32
@@ -392,6 +393,7 @@ type ContentModerationLog struct {
 	HighestScore      float64            `json:"highest_score"`
 	CategoryScores    map[string]float64 `json:"category_scores"`
 	ThresholdSnapshot map[string]float64 `json:"threshold_snapshot"`
+	MatchedKeyword    string             `json:"matched_keyword"`
 	InputExcerpt      string             `json:"input_excerpt"`
 	UpstreamLatencyMS *int               `json:"upstream_latency_ms,omitempty"`
 	Error             string             `json:"error"`
@@ -895,6 +897,7 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 					"keyword", keyword)
 				scores := map[string]float64{contentModerationKeywordCategory: 1.0}
 				log := s.buildLog(input, cfg, ContentModerationActionKeywordBlock, true, contentModerationKeywordCategory, 1.0, scores, content.ExcerptText(), nil, nil, "")
+				log.MatchedKeyword = keyword
 				s.enqueueRecord(input, cfg, log, hashText, false, true)
 				return &ContentModerationDecision{
 					Allowed:         false,
@@ -1622,7 +1625,7 @@ func (s *ContentModerationService) buildLog(input ContentModerationCheckInput, c
 		HighestScore:      highestScore,
 		CategoryScores:    cloneFloatMap(scores),
 		ThresholdSnapshot: cloneFloatMap(cfg.Thresholds),
-		InputExcerpt:      trimRunes(redactContentModerationSecrets(text), maxModerationExcerptRunes),
+		InputExcerpt:      trimRunes(strings.TrimSpace(text), maxModerationExcerptRunes),
 		UpstreamLatencyMS: latency,
 		QueueDelayMS:      queueDelay,
 		Error:             errText,
@@ -2770,7 +2773,7 @@ func (s *ContentModerationService) RecordCyberPolicyEvent(ctx context.Context, i
 		Flagged:         true,
 		HighestCategory: "cyber_policy",
 		HighestScore:    1.0,
-		Error:           trimRunes(redactContentModerationSecrets(errBody), maxModerationExcerptRunes*4),
+		Error:           trimRunes(redactContentModerationSecrets(errBody), maxModerationErrorExcerptRunes),
 		CreatedAt:       time.Now(),
 	}
 	// 开关开时 cyber_policy 不参与封号计数：当次不判定（此处跳过），
