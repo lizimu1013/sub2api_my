@@ -18,7 +18,6 @@ const { list, getStats, getAccountLatency, getAccountLatencyTrend, getSnapshotV2
     getSnapshotV2: vi.fn(),
     getModelStats: vi.fn(),
     getById: vi.fn(),
-    getModelStats: vi.fn(),
     listErrorLogs: vi.fn(),
   }
 })
