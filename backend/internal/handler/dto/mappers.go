@@ -18,6 +18,7 @@ func UserFromServiceShallow(u *service.User) *User {
 		Username:                   u.Username,
 		Role:                       u.Role,
 		Balance:                    u.Balance,
+		FrozenBalance:              u.FrozenBalance,
 		Concurrency:                u.Concurrency,
 		Status:                     u.Status,
 		AllowedGroups:              u.AllowedGroups,
@@ -79,31 +80,33 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		return nil
 	}
 	out := &APIKey{
-		ID:            k.ID,
-		UserID:        k.UserID,
-		Key:           k.Key,
-		Name:          k.Name,
-		GroupID:       k.GroupID,
-		Status:        k.Status,
-		IPWhitelist:   k.IPWhitelist,
-		IPBlacklist:   k.IPBlacklist,
-		LastUsedAt:    k.LastUsedAt,
-		Quota:         k.Quota,
-		QuotaUsed:     k.QuotaUsed,
-		ExpiresAt:     k.ExpiresAt,
-		CreatedAt:     k.CreatedAt,
-		UpdatedAt:     k.UpdatedAt,
-		RateLimit5h:   k.RateLimit5h,
-		RateLimit1d:   k.RateLimit1d,
-		RateLimit7d:   k.RateLimit7d,
-		Usage5h:       k.EffectiveUsage5h(),
-		Usage1d:       k.EffectiveUsage1d(),
-		Usage7d:       k.EffectiveUsage7d(),
-		Window5hStart: k.Window5hStart,
-		Window1dStart: k.Window1dStart,
-		Window7dStart: k.Window7dStart,
-		User:          UserFromServiceShallow(k.User),
-		Group:         GroupFromServiceShallow(k.Group),
+		ID:                 k.ID,
+		UserID:             k.UserID,
+		Key:                k.Key,
+		Name:               k.Name,
+		GroupID:            k.GroupID,
+		Status:             k.Status,
+		IPWhitelist:        k.IPWhitelist,
+		IPBlacklist:        k.IPBlacklist,
+		LastUsedAt:         k.LastUsedAt,
+		LastUsedIP:         k.LastUsedIP,
+		Quota:              k.Quota,
+		QuotaUsed:          k.QuotaUsed,
+		ExpiresAt:          k.ExpiresAt,
+		CreatedAt:          k.CreatedAt,
+		UpdatedAt:          k.UpdatedAt,
+		CurrentConcurrency: k.CurrentConcurrency,
+		RateLimit5h:        k.RateLimit5h,
+		RateLimit1d:        k.RateLimit1d,
+		RateLimit7d:        k.RateLimit7d,
+		Usage5h:            k.EffectiveUsage5h(),
+		Usage1d:            k.EffectiveUsage1d(),
+		Usage7d:            k.EffectiveUsage7d(),
+		Window5hStart:      k.Window5hStart,
+		Window1dStart:      k.Window1dStart,
+		Window7dStart:      k.Window7dStart,
+		User:               UserFromServiceShallow(k.User),
+		Group:              GroupFromServiceShallow(k.Group),
 	}
 	if k.Window5hStart != nil && !service.IsWindowExpired(k.Window5hStart, service.RateLimitWindow5h) {
 		t := k.Window5hStart.Add(service.RateLimitWindow5h)
@@ -210,11 +213,23 @@ func groupFromServiceBase(g *service.Group) Group {
 		WeeklyLimitUSD:                  g.WeeklyLimitUSD,
 		MonthlyLimitUSD:                 g.MonthlyLimitUSD,
 		AllowImageGeneration:            g.AllowImageGeneration,
+		AllowBatchImageGeneration:       g.AllowBatchImageGeneration,
 		ImageRateIndependent:            g.ImageRateIndependent,
 		ImageRateMultiplier:             g.ImageRateMultiplier,
+		BatchImageDiscountMultiplier:    g.BatchImageDiscountMultiplier,
+		BatchImageHoldMultiplier:        g.BatchImageHoldMultiplier,
+		VideoRateIndependent:            g.VideoRateIndependent,
+		VideoRateMultiplier:             g.VideoRateMultiplier,
+		PeakRateEnabled:                 g.PeakRateEnabled,
+		PeakStart:                       g.PeakStart,
+		PeakEnd:                         g.PeakEnd,
+		PeakRateMultiplier:              g.PeakRateMultiplier,
 		ImagePrice1K:                    g.ImagePrice1K,
 		ImagePrice2K:                    g.ImagePrice2K,
 		ImagePrice4K:                    g.ImagePrice4K,
+		VideoPrice480P:                  g.VideoPrice480P,
+		VideoPrice720P:                  g.VideoPrice720P,
+		VideoPrice1080P:                 g.VideoPrice1080P,
 		ClaudeCodeOnly:                  g.ClaudeCodeOnly,
 		FallbackGroupID:                 g.FallbackGroupID,
 		FallbackGroupIDOnInvalidRequest: g.FallbackGroupIDOnInvalidRequest,
@@ -265,6 +280,8 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		SessionWindowEnd:        a.SessionWindowEnd,
 		SessionWindowStatus:     a.SessionWindowStatus,
 		GroupIDs:                a.GroupIDs,
+		ParentAccountID:         a.ParentAccountID,
+		QuotaDimension:          a.QuotaDimension,
 	}
 
 	// 提取 5h 窗口费用控制和会话数量控制配置（仅 Anthropic OAuth/SetupToken 账号有效）
@@ -605,9 +622,13 @@ func AccountSummaryFromService(a *service.Account) *AccountSummary {
 }
 
 func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
-	// 普通用户 DTO：严禁包含管理员字段（例如 account_rate_multiplier、ip_address、account）。
-	displayRateMultiplier := l.Group.UserVisibleRateMultiplier()
-	displayActualCost := l.TotalCost * displayRateMultiplier
+	// 普通用户 DTO：严禁包含管理员字段（例如 account_rate_multiplier、account、upstream_model）。
+	displayRateMultiplier := l.RateMultiplier
+	displayActualCost := l.ActualCost
+	if l.Group != nil && l.Group.DisplayRateMultiplier > 0 {
+		displayRateMultiplier = l.Group.DisplayRateMultiplier
+		displayActualCost = l.TotalCost * displayRateMultiplier
+	}
 	if usageLogUsesIndependentImageRate(l) {
 		displayRateMultiplier = l.RateMultiplier
 		displayActualCost = l.ActualCost
@@ -628,7 +649,6 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		ServiceTier:           l.ServiceTier,
 		ReasoningEffort:       l.ReasoningEffort,
 		InboundEndpoint:       l.InboundEndpoint,
-		UpstreamEndpoint:      l.UpstreamEndpoint,
 		GroupID:               l.GroupID,
 		SubscriptionID:        l.SubscriptionID,
 		InputTokens:           l.InputTokens,
@@ -641,7 +661,6 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		OutputCost:            l.OutputCost,
 		CacheCreationCost:     l.CacheCreationCost,
 		CacheReadCost:         l.CacheReadCost,
-		TotalCost:             l.TotalCost,
 		ActualCost:            displayActualCost,
 		RateMultiplier:        displayRateMultiplier,
 		BillingType:           l.BillingType,
@@ -660,6 +679,7 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		ImageSizeBreakdown:    l.ImageSizeBreakdown,
 		MediaType:             l.MediaType,
 		UserAgent:             l.UserAgent,
+		IPAddress:             l.IPAddress,
 		CacheTTLOverridden:    l.CacheTTLOverridden,
 		BillingMode:           l.BillingMode,
 		CreatedAt:             l.CreatedAt,
@@ -678,7 +698,7 @@ func usageLogUsesIndependentImageRate(l *service.UsageLog) bool {
 }
 
 // UsageLogFromService converts a service UsageLog to DTO for regular users.
-// It excludes Account details and IP address - users should not see these.
+// It excludes admin-only account/upstream internals while keeping user billing and request metadata.
 func UsageLogFromService(l *service.UsageLog) *UsageLog {
 	if l == nil {
 		return nil
@@ -694,10 +714,13 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 		return nil
 	}
 	base := usageLogFromServiceUser(l)
+	base.TotalCost = &l.TotalCost
 	base.RateMultiplier = l.RateMultiplier
 	base.ActualCost = l.ActualCost
 	base.APIKey = APIKeyFromService(l.APIKey)
 	base.Group = GroupFromServiceShallow(l.Group)
+	base.UpstreamEndpoint = l.UpstreamEndpoint
+	base.IPAddress = l.IPAddress
 	if l.Subscription != nil {
 		sub := userSubscriptionFromServiceBase(l.Subscription)
 		base.Subscription = &sub
@@ -806,6 +829,7 @@ func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscrip
 		MonthlyUsageUSD:    sub.MonthlyUsageUSD,
 		CreatedAt:          sub.CreatedAt,
 		UpdatedAt:          sub.UpdatedAt,
+		RevokedAt:          sub.DeletedAt,
 		User:               UserFromServiceShallow(sub.User),
 		Group:              GroupFromServiceShallow(sub.Group),
 	}

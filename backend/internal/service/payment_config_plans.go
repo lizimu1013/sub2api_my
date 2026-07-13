@@ -62,13 +62,17 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 // PlanGroupInfo holds the group details needed for subscription plan display.
 // RateMultiplier is display-only for regular-user payment pages.
 type PlanGroupInfo struct {
-	Platform        string   `json:"platform"`
-	Name            string   `json:"name"`
-	RateMultiplier  float64  `json:"rate_multiplier"`
-	DailyLimitUSD   *float64 `json:"daily_limit_usd"`
-	WeeklyLimitUSD  *float64 `json:"weekly_limit_usd"`
-	MonthlyLimitUSD *float64 `json:"monthly_limit_usd"`
-	ModelScopes     []string `json:"supported_model_scopes"`
+	Platform           string   `json:"platform"`
+	Name               string   `json:"name"`
+	RateMultiplier     float64  `json:"rate_multiplier"`
+	PeakRateEnabled    bool     `json:"peak_rate_enabled"`
+	PeakStart          string   `json:"peak_start"`
+	PeakEnd            string   `json:"peak_end"`
+	PeakRateMultiplier float64  `json:"peak_rate_multiplier"`
+	DailyLimitUSD      *float64 `json:"daily_limit_usd"`
+	WeeklyLimitUSD     *float64 `json:"weekly_limit_usd"`
+	MonthlyLimitUSD    *float64 `json:"monthly_limit_usd"`
+	ModelScopes        []string `json:"supported_model_scopes"`
 }
 
 func userVisiblePlanRateMultiplier(g *dbent.Group) float64 {
@@ -108,13 +112,17 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
 	m := make(map[int64]PlanGroupInfo, len(groups))
 	for _, g := range groups {
 		m[int64(g.ID)] = PlanGroupInfo{
-			Platform:        g.Platform,
-			Name:            g.Name,
-			RateMultiplier:  userVisiblePlanRateMultiplier(g),
-			DailyLimitUSD:   g.DailyLimitUsd,
-			WeeklyLimitUSD:  g.WeeklyLimitUsd,
-			MonthlyLimitUSD: g.MonthlyLimitUsd,
-			ModelScopes:     g.SupportedModelScopes,
+			Platform:           g.Platform,
+			Name:               g.Name,
+			RateMultiplier:     userVisiblePlanRateMultiplier(g),
+			PeakRateEnabled:    g.PeakRateEnabled,
+			PeakStart:          g.PeakStart,
+			PeakEnd:            g.PeakEnd,
+			PeakRateMultiplier: g.PeakRateMultiplier,
+			DailyLimitUSD:      g.DailyLimitUsd,
+			WeeklyLimitUSD:     g.WeeklyLimitUsd,
+			MonthlyLimitUSD:    g.MonthlyLimitUsd,
+			ModelScopes:        g.SupportedModelScopes,
 		}
 	}
 	return m

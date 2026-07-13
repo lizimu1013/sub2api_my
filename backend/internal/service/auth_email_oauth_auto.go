@@ -71,11 +71,6 @@ func (s *AuthService) loginOrRegisterVerifiedEmailOAuth(
 	if providerSubject == "" {
 		return nil, nil, infraerrors.BadRequest("OAUTH_SUBJECT_MISSING", "oauth subject is missing")
 	}
-	identityKey := PendingAuthIdentityKey{
-		ProviderType:    providerType,
-		ProviderKey:     providerKey,
-		ProviderSubject: providerSubject,
-	}
 	if !input.EmailVerified {
 		return nil, nil, infraerrors.Forbidden("OAUTH_EMAIL_NOT_VERIFIED", "oauth email is not verified")
 	}
@@ -108,9 +103,6 @@ func (s *AuthService) loginOrRegisterVerifiedEmailOAuth(
 		user, err = s.userRepo.GetByEmail(ctx, email)
 		if err != nil {
 			if errors.Is(err, ErrUserNotFound) {
-				if err := s.validateRegistrationIdentityPolicy(ctx, identityKey); err != nil {
-					return nil, nil, err
-				}
 				user, err = s.createEmailOAuthUser(ctx, email, input.Username, providerType, invitationCode, affiliateCode)
 				if err != nil {
 					return nil, nil, err

@@ -60,8 +60,7 @@ const (
 	defaultContentModerationTimeoutMS = 3000
 	maxContentModerationTimeoutMS     = 30000
 	maxModerationInputRunes           = 12000
-	maxModerationExcerptRunes         = maxModerationInputRunes
-	maxModerationErrorExcerptRunes    = 960
+	maxModerationExcerptRunes         = 240
 
 	defaultContentModerationWorkerCount          = 4
 	maxContentModerationWorkerCount              = 32
@@ -391,9 +390,9 @@ type ContentModerationLog struct {
 	Flagged           bool               `json:"flagged"`
 	HighestCategory   string             `json:"highest_category"`
 	HighestScore      float64            `json:"highest_score"`
+	MatchedKeyword    string             `json:"matched_keyword"`
 	CategoryScores    map[string]float64 `json:"category_scores"`
 	ThresholdSnapshot map[string]float64 `json:"threshold_snapshot"`
-	MatchedKeyword    string             `json:"matched_keyword"`
 	InputExcerpt      string             `json:"input_excerpt"`
 	UpstreamLatencyMS *int               `json:"upstream_latency_ms,omitempty"`
 	Error             string             `json:"error"`
@@ -1625,7 +1624,7 @@ func (s *ContentModerationService) buildLog(input ContentModerationCheckInput, c
 		HighestScore:      highestScore,
 		CategoryScores:    cloneFloatMap(scores),
 		ThresholdSnapshot: cloneFloatMap(cfg.Thresholds),
-		InputExcerpt:      trimRunes(strings.TrimSpace(text), maxModerationExcerptRunes),
+		InputExcerpt:      trimRunes(redactContentModerationSecrets(text), maxModerationExcerptRunes),
 		UpstreamLatencyMS: latency,
 		QueueDelayMS:      queueDelay,
 		Error:             errText,
@@ -2773,7 +2772,7 @@ func (s *ContentModerationService) RecordCyberPolicyEvent(ctx context.Context, i
 		Flagged:         true,
 		HighestCategory: "cyber_policy",
 		HighestScore:    1.0,
-		Error:           trimRunes(redactContentModerationSecrets(errBody), maxModerationErrorExcerptRunes),
+		Error:           trimRunes(redactContentModerationSecrets(errBody), maxModerationExcerptRunes*4),
 		CreatedAt:       time.Now(),
 	}
 	// 开关开时 cyber_policy 不参与封号计数：当次不判定（此处跳过），

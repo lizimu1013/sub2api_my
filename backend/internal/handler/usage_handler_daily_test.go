@@ -78,8 +78,8 @@ func newDailyUsageTestRouter(usageRepo *dailyUsageRepoStub, apiKeyRepo *dailyUsa
 type dailyUsageHandlerResponse struct {
 	Code int `json:"code"`
 	Data struct {
-		Items []usagestats.APIKeyDailyUsagePoint `json:"items"`
-		Days  int                                `json:"days"`
+		Items []userAPIKeyDailyUsagePoint `json:"items"`
+		Days  int                         `json:"days"`
 	} `json:"data"`
 }
 
@@ -180,9 +180,10 @@ func TestGetMyAPIKeyDailyUsageAggregatesByDayForOwnedKey(t *testing.T) {
 
 	var got dailyUsageHandlerResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.NotContains(t, rec.Body.String(), `"cost"`)
 	require.Equal(t, 7, got.Data.Days)
 	require.Len(t, got.Data.Items, 1)
-	require.Equal(t, usagestats.APIKeyDailyUsagePoint{
+	require.Equal(t, userAPIKeyDailyUsagePoint{
 		Date:             "2026-05-19",
 		Requests:         3,
 		InputTokens:      10,
@@ -190,7 +191,6 @@ func TestGetMyAPIKeyDailyUsageAggregatesByDayForOwnedKey(t *testing.T) {
 		CacheReadTokens:  6,
 		CacheWriteTokens: 4,
 		TotalTokens:      40,
-		Cost:             0.5,
 		ActualCost:       0.4,
 	}, got.Data.Items[0])
 }

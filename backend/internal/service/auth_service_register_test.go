@@ -415,31 +415,6 @@ func TestAuthService_Register_EmailSuffixAllowed(t *testing.T) {
 	require.Equal(t, int64(8), user.ID)
 }
 
-func TestAuthService_Register_EmailBlacklisted(t *testing.T) {
-	repo := &userRepoStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:        "true",
-		SettingKeyRegistrationEmailBlacklist: `["blocked@example.com","evil.com"]`,
-	}, nil)
-
-	_, _, err := service.Register(context.Background(), "user@evil.com", "password")
-	require.ErrorIs(t, err, ErrEmailBlacklisted)
-	appErr := infraerrors.FromError(err)
-	require.Equal(t, "EMAIL_BLACKLISTED", appErr.Reason)
-}
-
-func TestAuthService_Register_EmailBlacklistPrecedesWhitelist(t *testing.T) {
-	repo := &userRepoStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:              "true",
-		SettingKeyRegistrationEmailSuffixWhitelist: `["@example.com"]`,
-		SettingKeyRegistrationEmailBlacklist:       `["blocked@example.com"]`,
-	}, nil)
-
-	_, _, err := service.Register(context.Background(), "blocked@example.com", "password")
-	require.ErrorIs(t, err, ErrEmailBlacklisted)
-}
-
 func TestAuthService_SendVerifyCode_EmailSuffixNotAllowed(t *testing.T) {
 	repo := &userRepoStub{}
 	service := newAuthService(repo, map[string]string{
@@ -771,66 +746,6 @@ func TestAuthService_LoginOrRegisterOAuthWithTokenPair_ExistingUserDoesNotGrantA
 	require.Equal(t, 1, user.Concurrency)
 	require.Empty(t, repo.created)
 	require.Empty(t, assigner.calls)
-}
-
-func TestAuthService_LoginOrRegisterOAuthWithTokenPair_BlocksBlacklistedRegistrationIdentity(t *testing.T) {
-	repo := &userRepoStub{nextID: 62}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:           "true",
-		SettingKeyRegistrationIdentityBlacklist: `["linuxdo:123"]`,
-	}, nil)
-	service.refreshTokenCache = &refreshTokenCacheStub{}
-
-	_, _, err := service.LoginOrRegisterOAuthWithTokenPair(
-		context.Background(),
-		"linuxdo-123@linuxdo-connect.invalid",
-		"linuxdo_user",
-		"",
-		"",
-		"linuxdo",
-		PendingAuthIdentityKey{
-			ProviderType:    "linuxdo",
-			ProviderKey:     "linuxdo",
-			ProviderSubject: "123",
-		},
-	)
-	require.ErrorIs(t, err, ErrRegistrationIDBlocked)
-	require.Empty(t, repo.created)
-}
-
-func TestAuthService_LoginOrRegisterOAuthWithTokenPair_ExistingUserIgnoresRegistrationIdentityBlacklist(t *testing.T) {
-	existing := &User{
-		ID:           89,
-		Email:        "linuxdo-123@linuxdo-connect.invalid",
-		Username:     "existing-linuxdo",
-		Role:         RoleUser,
-		Status:       StatusActive,
-		TokenVersion: 1,
-	}
-	repo := &userRepoStub{user: existing}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:           "true",
-		SettingKeyRegistrationIdentityBlacklist: `["linuxdo:123"]`,
-	}, nil)
-	service.refreshTokenCache = &refreshTokenCacheStub{}
-
-	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(
-		context.Background(),
-		existing.Email,
-		"linuxdo_user",
-		"",
-		"",
-		"linuxdo",
-		PendingAuthIdentityKey{
-			ProviderType:    "linuxdo",
-			ProviderKey:     "linuxdo",
-			ProviderSubject: "123",
-		},
-	)
-	require.NoError(t, err)
-	require.NotNil(t, tokenPair)
-	require.Equal(t, existing.ID, user.ID)
-	require.Empty(t, repo.created)
 }
 
 // newAuthServiceWithDingTalkCfg 构建一个含完整 DingTalk config 的 AuthService，

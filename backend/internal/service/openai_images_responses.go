@@ -30,15 +30,6 @@ type openAIResponsesImageResult struct {
 	Model         string
 }
 
-func isOpenAIImagesOAuthAccessForbiddenHTML(statusCode int, body []byte) bool {
-	if statusCode != http.StatusForbidden {
-		return false
-	}
-	normalized := strings.ToLower(string(bytes.TrimSpace(body)))
-	return strings.Contains(normalized, "<html") &&
-		strings.Contains(normalized, "access forbidden")
-}
-
 type OpenAIImagesUpstreamError struct {
 	StatusCode        int
 	ErrorType         string
@@ -1544,9 +1535,6 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 	}
 	upstreamReq.Header.Set("Content-Type", "application/json")
 	upstreamReq.Header.Set("Accept", "text/event-stream")
-	if strings.TrimSpace(account.GetOpenAIUserAgent()) == "" {
-		upstreamReq.Header.Set("User-Agent", codexCLIUserAgent)
-	}
 
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
@@ -1586,9 +1574,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 				Kind:               "failover",
 				Message:            upstreamMsg,
 			})
-			if !isOpenAIImagesOAuthAccessForbiddenHTML(resp.StatusCode, respBody) {
-				s.handleFailoverSideEffects(upstreamCtx, resp, account, respBody, requestModel)
-			}
+			s.handleFailoverSideEffects(upstreamCtx, resp, account, respBody, requestModel)
 			return nil, &UpstreamFailoverError{
 				StatusCode:             resp.StatusCode,
 				ResponseBody:           respBody,

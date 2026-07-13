@@ -699,11 +699,6 @@ func (h *AuthHandler) CompleteOIDCOAuthRegistration(c *gin.Context) {
 		req.AffCode,
 		pendingOAuthPromoCode(session),
 		"oidc",
-		service.PendingAuthIdentityKey{
-			ProviderType:    session.ProviderType,
-			ProviderKey:     session.ProviderKey,
-			ProviderSubject: session.ProviderSubject,
-		},
 	)
 	if err != nil {
 		response.ErrorFrom(c, err)

@@ -38,8 +38,6 @@ var (
 	ErrRefreshTokenReused      = infraerrors.Unauthorized("REFRESH_TOKEN_REUSED", "refresh token has been reused")
 	ErrEmailVerifyRequired     = infraerrors.BadRequest("EMAIL_VERIFY_REQUIRED", "email verification is required")
 	ErrEmailSuffixNotAllowed   = infraerrors.BadRequest("EMAIL_SUFFIX_NOT_ALLOWED", "email suffix is not allowed")
-	ErrEmailBlacklisted        = infraerrors.BadRequest("EMAIL_BLACKLISTED", "email is not allowed for registration")
-	ErrRegistrationIDBlocked   = infraerrors.BadRequest("REGISTRATION_ID_BLACKLISTED", "registration identity is not allowed")
 	ErrRegistrationIPBlocked   = infraerrors.Forbidden("REGISTRATION_IP_BLACKLISTED", "当前暂不允许注册")
 	ErrRegDisabled             = infraerrors.Forbidden("REGISTRATION_DISABLED", "registration is currently disabled")
 	ErrServiceUnavailable      = infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "service temporarily unavailable")
@@ -596,11 +594,11 @@ func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 // LoginOrRegisterOAuthWithTokenPairAndPromoCode behaves like
 // LoginOrRegisterOAuthWithTokenPair and applies promoCode only when a new user
 // is created.
-func (s *AuthService) LoginOrRegisterOAuthWithTokenPairAndPromoCode(ctx context.Context, email, username, invitationCode, affiliateCode, promoCode, signupSource string, registrationIdentity ...PendingAuthIdentityKey) (*TokenPair, *User, error) {
-	return s.loginOrRegisterOAuthWithTokenPair(ctx, email, username, invitationCode, affiliateCode, promoCode, signupSource, registrationIdentity...)
+func (s *AuthService) LoginOrRegisterOAuthWithTokenPairAndPromoCode(ctx context.Context, email, username, invitationCode, affiliateCode, promoCode, signupSource string) (*TokenPair, *User, error) {
+	return s.loginOrRegisterOAuthWithTokenPair(ctx, email, username, invitationCode, affiliateCode, promoCode, signupSource)
 }
 
-func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, email, username, invitationCode, affiliateCode, promoCode, signupSource string, registrationIdentity ...PendingAuthIdentityKey) (*TokenPair, *User, error) {
+func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, email, username, invitationCode, affiliateCode, promoCode, signupSource string) (*TokenPair, *User, error) {
 	// 检查 refreshTokenCache 是否可用
 	if s.refreshTokenCache == nil {
 		return nil, nil, errors.New("refresh token cache not configured")
@@ -627,12 +625,6 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 			if s.settingService == nil || (!s.settingService.IsRegistrationEnabled(ctx) && !s.canBypassRegistrationDisabledForOAuth(ctx, signupSource)) {
 				return nil, nil, ErrRegDisabled
 			}
-			if len(registrationIdentity) > 0 {
-				if err := s.validateRegistrationIdentityPolicy(ctx, registrationIdentity[0]); err != nil {
-					return nil, nil, err
-				}
-			}
-
 			// 检查是否需要邀请码
 			var invitationRedeemCode *RedeemCode
 			if s.settingService != nil && s.settingService.IsInvitationCodeEnabled(ctx) {
@@ -1108,10 +1100,6 @@ func inferLegacySignupSource(email string) string {
 func (s *AuthService) validateRegistrationEmailPolicy(ctx context.Context, email string) error {
 	if s.settingService == nil {
 		return nil
-	}
-	blacklist := s.settingService.GetRegistrationEmailBlacklist(ctx)
-	if IsRegistrationEmailBlocked(email, blacklist) {
-		return ErrEmailBlacklisted
 	}
 	whitelist := s.settingService.GetRegistrationEmailSuffixWhitelist(ctx)
 	if !IsRegistrationEmailSuffixAllowed(email, whitelist) {
@@ -1671,12 +1659,17 @@ func resolvedTokenVersion(user *User) int64 {
 	return user.TokenVersion ^ fingerprint
 }
 
-// snapshotPlatformQuotaDefaults 把 plan.PlatformQuotas（4 platform × 3 window）以
+// snapshotPlatformQuotaDefaults 把 plan.PlatformQuotas（platform × 3 window）以
 // BulkInsertInitial 形式写入 user_platform_quotas 表。失败 fail-open（仅 warn log）。
 func (s *AuthService) snapshotPlatformQuotaDefaults(ctx context.Context, userID int64, plan *signupGrantPlan) error {
 	if s.userPlatformQuotaRepo == nil || plan == nil || len(plan.PlatformQuotas) == 0 {
 		return nil
 	}
+	// 平台配额快照是 best-effort（fail-open）：必须脱离调用方事务执行。
+	// 否则某平台违反 user_platform_quotas 的 CHECK 约束（如尚未进约束的新平台）会让
+	// 整个调用方事务被 Postgres 标记 aborted，把"无关紧要的默认配额快照"放大成
+	// "整笔注册失败"（OAuth pending 路径曾因此 500 → 清 cookie → 404）。
+	ctx = dbent.WithoutTx(ctx)
 	records := make([]UserPlatformQuotaRecord, 0, len(plan.PlatformQuotas))
 	for platform, q := range plan.PlatformQuotas {
 		rec := UserPlatformQuotaRecord{

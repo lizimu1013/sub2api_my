@@ -2,12 +2,8 @@ const EMAIL_SUFFIX_TOKEN_SPLIT_RE = /[\s,，]+/
 const EMAIL_SUFFIX_INVALID_CHAR_RE = /[^a-z0-9.-]/g
 const EMAIL_SUFFIX_INVALID_CHAR_CHECK_RE = /[^a-z0-9.-]/
 const EMAIL_SUFFIX_PREFIX_RE = /^@+/
-const EMAIL_BLACKLIST_LOCAL_INVALID_RE = /[\s@]/
 const EMAIL_SUFFIX_WILDCARD_PREFIX = '*.'
 const EMAIL_SUFFIX_MESSAGE_VISIBLE_LIMIT = 5
-const REGISTRATION_ID_TOKEN_SPLIT_RE = /[\s,，]+/
-const REGISTRATION_ID_MAX_LENGTH = 512
-const REGISTRATION_ID_PROVIDER_RE = /^[a-z0-9_-]+$/
 const REGISTRATION_IP_TOKEN_SPLIT_RE = /[\s,，]+/
 const REGISTRATION_IP_MAX_LENGTH = 128
 const EMAIL_SUFFIX_DOMAIN_PATTERN =
@@ -65,122 +61,10 @@ export function parseRegistrationEmailSuffixWhitelistInput(input: string): strin
   return normalized
 }
 
-export function parseRegistrationEmailBlacklistInput(input: string): string[] {
-  if (!input || !input.trim()) {
-    return []
-  }
-
-  const seen = new Set<string>()
-  const normalized: string[] = []
-
-  for (const token of input.split(EMAIL_SUFFIX_TOKEN_SPLIT_RE)) {
-    const item = normalizeRegistrationEmailBlacklistItemStrict(token)
-    if (!item || seen.has(item)) {
-      continue
-    }
-    seen.add(item)
-    normalized.push(item)
-  }
-
-  return normalized
-}
-
 export function normalizeRegistrationEmailSuffixWhitelist(
   items: string[] | null | undefined
 ): string[] {
   return normalizeRegistrationEmailSuffixDomains(items).map(toCanonicalRegistrationEmailSuffix)
-}
-
-export function normalizeRegistrationEmailBlacklist(
-  items: string[] | null | undefined
-): string[] {
-  if (!items || items.length === 0) {
-    return []
-  }
-
-  const seen = new Set<string>()
-  const normalized: string[] = []
-  for (const item of items) {
-    const value = normalizeRegistrationEmailBlacklistItem(item)
-    if (!value || seen.has(value)) {
-      continue
-    }
-    seen.add(value)
-    normalized.push(value)
-  }
-  return normalized
-}
-
-export function normalizeRegistrationEmailBlacklistItem(raw: string): string {
-  const value = String(raw || '').trim().toLowerCase()
-  if (!value) {
-    return ''
-  }
-  if (!value.includes('@') || value.startsWith('@')) {
-    const domain = normalizeRegistrationEmailSuffixDomain(value)
-    return isRegistrationEmailSuffixDomainValid(domain) ? `@${domain}` : ''
-  }
-  return normalizeRegistrationEmailAddress(value)
-}
-
-export function parseRegistrationIdentityBlacklistInput(input: string): string[] {
-  if (!input || !input.trim()) {
-    return []
-  }
-
-  const seen = new Set<string>()
-  const normalized: string[] = []
-  for (const token of input.split(REGISTRATION_ID_TOKEN_SPLIT_RE)) {
-    const item = normalizeRegistrationIdentityBlacklistItem(token)
-    const key = item.toLowerCase()
-    if (!item || seen.has(key)) {
-      continue
-    }
-    seen.add(key)
-    normalized.push(item)
-  }
-  return normalized
-}
-
-export function normalizeRegistrationIdentityBlacklist(
-  items: string[] | null | undefined
-): string[] {
-  if (!items || items.length === 0) {
-    return []
-  }
-
-  const seen = new Set<string>()
-  const normalized: string[] = []
-  for (const item of items) {
-    const value = normalizeRegistrationIdentityBlacklistItem(item)
-    const key = value.toLowerCase()
-    if (!value || seen.has(key)) {
-      continue
-    }
-    seen.add(key)
-    normalized.push(value)
-  }
-  return normalized
-}
-
-export function normalizeRegistrationIdentityBlacklistItem(raw: string): string {
-  const value = String(raw || '').trim()
-  if (!value || value.length > REGISTRATION_ID_MAX_LENGTH || /\s/.test(value)) {
-    return ''
-  }
-  if (/[\u0000-\u001f\u007f]/.test(value)) {
-    return ''
-  }
-  const colonIndex = value.indexOf(':')
-  if (colonIndex >= 0) {
-    const provider = value.slice(0, colonIndex).trim().toLowerCase()
-    const subject = value.slice(colonIndex + 1).trim()
-    if (!provider || !subject || !REGISTRATION_ID_PROVIDER_RE.test(provider)) {
-      return ''
-    }
-    return `${provider}:${subject}`
-  }
-  return value
 }
 
 export function parseRegistrationIPBlacklistInput(input: string): string[] {
@@ -320,39 +204,6 @@ function normalizeRegistrationEmailSuffixDomainStrict(raw: string): string {
   }
   value = value.replace(EMAIL_SUFFIX_PREFIX_RE, '')
   return normalizeRegistrationEmailSuffixToken(value, true)
-}
-
-function normalizeRegistrationEmailBlacklistItemStrict(raw: string): string {
-  const value = String(raw || '').trim().toLowerCase()
-  if (!value) {
-    return ''
-  }
-  if (!value.includes('@') || value.startsWith('@')) {
-    const domain = normalizeRegistrationEmailSuffixDomainStrict(value)
-    return isRegistrationEmailSuffixDomainValid(domain) ? `@${domain}` : ''
-  }
-  return normalizeRegistrationEmailAddress(value)
-}
-
-function normalizeRegistrationEmailAddress(raw: string): string {
-  const value = String(raw || '').trim().toLowerCase()
-  const atIndex = value.indexOf('@')
-  if (atIndex <= 0 || atIndex >= value.length - 1) {
-    return ''
-  }
-  if (value.indexOf('@', atIndex + 1) !== -1) {
-    return ''
-  }
-  const local = value.slice(0, atIndex)
-  const domain = value.slice(atIndex + 1)
-  if (
-    !local ||
-    EMAIL_BLACKLIST_LOCAL_INVALID_RE.test(local) ||
-    !isRegistrationEmailSuffixDomainValid(domain)
-  ) {
-    return ''
-  }
-  return `${local}@${domain}`
 }
 
 function normalizeIPv4Address(raw: string): string {

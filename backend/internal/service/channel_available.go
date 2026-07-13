@@ -10,15 +10,19 @@ import (
 // AvailableGroupRef 渠道视图中关联分组的简要信息。
 //
 // 用户侧「可用渠道」页面据此展示：专属分组 vs 公开分组（IsExclusive）、
-// 订阅 vs 标准（SubscriptionType）、展示倍率（RateMultiplier）。真实计费倍率
-// 不在用户侧可用渠道接口暴露。
+// 订阅 vs 标准（SubscriptionType）、展示倍率（RateMultiplier）与高峰倍率规则。
+// 真实计费倍率不在用户侧可用渠道接口暴露。
 type AvailableGroupRef struct {
-	ID               int64
-	Name             string
-	Platform         string
-	SubscriptionType string
-	RateMultiplier   float64
-	IsExclusive      bool
+	ID                 int64
+	Name               string
+	Platform           string
+	SubscriptionType   string
+	RateMultiplier     float64
+	PeakRateEnabled    bool
+	PeakStart          string
+	PeakEnd            string
+	PeakRateMultiplier float64
+	IsExclusive        bool
 }
 
 // AvailableChannel 可用渠道视图：用于「可用渠道」页面展示渠道基础信息 +
@@ -59,12 +63,16 @@ func (s *ChannelService) ListAvailable(ctx context.Context) ([]AvailableChannel,
 	for i := range groups {
 		g := groups[i]
 		groupByID[g.ID] = AvailableGroupRef{
-			ID:               g.ID,
-			Name:             g.Name,
-			Platform:         g.Platform,
-			SubscriptionType: g.SubscriptionType,
-			RateMultiplier:   g.UserVisibleRateMultiplier(),
-			IsExclusive:      g.IsExclusive,
+			ID:                 g.ID,
+			Name:               g.Name,
+			Platform:           g.Platform,
+			SubscriptionType:   g.SubscriptionType,
+			RateMultiplier:     g.UserVisibleRateMultiplier(),
+			PeakRateEnabled:    g.PeakRateEnabled,
+			PeakStart:          g.PeakStart,
+			PeakEnd:            g.PeakEnd,
+			PeakRateMultiplier: g.PeakRateMultiplier,
+			IsExclusive:        g.IsExclusive,
 		}
 	}
 

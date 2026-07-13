@@ -3,17 +3,11 @@ import {
   formatRegistrationEmailSuffixWhitelistForMessage,
   isRegistrationEmailSuffixAllowed,
   isRegistrationEmailSuffixDomainValid,
-  normalizeRegistrationEmailBlacklist,
-  normalizeRegistrationEmailBlacklistItem,
-  normalizeRegistrationIdentityBlacklist,
-  normalizeRegistrationIdentityBlacklistItem,
   normalizeRegistrationIPBlacklist,
   normalizeRegistrationIPBlacklistItem,
   normalizeRegistrationEmailSuffixDomain,
   normalizeRegistrationEmailSuffixDomains,
   normalizeRegistrationEmailSuffixWhitelist,
-  parseRegistrationEmailBlacklistInput,
-  parseRegistrationIdentityBlacklistInput,
   parseRegistrationIPBlacklistInput,
   parseRegistrationEmailSuffixWhitelistInput
 } from '@/utils/registrationEmailPolicy'
@@ -74,57 +68,6 @@ describe('registrationEmailPolicy utils', () => {
         '*.EDU.CN'
       ])
     ).toEqual(['@example.com', '@foo.bar', '*.edu.cn'])
-  })
-
-  it('normalizeRegistrationEmailBlacklist supports exact emails and domains', () => {
-    expect(
-      normalizeRegistrationEmailBlacklist([
-        'Blocked@Example.com',
-        'example.com',
-        '@EXAMPLE.com',
-        'bad@@example.com'
-      ])
-    ).toEqual(['blocked@example.com', '@example.com'])
-  })
-
-  it('normalizeRegistrationEmailBlacklistItem returns canonical blacklist tokens', () => {
-    expect(normalizeRegistrationEmailBlacklistItem(' User+tag@Example.COM ')).toBe(
-      'user+tag@example.com'
-    )
-    expect(normalizeRegistrationEmailBlacklistItem(' example.com ')).toBe('@example.com')
-    expect(normalizeRegistrationEmailBlacklistItem('bad@@example.com')).toBe('')
-  })
-
-  it('parseRegistrationEmailBlacklistInput supports separators and deduplicates', () => {
-    const input = 'Blocked@Example.com, @evil.com evil.com bad@@example.com'
-    expect(parseRegistrationEmailBlacklistInput(input)).toEqual([
-      'blocked@example.com',
-      '@evil.com'
-    ])
-  })
-
-  it('normalizeRegistrationIdentityBlacklist supports raw and provider-scoped IDs', () => {
-    expect(
-      normalizeRegistrationIdentityBlacklist([' 12345 ', 'LinuxDo:ABC', 'linuxdo:abc', 'bad value'])
-    ).toEqual(['12345', 'linuxdo:ABC'])
-  })
-
-  it('normalizeRegistrationIdentityBlacklistItem returns canonical identity tokens', () => {
-    expect(normalizeRegistrationIdentityBlacklistItem(' LinuxDo:ABC123 ')).toBe('linuxdo:ABC123')
-    expect(normalizeRegistrationIdentityBlacklistItem(' abc-123 ')).toBe('abc-123')
-    expect(normalizeRegistrationIdentityBlacklistItem('linux do:123')).toBe('')
-    expect(normalizeRegistrationIdentityBlacklistItem('linuxdo:')).toBe('')
-  })
-
-  it('parseRegistrationIdentityBlacklistInput supports separators and deduplicates', () => {
-    const input = ' 12345, linuxdo:ABC linuxdo:abc，oidc:user:with:colon invalid value '
-    expect(parseRegistrationIdentityBlacklistInput(input)).toEqual([
-      '12345',
-      'linuxdo:ABC',
-      'oidc:user:with:colon',
-      'invalid',
-      'value'
-    ])
   })
 
   it('normalizeRegistrationIPBlacklist supports IPs and CIDR ranges', () => {
