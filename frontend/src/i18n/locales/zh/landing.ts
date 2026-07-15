@@ -14,17 +14,38 @@ export default {
     login: '登录',
     getStarted: '立即开始',
     goToDashboard: '进入控制台',
+    learnMore: '了解更多',
+    navLinks: {
+      pain: '痛点',
+      features: '功能',
+      compare: '对比',
+      providers: '模型'
+    },
+    heroBadge: '一站式 AI API 服务',
+    heroTitleLine1: '一个密钥，',
+    heroTitleLine2: '连接所有 ',
+    heroTitleAccent: 'AI 模型',
     // 新增：面向用户的价值主张
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
     heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
     tags: {
       subscriptionToApi: '订阅转 API',
       stickySession: '会话保持',
-      realtimeBilling: '按量计费'
+      realtimeBilling: '按量计费',
+      loadBalancing: '智能负载均衡'
     },
+    stats: {
+      models: '主流模型',
+      availability: '服务可用率',
+      billingValue: '按量',
+      billingLabel: '灵活计费'
+    },
+    terminalRouting: '智能路由请求',
     // 用户痛点区块
     painPoints: {
+      kicker: '使用 AI 的烦恼',
       title: '你是否也遇到这些问题？',
+      description: '多个订阅、分散账号和不稳定服务，让 AI 使用变得复杂又昂贵。',
       items: {
         expensive: {
           title: '订阅费用高',

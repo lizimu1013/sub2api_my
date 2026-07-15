@@ -14,17 +14,38 @@ export default {
     login: 'Login',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
+    learnMore: 'Learn More',
+    navLinks: {
+      pain: 'Challenges',
+      features: 'Features',
+      compare: 'Compare',
+      providers: 'Models'
+    },
+    heroBadge: 'One-Stop AI API Service',
+    heroTitleLine1: 'One Key,',
+    heroTitleLine2: 'Every ',
+    heroTitleAccent: 'AI Model',
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
     heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
     tags: {
       subscriptionToApi: 'Subscription to API',
       stickySession: 'Session Persistence',
-      realtimeBilling: 'Pay As You Go'
+      realtimeBilling: 'Pay As You Go',
+      loadBalancing: 'Smart Load Balancing'
     },
+    stats: {
+      models: 'Leading Models',
+      availability: 'Availability',
+      billingValue: 'Usage',
+      billingLabel: 'Flexible Billing'
+    },
+    terminalRouting: 'Smart request routing',
     // Pain points section
     painPoints: {
+      kicker: 'AI Access Challenges',
       title: 'Sound Familiar?',
+      description: 'Multiple subscriptions, scattered accounts, and unstable service make AI access costly and complicated.',
       items: {
         expensive: {
           title: 'High Subscription Costs',

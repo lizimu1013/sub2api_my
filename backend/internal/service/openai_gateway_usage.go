@@ -178,7 +178,27 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if result.ServiceTier != nil {
 		serviceTier = strings.TrimSpace(*result.ServiceTier)
 	}
-	cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, videoMultiplier, baseMultiplier, tokens, serviceTier)
+	billingAccount := account
+	if account.IsShadow() {
+		billingAccount, err = resolveCredentialAccount(ctx, s.accountRepo, account)
+		if err != nil {
+			return err
+		}
+	}
+	longContextBillingEnabled := billingAccount.IsOpenAILongContextBillingEnabled()
+	cost, err = s.calculateOpenAIRecordUsageCost(
+		ctx,
+		result,
+		apiKey,
+		billingModels,
+		multiplier,
+		imageMultiplier,
+		videoMultiplier,
+		baseMultiplier,
+		tokens,
+		serviceTier,
+		longContextBillingEnabled,
+	)
 	if err != nil {
 		if !isUsagePricingUnavailableError(err) {
 			return err
@@ -204,7 +224,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	isVideoUsage := isGrokVideoUsageResult(result, billingModels)
 	if !isSubscriptionBilling {
 		currentMultiplier := usageLogMultiplier(result, isVideoUsage, cost, multiplier, imageMultiplier, videoMultiplier)
-		if adjustedCost, adjustedMultiplier := s.adjustOpenAIBalanceCostForLowBalanceDisplayRate(ctx, user, apiKey, result, billingModels, tokens, serviceTier, cost, currentMultiplier); adjustedCost != nil {
+		if adjustedCost, adjustedMultiplier := s.adjustOpenAIBalanceCostForLowBalanceDisplayRate(ctx, user, apiKey, result, billingModels, tokens, serviceTier, cost, currentMultiplier, longContextBillingEnabled); adjustedCost != nil {
 			cost = adjustedCost
 			if adjustedMultiplier > 0 {
 				multiplier = adjustedMultiplier
@@ -266,6 +286,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.CacheReadCost = cost.CacheReadCost
 		usageLog.TotalCost = cost.TotalCost
 		usageLog.ActualCost = cost.ActualCost
+		usageLog.LongContextBillingApplied = cost.LongContextBillingApplied
 	}
 	usageLog.RateMultiplier = usageLogMultiplier(result, isVideoUsage, cost, multiplier, imageMultiplier, videoMultiplier)
 	usageLog.AccountRateMultiplier = &accountRateMultiplier
@@ -369,6 +390,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	webSearchMultiplier float64,
 	tokens UsageTokens,
 	serviceTier string,
+	longContextBillingEnabled bool,
 ) (*CostBreakdown, error) {
 	billingModel := firstUsageBillingModel(billingModels)
 	if result != nil && result.WebSearchCalls > 0 {
@@ -398,7 +420,15 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		if candidate == "" {
 			continue
 		}
-		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, candidate, multiplier, tokens, serviceTier)
+		cost, err := s.calculateOpenAIRecordUsageTokenCost(
+			ctx,
+			apiKey,
+			candidate,
+			multiplier,
+			tokens,
+			serviceTier,
+			longContextBillingEnabled,
+		)
 		if err == nil {
 			return cost, nil
 		}
@@ -448,6 +478,7 @@ func (s *OpenAIGatewayService) adjustOpenAIBalanceCostForLowBalanceDisplayRate(
 	serviceTier string,
 	currentCost *CostBreakdown,
 	currentMultiplier float64,
+	longContextBillingEnabled bool,
 ) (*CostBreakdown, float64) {
 	if s == nil || user == nil || apiKey == nil || apiKey.Group == nil || currentCost == nil {
 		return nil, 0
@@ -469,7 +500,7 @@ func (s *OpenAIGatewayService) adjustOpenAIBalanceCostForLowBalanceDisplayRate(
 	if !s.userBalanceAtOrBelowThreshold(ctx, user, threshold) {
 		return nil, 0
 	}
-	adjustedCost, err := s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, displayMultiplier, displayMultiplier, displayMultiplier, displayMultiplier, tokens, serviceTier)
+	adjustedCost, err := s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, displayMultiplier, displayMultiplier, displayMultiplier, displayMultiplier, tokens, serviceTier, longContextBillingEnabled)
 	if err != nil {
 		logger.LegacyPrintf("service.openai_gateway", "low-balance display rate recalculation failed: user=%d group=%d err=%v", user.ID, apiKey.Group.ID, err)
 		return nil, 0
@@ -508,21 +539,29 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	multiplier float64,
 	tokens UsageTokens,
 	serviceTier string,
+	longContextBillingEnabled bool,
 ) (*CostBreakdown, error) {
 	if s.resolver != nil && apiKey.Group != nil {
 		gid := apiKey.Group.ID
 		return s.billingService.CalculateCostUnified(CostInput{
-			Ctx:            ctx,
-			Model:          billingModel,
-			GroupID:        &gid,
-			Tokens:         tokens,
-			RequestCount:   1,
-			RateMultiplier: multiplier,
-			ServiceTier:    serviceTier,
-			Resolver:       s.resolver,
+			Ctx:                       ctx,
+			Model:                     billingModel,
+			GroupID:                   &gid,
+			Tokens:                    tokens,
+			RequestCount:              1,
+			RateMultiplier:            multiplier,
+			ServiceTier:               serviceTier,
+			Resolver:                  s.resolver,
+			LongContextBillingEnabled: &longContextBillingEnabled,
 		})
 	}
-	return s.billingService.CalculateCostWithServiceTier(billingModel, tokens, multiplier, serviceTier)
+	return s.billingService.calculateCostWithServiceTierPolicy(
+		billingModel,
+		tokens,
+		multiplier,
+		serviceTier,
+		longContextBillingEnabled,
+	)
 }
 
 func (s *OpenAIGatewayService) calculateOpenAIImageCost(
