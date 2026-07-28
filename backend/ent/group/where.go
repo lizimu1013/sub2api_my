@@ -265,6 +265,11 @@ func AllowMessagesDispatch(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldAllowMessagesDispatch, v))
 }
 
+// AllowLive applies equality check predicate on the "allow_live" field. It's identical to AllowLiveEQ.
+func AllowLive(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldAllowLive, v))
+}
+
 // RequireOauthOnly applies equality check predicate on the "require_oauth_only" field. It's identical to RequireOauthOnlyEQ.
 func RequireOauthOnly(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldRequireOauthOnly, v))
@@ -288,6 +293,11 @@ func RpmLimit(v int) predicate.Group {
 // FirstTokenDelayMs applies equality check predicate on the "first_token_delay_ms" field. It's identical to FirstTokenDelayMsEQ.
 func FirstTokenDelayMs(v int) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldFirstTokenDelayMs, v))
+}
+
+// MaxReasoningEffort applies equality check predicate on the "max_reasoning_effort" field. It's identical to MaxReasoningEffortEQ.
+func MaxReasoningEffort(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldMaxReasoningEffort, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -2030,6 +2040,16 @@ func AllowMessagesDispatchNEQ(v bool) predicate.Group {
 	return predicate.Group(sql.FieldNEQ(FieldAllowMessagesDispatch, v))
 }
 
+// AllowLiveEQ applies the EQ predicate on the "allow_live" field.
+func AllowLiveEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldAllowLive, v))
+}
+
+// AllowLiveNEQ applies the NEQ predicate on the "allow_live" field.
+func AllowLiveNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldAllowLive, v))
+}
+
 // RequireOauthOnlyEQ applies the EQ predicate on the "require_oauth_only" field.
 func RequireOauthOnlyEQ(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldRequireOauthOnly, v))
@@ -2193,6 +2213,71 @@ func FirstTokenDelayMsLT(v int) predicate.Group {
 // FirstTokenDelayMsLTE applies the LTE predicate on the "first_token_delay_ms" field.
 func FirstTokenDelayMsLTE(v int) predicate.Group {
 	return predicate.Group(sql.FieldLTE(FieldFirstTokenDelayMs, v))
+}
+
+// MaxReasoningEffortEQ applies the EQ predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldMaxReasoningEffort, v))
+}
+
+// MaxReasoningEffortNEQ applies the NEQ predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortNEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldMaxReasoningEffort, v))
+}
+
+// MaxReasoningEffortIn applies the In predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldMaxReasoningEffort, vs...))
+}
+
+// MaxReasoningEffortNotIn applies the NotIn predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortNotIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldMaxReasoningEffort, vs...))
+}
+
+// MaxReasoningEffortGT applies the GT predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortGT(v string) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldMaxReasoningEffort, v))
+}
+
+// MaxReasoningEffortGTE applies the GTE predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortGTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldMaxReasoningEffort, v))
+}
+
+// MaxReasoningEffortLT applies the LT predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortLT(v string) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldMaxReasoningEffort, v))
+}
+
+// MaxReasoningEffortLTE applies the LTE predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortLTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldMaxReasoningEffort, v))
+}
+
+// MaxReasoningEffortContains applies the Contains predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortContains(v string) predicate.Group {
+	return predicate.Group(sql.FieldContains(FieldMaxReasoningEffort, v))
+}
+
+// MaxReasoningEffortHasPrefix applies the HasPrefix predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortHasPrefix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasPrefix(FieldMaxReasoningEffort, v))
+}
+
+// MaxReasoningEffortHasSuffix applies the HasSuffix predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortHasSuffix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasSuffix(FieldMaxReasoningEffort, v))
+}
+
+// MaxReasoningEffortEqualFold applies the EqualFold predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortEqualFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldEqualFold(FieldMaxReasoningEffort, v))
+}
+
+// MaxReasoningEffortContainsFold applies the ContainsFold predicate on the "max_reasoning_effort" field.
+func MaxReasoningEffortContainsFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldContainsFold(FieldMaxReasoningEffort, v))
 }
 
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.

@@ -95,6 +95,7 @@ type APIKeyAuthGroupSnapshot struct {
 
 	// OpenAI Messages 调度配置（仅 openai 平台使用）
 	AllowMessagesDispatch       bool                              `json:"allow_messages_dispatch"`
+	AllowLive                   bool                              `json:"allow_live"`
 	DefaultMappedModel          string                            `json:"default_mapped_model,omitempty"`
 	MessagesDispatchModelConfig OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config,omitempty"`
 	ModelsListConfig            GroupModelsListConfig             `json:"models_list_config,omitempty"`
@@ -104,6 +105,10 @@ type APIKeyAuthGroupSnapshot struct {
 
 	// FirstTokenDelayMS 分组额外首 token 延迟（毫秒），用于网关转发前等待。
 	FirstTokenDelayMS int `json:"first_token_delay_ms"`
+	// MaxReasoningEffort OpenAI/Codex 请求的推理强度上限，空字符串表示不限制。
+	MaxReasoningEffort string `json:"max_reasoning_effort,omitempty"`
+	// ReasoningEffortMappings rewrites explicit effort values before the ceiling.
+	ReasoningEffortMappings []ReasoningEffortMapping `json:"reasoning_effort_mappings"`
 	// 高峰时段倍率：PeakRateEnabled 为 true 且请求时刻处于 [PeakStart, PeakEnd) 时，
 	// token 计费倍率额外乘以 PeakRateMultiplier（详见 Group.PeakMultiplierAt）。
 	// 必须随快照缓存，否则扣费路径拿到的 apiKey.Group 缺字段、高峰倍率失效。

@@ -135,6 +135,24 @@ export default {
         auditRetention: 'Audit Log Retention (days)',
         auditRetentionHint: 'Audit logs older than this are cleaned up automatically. Set to 0 to keep them forever (manual clear only).'
       },
+      panelRateLimit: {
+        title: 'Panel API Rate Limiting',
+        description: 'Throttle panel API requests to keep high-frequency polling (usage stats, dashboard queries) from overwhelming the database',
+        proxySafeNote: 'Authenticated endpoints are counted per user account, independent of the source IP — reverse proxies and shared NAT egress are never falsely blocked. Public endpoints are counted per real client IP, and loopback/private addresses (internal proxy hops) are skipped automatically.',
+        enabled: 'Enable panel rate limiting',
+        enabledHint: 'Limits authenticated panel endpoints per account. Requests over the threshold get HTTP 429 and recover automatically when the window resets.',
+        userRpm: 'Requests per account',
+        userRpmHint: 'Total panel API requests allowed per account per minute. Normal UI usage stays far below this. 0 = unlimited.',
+        heavyRpm: 'Heavy queries per account',
+        heavyRpmHint: 'Usage/dashboard aggregation queries allowed per account per minute (these are the most expensive for the database). 0 = unlimited.',
+        publicIpRpm: 'Public endpoints per IP',
+        publicIpRpmHint: 'Requests per minute allowed per real client IP for unauthenticated endpoints (e.g. public site settings). 0 = unlimited.',
+        perMinute: 'req/min',
+        exemptAdmin: 'Exempt administrators',
+        exemptAdminHint: 'When enabled, admin accounts bypass panel rate limits so bulk operations are never throttled.',
+        saved: 'Panel rate limit settings saved',
+        saveFailed: 'Failed to save panel rate limit settings'
+      },
       turnstile: {
         title: 'Cloudflare Turnstile',
         description: 'Bot protection for login and registration',
@@ -153,7 +171,14 @@ export default {
           'Choose which client IP is used by API Key allowlists/denylists, admin audit logs, and session IP/UA binding',
         trustForwardedIp: 'Trust forwarded client IP',
         trustForwardedIpHint:
-          'Disabled by default. Enable only when the origin is reachable only through Cloudflare or Nginx reverse proxy. When enabled, API Key IP allowlists/denylists, admin audit logs, and session IP/UA binding use CF-Connecting-IP, X-Real-IP, or X-Forwarded-For, matching the request IP shown in usage records. Toggling this switch changes the IP fingerprint of existing sessions; with session binding enabled they must sign in again.'
+          'Enabled by default for upgrade compatibility. When enabled, raw CF-Connecting-IP, X-Real-IP, or X-Forwarded-For values take over server.trusted_proxies for client-IP resolution. Disable it to enforce the Gin trusted-proxy chain configured by server.trusted_proxies. Only enable takeover mode when the origin cannot be reached directly. Changing this switch changes existing session IP fingerprints.',
+        forwardedClientIpHeaders: 'Custom client-IP headers',
+        forwardedClientIpHeadersHint: 'Add CDN or proxy header names to check before the built-in headers.',
+        forwardedClientIpHeadersPlaceholder: 'X-Client-IP',
+        forwardedClientIpHeadersRiskHint: 'These raw headers can be spoofed when the origin is reachable directly. Restrict origin access before trusting them.',
+        forwardedClientIpHeaderInvalid: 'Enter a valid HTTP header name.',
+        forwardedClientIpHeadersLimit: 'At most {max} custom client-IP headers are allowed.',
+        removeForwardedClientIpHeader: 'Remove {header}'
       },
       linuxdo: {
         title: 'LinuxDo Connect Login',
@@ -329,6 +354,18 @@ export default {
         intervalHint: 'Range: 5–1440 minutes. A successful result remains valid for two detection intervals.',
         saved: 'Upstream rate auto detection settings saved',
         saveFailed: 'Failed to save upstream rate auto detection settings'
+      },
+      ollamaCloudUsage: {
+        title: 'Ollama Cloud Usage Refresh',
+        description: 'Refresh official Ollama settings-page usage driven by model requests for individually opted-in accounts. Disabled by default. Idle accounts are not polled.',
+        enabled: 'Enable global automatic refresh',
+        enabledHint: 'Only accounts with a stored browser session and their own automatic refresh switch enabled are refreshed, and only after subsequent model requests. Manual refresh remains available.',
+        intervalMinutes: 'Max wait while requests continue (minutes)',
+        intervalHint: 'Range: 15–1440 minutes. When continuous requests keep sliding the debounce, force a refresh after this wait.',
+        debounceMinutes: 'Quiet period after last request (minutes)',
+        debounceHint: 'Range: 1–60 minutes. Refresh after the latest model request has been quiet for this long.',
+        saved: 'Ollama Cloud usage refresh settings saved',
+        saveFailed: 'Failed to save Ollama Cloud usage refresh settings'
       },
       gatewayForwarding: {
         title: 'Request Forwarding',
@@ -582,6 +619,8 @@ export default {
         cancelRateLimitWindowModeFixed: 'Fixed',
         alipayForceQRCode: 'Force Alipay QR Code',
         alipayForceQRCodeHint: 'When enabled, mobile Alipay users always see a QR code instead of being redirected to the mobile payment page',
+        alipayMobilePrecreateDeepLink: 'Mobile Alipay Precreate Handoff',
+        alipayMobilePrecreateDeepLinkHint: 'Use official Alipay precreate on mobile, open the Alipay app, and show the dynamic QR only if handoff fails. This takes priority over Force Alipay QR Code',
         helpText: 'Help Text',
         helpImageUrl: 'Help Image URL',
         manageProviders: 'Manage Providers',
@@ -646,6 +685,7 @@ export default {
         customMethodType: 'Payment type',
         customMethodUpstreamType: 'Upstream type',
         customMethodDisplayName: 'Display name',
+        customMethodDisplayNamePlaceholder: 'e.g. Credit card',
         stripeWebhookHint: 'Configure the following URL as a Webhook endpoint in Stripe Dashboard:',
         stripeWebhookApiVersionHint: 'Set this Webhook endpoint API version to match the integrated Stripe SDK. Recommended: {version}. A mismatch can cause webhook parsing errors.',
         airwallexWebhookHint: 'Configure the following URL as a Webhook endpoint in Airwallex. Select at least Payment Intent -> Succeeded (payment_intent.succeeded), preferably also Payment Intent -> Cancelled (payment_intent.cancelled). Use the account default or latest stable API version.',

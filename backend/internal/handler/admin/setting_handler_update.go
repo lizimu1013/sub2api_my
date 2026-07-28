@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -15,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 )
 
 // UpdateSettingsRequest 更新设置请求
@@ -52,7 +54,8 @@ type UpdateSettingsRequest struct {
 	TurnstileSecretKey string `json:"turnstile_secret_key"`
 
 	// API Key IP 访问控制设置
-	APIKeyACLTrustForwardedIP *bool `json:"api_key_acl_trust_forwarded_ip"`
+	APIKeyACLTrustForwardedIP *bool     `json:"api_key_acl_trust_forwarded_ip"`
+	ForwardedClientIPHeaders  *[]string `json:"forwarded_client_ip_headers"`
 
 	// LinuxDo Connect OAuth 登录
 	LinuxDoConnectEnabled      bool   `json:"linuxdo_connect_enabled"`
@@ -302,6 +305,8 @@ type UpdateSettingsRequest struct {
 
 	// Force Alipay mobile clients to use QR code payment instead of mobile redirect
 	PaymentAlipayForceQRCode *bool `json:"payment_alipay_force_qrcode"`
+	// Use Alipay face-to-face precreate and an app deep link on mobile clients.
+	PaymentAlipayMobilePrecreateDeepLink *bool `json:"payment_alipay_mobile_precreate_deep_link"`
 
 	// Channel Monitor feature switch
 	ChannelMonitorEnabled                *bool `json:"channel_monitor_enabled"`
@@ -375,12 +380,70 @@ func (h *SettingHandler) ensureActorTotpForStepUp(c *gin.Context) bool {
 	return true
 }
 
+// settingKeyJSONAliases covers the request fields whose JSON name differs from
+// the setting key they persist to. Every other field of UpdateSettingsRequest
+// is named after its setting key.
+var settingKeyJSONAliases = map[string]string{
+	"smtp_from_email": service.SettingKeySMTPFrom,
+}
+
+// settingKeyByJSONName maps the value-typed top-level JSON fields of
+// UpdateSettingsRequest to the setting key each one writes. Resolved once from
+// the struct tags so new fields are covered without touching this file.
+//
+// Pointer-typed fields are deliberately excluded: they already carry their own
+// "omitted = keep the stored value" merge in UpdateSettings, and some of them
+// rely on being rewritten on every save to re-normalize fail-closed security
+// state (see TestUpdateSettingsMalformedForwardedClientIPHeadersRemainFailClosedWhenOmitted).
+// Only the value-typed fields are indistinguishable from a deliberate clear.
+var settingKeyByJSONName = buildSettingKeyByJSONName()
+
+func buildSettingKeyByJSONName() map[string]string {
+	t := reflect.TypeOf(UpdateSettingsRequest{})
+	out := make(map[string]string, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if field.Type.Kind() == reflect.Ptr {
+			continue
+		}
+		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
+		if name == "" || name == "-" {
+			continue
+		}
+		if alias, ok := settingKeyJSONAliases[name]; ok {
+			out[name] = alias
+			continue
+		}
+		out[name] = name
+	}
+	return out
+}
+
+// omittedSettingKeys reports the setting keys this payload never mentioned.
+// Saving settings is a whole-document PUT, so without this a client that sends
+// only the one field it cares about resets every other field to a zero value.
+func omittedSettingKeys(sentFields map[string]json.RawMessage) service.OmittedSettingKeys {
+	omitted := make(service.OmittedSettingKeys, len(settingKeyByJSONName))
+	for jsonName, settingKey := range settingKeyByJSONName {
+		if _, sent := sentFields[jsonName]; !sent {
+			omitted[settingKey] = struct{}{}
+		}
+	}
+	return omitted
+}
+
 func (h *SettingHandler) UpdateSettings(c *gin.Context) {
-	var req UpdateSettingsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var sentFields map[string]json.RawMessage
+	if err := c.ShouldBindBodyWith(&sentFields, binding.JSON); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	var req UpdateSettingsRequest
+	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	omitted := omittedSettingKeys(sentFields)
 
 	previousSettings, err := h.settingService.GetAllSettings(c.Request.Context())
 	if err != nil {
@@ -402,6 +465,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	stepUpEnabled := previousSettings.StepUpEnabled
 	if req.StepUpEnabled != nil {
 		stepUpEnabled = *req.StepUpEnabled
+	}
+	forwardedClientIPHeaders := append([]string(nil), previousSettings.ForwardedClientIPHeaders...)
+	if req.ForwardedClientIPHeaders != nil {
+		forwardedClientIPHeaders = append([]string(nil), (*req.ForwardedClientIPHeaders)...)
 	}
 
 	// 开启敏感操作 step-up 门控属自锁风险操作：仅允许本人已启用 TOTP 的管理员会话开启，
@@ -1281,6 +1348,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.APIKeyACLTrustForwardedIP
 		}(),
+		ForwardedClientIPHeaders:               forwardedClientIPHeaders,
 		LinuxDoConnectEnabled:                  req.LinuxDoConnectEnabled,
 		LinuxDoConnectClientID:                 req.LinuxDoConnectClientID,
 		LinuxDoConnectClientSecret:             req.LinuxDoConnectClientSecret,
@@ -1698,7 +1766,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		},
 		ForceEmailOnThirdPartySignup: boolValueOrDefault(req.ForceEmailOnThirdPartySignup, previousAuthSourceDefaults.ForceEmailOnThirdPartySignup),
 	}
-	if err := h.settingService.UpdateSettingsWithAuthSourceDefaults(c.Request.Context(), settings, authSourceDefaults); err != nil {
+	if err := h.settingService.UpdateSettingsWithAuthSourceDefaultsOmitting(c.Request.Context(), settings, authSourceDefaults, omitted); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
@@ -1718,28 +1786,29 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	// Skip if no payment fields were provided (prevents accidental wipe).
 	if h.paymentConfigService != nil && hasPaymentFields(req) {
 		paymentReq := service.UpdatePaymentConfigRequest{
-			Enabled:                   req.PaymentEnabled,
-			MinAmount:                 req.PaymentMinAmount,
-			MaxAmount:                 req.PaymentMaxAmount,
-			DailyLimit:                req.PaymentDailyLimit,
-			OrderTimeoutMin:           req.PaymentOrderTimeoutMin,
-			MaxPendingOrders:          req.PaymentMaxPendingOrders,
-			EnabledTypes:              req.PaymentEnabledTypes,
-			BalanceDisabled:           req.PaymentBalanceDisabled,
-			BalanceRechargeMultiplier: req.PaymentBalanceRechargeMultiplier,
-			SubscriptionUSDToCNYRate:  req.PaymentSubscriptionUSDToCNYRate,
-			RechargeFeeRate:           req.PaymentRechargeFeeRate,
-			LoadBalanceStrategy:       req.PaymentLoadBalanceStrat,
-			ProductNamePrefix:         req.PaymentProductNamePrefix,
-			ProductNameSuffix:         req.PaymentProductNameSuffix,
-			HelpImageURL:              req.PaymentHelpImageURL,
-			HelpText:                  req.PaymentHelpText,
-			CancelRateLimitEnabled:    req.PaymentCancelRateLimitEnabled,
-			CancelRateLimitMax:        req.PaymentCancelRateLimitMax,
-			CancelRateLimitWindow:     req.PaymentCancelRateLimitWindow,
-			CancelRateLimitUnit:       req.PaymentCancelRateLimitUnit,
-			CancelRateLimitMode:       req.PaymentCancelRateLimitMode,
-			AlipayForceQRCode:         req.PaymentAlipayForceQRCode,
+			Enabled:                       req.PaymentEnabled,
+			MinAmount:                     req.PaymentMinAmount,
+			MaxAmount:                     req.PaymentMaxAmount,
+			DailyLimit:                    req.PaymentDailyLimit,
+			OrderTimeoutMin:               req.PaymentOrderTimeoutMin,
+			MaxPendingOrders:              req.PaymentMaxPendingOrders,
+			EnabledTypes:                  req.PaymentEnabledTypes,
+			BalanceDisabled:               req.PaymentBalanceDisabled,
+			BalanceRechargeMultiplier:     req.PaymentBalanceRechargeMultiplier,
+			SubscriptionUSDToCNYRate:      req.PaymentSubscriptionUSDToCNYRate,
+			RechargeFeeRate:               req.PaymentRechargeFeeRate,
+			LoadBalanceStrategy:           req.PaymentLoadBalanceStrat,
+			ProductNamePrefix:             req.PaymentProductNamePrefix,
+			ProductNameSuffix:             req.PaymentProductNameSuffix,
+			HelpImageURL:                  req.PaymentHelpImageURL,
+			HelpText:                      req.PaymentHelpText,
+			CancelRateLimitEnabled:        req.PaymentCancelRateLimitEnabled,
+			CancelRateLimitMax:            req.PaymentCancelRateLimitMax,
+			CancelRateLimitWindow:         req.PaymentCancelRateLimitWindow,
+			CancelRateLimitUnit:           req.PaymentCancelRateLimitUnit,
+			CancelRateLimitMode:           req.PaymentCancelRateLimitMode,
+			AlipayForceQRCode:             req.PaymentAlipayForceQRCode,
+			AlipayMobilePrecreateDeepLink: req.PaymentAlipayMobilePrecreateDeepLink,
 		}
 		if err := h.paymentConfigService.UpdatePaymentConfig(c.Request.Context(), paymentReq); err != nil {
 			response.ErrorFrom(c, err)
@@ -1811,6 +1880,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		TurnstileSiteKey:                                       updatedSettings.TurnstileSiteKey,
 		TurnstileSecretKeyConfigured:                           updatedSettings.TurnstileSecretKeyConfigured,
 		APIKeyACLTrustForwardedIP:                              updatedSettings.APIKeyACLTrustForwardedIP,
+		ForwardedClientIPHeaders:                               updatedSettings.ForwardedClientIPHeaders,
 		LinuxDoConnectEnabled:                                  updatedSettings.LinuxDoConnectEnabled,
 		LinuxDoConnectClientID:                                 updatedSettings.LinuxDoConnectClientID,
 		LinuxDoConnectClientSecretConfigured:                   updatedSettings.LinuxDoConnectClientSecretConfigured,
@@ -1995,6 +2065,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PaymentCancelRateLimitUnit:                             updatedPaymentCfg.CancelRateLimitUnit,
 		PaymentCancelRateLimitMode:                             updatedPaymentCfg.CancelRateLimitMode,
 		PaymentAlipayForceQRCode:                               updatedPaymentCfg.AlipayForceQRCode,
+		PaymentAlipayMobilePrecreateDeepLink:                   updatedPaymentCfg.AlipayMobilePrecreateDeepLink,
 
 		ChannelMonitorEnabled:                updatedSettings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
@@ -2048,7 +2119,7 @@ func hasPaymentFields(req UpdateSettingsRequest) bool {
 		req.PaymentHelpText != nil || req.PaymentCancelRateLimitEnabled != nil ||
 		req.PaymentCancelRateLimitMax != nil || req.PaymentCancelRateLimitWindow != nil ||
 		req.PaymentCancelRateLimitUnit != nil || req.PaymentCancelRateLimitMode != nil ||
-		req.PaymentAlipayForceQRCode != nil
+		req.PaymentAlipayForceQRCode != nil || req.PaymentAlipayMobilePrecreateDeepLink != nil
 }
 
 // ensureDingTalkSyncAttributes 在保存 settings 后，按 admin 配置的 (attr key, attr name)
