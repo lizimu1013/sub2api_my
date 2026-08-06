@@ -5,6 +5,8 @@ PLAYGROUND_DIR ?= ../gpt_image_playground_my
 PLAYGROUND_OUT := frontend/public/playground
 
 FRONTEND_CRITICAL_VITEST := \
+	src/api/__tests__/client.spec.ts \
+	src/api/__tests__/tokenRefresh.spec.ts \
 	src/views/auth/__tests__/LinuxDoCallbackView.spec.ts \
 	src/views/auth/__tests__/WechatCallbackView.spec.ts \
 	src/views/user/__tests__/PaymentView.spec.ts \
