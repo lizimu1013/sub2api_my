@@ -72,7 +72,8 @@ func AggregateResults(results []*NormalizedResult, latency time.Duration) (*Norm
 			matched[scanner] = struct{}{}
 		}
 		for scanner, score := range result.ScannerScores {
-			if score > aggregated.ScannerScores[scanner] {
+			current, exists := aggregated.ScannerScores[scanner]
+			if !exists || score > current {
 				aggregated.ScannerScores[scanner] = score
 			}
 		}
