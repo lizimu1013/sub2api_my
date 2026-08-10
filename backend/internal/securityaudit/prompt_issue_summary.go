@@ -12,6 +12,18 @@ func BuildIssueSummaries(result NormalizedResult) []IssueSummary {
 	}
 	summaries := make([]IssueSummary, 0, len(resultCategories)+len(result.UnknownCategories))
 	for _, category := range resultCategories {
+		if category == "custom_prompt" {
+			evidence := RedactPreview(result.ScannerEvidence[category], 160)
+			digest := sha256.Sum256([]byte(evidence))
+			summaries = append(summaries, IssueSummary{
+				Category: category, ScannerID: category, Title: "自定义提示词审计",
+				Description: "自定义审计提示词判定为违规", Severity: string(result.RiskLevel),
+				SeverityLabel: riskLabelZH(result.RiskLevel), Action: string(result.Action),
+				ActionLabel: actionLabelZH(result.Action), Code: "prompt_audit_custom_prompt",
+				Score: result.ScannerScores[category], Evidence: evidence, EvidenceHash: hex.EncodeToString(digest[:]),
+			})
+			continue
+		}
 		definition, ok := ScannerCatalog[category]
 		if !ok {
 			continue

@@ -56,6 +56,7 @@
           <div class="min-w-0 xl:block">
             <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 xl:hidden">{{ t('admin.promptAudit.pool.model') }}</p>
             <p class="truncate text-sm font-medium text-gray-700 dark:text-dark-200" :title="endpoint.model">{{ endpoint.model }}</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ endpoint.request_mode === 'moderations' ? t('admin.promptAudit.pool.moderations') : t('admin.promptAudit.pool.chatCompletions') }}</p>
           </div>
 
           <div>
@@ -118,6 +119,13 @@
         <label class="space-y-1 text-sm text-gray-700 dark:text-dark-200 sm:col-span-2">
           <span>{{ t('admin.promptAudit.pool.model') }}</span>
           <input v-model="editing.model" class="input w-full" :aria-label="t('admin.promptAudit.pool.model')" />
+        </label>
+        <label class="space-y-1 text-sm text-gray-700 dark:text-dark-200 sm:col-span-2">
+          <span>{{ t('admin.promptAudit.pool.requestMode') }}</span>
+          <select v-model="editing.request_mode" class="input w-full" :aria-label="t('admin.promptAudit.pool.requestMode')">
+            <option value="chat_completions">{{ t('admin.promptAudit.pool.chatCompletions') }}</option>
+            <option value="moderations">{{ t('admin.promptAudit.pool.moderations') }}</option>
+          </select>
         </label>
         <label class="space-y-1 text-sm text-gray-700 dark:text-dark-200">
           <span>{{ t('admin.promptAudit.pool.timeout') }}</span>

@@ -205,7 +205,7 @@ func (g *GuardEvaluator) scanChunk(ctx context.Context, cfg ActiveConfig, endpoi
 			}
 			continue
 		}
-		result, err := callPromptScanner(ctx, g.scanner, endpoint, chunk, cfg.Scanners)
+		result, err := callPromptScannerSafely(ctx, g.scanner, endpoint, chunk, cfg.Scanners, cfg.CustomPromptEnabled, cfg.CustomSystemPrompt, cfg.CustomPromptMaxTokens)
 		<-semaphore
 		if err == nil && result != nil {
 			return result, nil
@@ -228,14 +228,25 @@ func (g *GuardEvaluator) scanChunk(ctx context.Context, cfg ActiveConfig, endpoi
 	return nil, lastErr
 }
 
-func callPromptScanner(ctx context.Context, scanner PromptScanner, endpoint ActiveEndpoint, chunk string, scanners []string) (result *NormalizedResult, err error) {
+func callPromptScanner(ctx context.Context, scanner PromptScanner, endpoint ActiveEndpoint, chunk string, scanners []string, customPromptEnabled bool, systemPrompt string, maxTokens int) (result *NormalizedResult, err error) {
+	if customPromptEnabled || endpoint.RequestMode == RequestModeModerations {
+		customScanner, ok := scanner.(CustomPromptScanner)
+		if !ok {
+			return nil, &GuardError{Code: ErrorCodeUnavailable}
+		}
+		return customScanner.ScanWithPrompt(ctx, endpoint, chunk, scanners, systemPrompt, maxTokens)
+	}
+	return scanner.Scan(ctx, endpoint, chunk, scanners)
+}
+
+func callPromptScannerSafely(ctx context.Context, scanner PromptScanner, endpoint ActiveEndpoint, chunk string, scanners []string, customPromptEnabled bool, systemPrompt string, maxTokens int) (result *NormalizedResult, err error) {
 	defer func() {
 		if recover() != nil {
 			result = nil
 			err = &GuardError{Code: ErrorCodeUnavailable, Retryable: false}
 		}
 	}()
-	return scanner.Scan(ctx, endpoint, chunk, scanners)
+	return callPromptScanner(ctx, scanner, endpoint, chunk, scanners, customPromptEnabled, systemPrompt, maxTokens)
 }
 
 func (g *GuardEvaluator) nodeSemaphore(id string) chan struct{} {

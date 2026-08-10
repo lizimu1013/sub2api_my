@@ -43,7 +43,7 @@ export default {
     metrics: { total: '总计', allowed: '放行', flagged: '标记', blocked: '阻止', unavailable: '不可用', timeouts: '超时', failovers: '故障切换' },
     pool: {
       title: '审计池', description: '按顺序使用启用的 OpenAI 兼容节点；探测由服务端真实网络环境发起。',
-      add: '新增节点', edit: '编辑节点', empty: '尚未配置审计节点。', node: '节点', model: '模型', limits: '超时 / 单片上限', credential: '凭据与探测',
+      add: '新增节点', edit: '编辑节点', empty: '尚未配置审计节点。', node: '节点', model: '模型', requestMode: '请求模式', chatCompletions: 'Chat Completions', moderations: 'Moderations API', limits: '超时 / 单片上限', credential: '凭据与探测',
       configured: 'API Key 已配置', missing: '未配置 API Key', invalid: 'API Key 无法解密，请重新输入', probe: '连接测试', probing: '探测中…',
       probeProgress: '配置校验 ✓ · 请求已发送 · 等待服务响应…', probeResult: '配置校验 ✓ · 请求 ✓ · HTTP {http} · {status} · {latency} ms',
       name: '节点名称', id: '稳定节点 ID', baseUrl: 'Base URL', apiKey: 'API Key', keepSecret: '留空以保留已保存的 API Key', reenterSecret: '已保存的 API Key 无法解密（加密密钥已变更），请重新输入',
@@ -54,6 +54,7 @@ export default {
       title: '审计策略', description: '配置适用分组、九类输入风险、Worker 与队列边界。', scope: '适用范围', allGroups: '全部分组', selectedGroups: '指定分组',
       searchGroups: '搜索分组', noGroups: '没有匹配分组', missingGroups: '配置中包含已删除的分组 ID', selectedCount: '已选择 {count} 个分组',
       scanners: 'Qwen3Guard 输入风险分类', workerCount: 'Worker 数量', queueCapacity: '持久队列容量', strategy: '节点策略', strategyHint: '按配置顺序优先尝试，必要时故障切换。',
+      customPromptTitle: '自定义提示词审计', customPromptEnabled: '启用自定义提示词审计', customPromptHint: '启用后，审计节点会收到系统提示词和 <user_input> 包装内容；可返回 flagged 或 confidence JSON。', customPromptMaxTokens: '自定义审计 max_tokens', customPromptMaxTokensHint: '控制自定义提示词审计的输出预算，默认 512；推理模型如因 reasoning 超限返回空内容，可适当提高。', systemPrompt: '系统提示词', violationAction: '违规后处理', blockViolation: '直接拒绝请求', fallbackViolation: '降级到指定分组', fallbackGroup: '降级目标分组', chooseFallbackGroup: '请选择目标分组', fallbackHint: '仅当前请求切换分组，不修改 API Key 的原绑定；目标分组需保持启用。', fallbackGroupUnavailable: '已配置的目标分组不存在、停用或不可路由，保存前请重新选择。',
     },
     saveBar: { enabled: '启用提示词审计', blocking: '同步阻止', blockingLatestTurnOnly: '仅审最新输入和上一轮输出', storePass: '保存安全事件', dirty: '有未保存的更改', synced: '配置已同步' },
     blockingConfirm: {

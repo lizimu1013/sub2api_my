@@ -32,6 +32,7 @@ export async function probeEndpoint(endpoint: PromptAuditEndpointDraft): Promise
       id: endpoint.id,
       name: endpoint.name,
       protocol: 'openai_compatible',
+      request_mode: endpoint.request_mode || 'chat_completions',
       base_url: endpoint.base_url,
       model: endpoint.model,
       token: endpoint.token || undefined,

@@ -36,7 +36,7 @@ const config = (): PromptAuditConfig => ({
 describe('Prompt Audit view model', () => {
   it('normalizes legacy null collections from the public config', () => {
     const legacy = { ...config(), group_ids: null, scanners: null, endpoints: null } as unknown as PromptAuditConfig
-    expect(configToDraft(legacy)).toMatchObject({ group_ids: [], scanners: [], endpoints: [] })
+    expect(configToDraft(legacy)).toMatchObject({ group_ids: [], scanners: [], endpoints: [], custom_prompt_max_tokens: 512 })
   })
 
   it('models all nine official input scanners', () => {
@@ -69,6 +69,9 @@ describe('Prompt Audit view model', () => {
     expect(draftFingerprint(changed)).toBe(draftFingerprint(original))
     changed.queue_capacity += 1
     expect(draftFingerprint(changed)).not.toBe(draftFingerprint(original))
+
+    changed.custom_prompt_max_tokens = 1024
+    expect(buildUpdateRequest(changed).custom_prompt_max_tokens).toBe(1024)
   })
 
   it('requires a valid explicit range and sends canonical ISO timestamps for filter deletion', () => {

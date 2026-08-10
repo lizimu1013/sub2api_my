@@ -51,6 +51,48 @@
             </label>
           </div>
         </fieldset>
+
+        <fieldset class="mt-5 border-t border-gray-100 pt-5 dark:border-dark-800" data-test="custom-prompt-audit">
+          <legend class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.promptAudit.policy.customPromptTitle') }}</legend>
+          <label class="mt-3 flex items-center gap-2 text-sm text-gray-700 dark:text-dark-200">
+            <input type="checkbox" :checked="Boolean(draft.custom_prompt_enabled)" @change="patch({ custom_prompt_enabled: ($event.target as HTMLInputElement).checked })" />
+            {{ t('admin.promptAudit.policy.customPromptEnabled') }}
+          </label>
+          <p class="mt-2 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.promptAudit.policy.customPromptHint') }}</p>
+          <label class="mt-3 block text-sm text-gray-700 dark:text-dark-200">
+            <span>{{ t('admin.promptAudit.policy.customPromptMaxTokens') }}</span>
+            <input :value="draft.custom_prompt_max_tokens" type="number" min="64" max="4096" step="1" class="input mt-1.5 w-full" :aria-label="t('admin.promptAudit.policy.customPromptMaxTokens')" @input="patch({ custom_prompt_max_tokens: Number(($event.target as HTMLInputElement).value) })" />
+            <span class="mt-1 block text-xs text-gray-500 dark:text-dark-400">{{ t('admin.promptAudit.policy.customPromptMaxTokensHint') }}</span>
+          </label>
+          <label class="mt-3 block text-sm text-gray-700 dark:text-dark-200">
+            <span>{{ t('admin.promptAudit.policy.systemPrompt') }}</span>
+            <textarea :value="draft.custom_system_prompt || ''" rows="16" class="input mt-1.5 min-h-64 w-full font-mono text-xs leading-5" :aria-label="t('admin.promptAudit.policy.systemPrompt')" @input="patch({ custom_system_prompt: ($event.target as HTMLTextAreaElement).value })" />
+          </label>
+          <fieldset class="mt-4">
+            <legend class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.promptAudit.policy.violationAction') }}</legend>
+            <div class="mt-2 flex flex-wrap gap-4 text-sm text-gray-700 dark:text-dark-200">
+              <label class="flex items-center gap-2">
+                <input type="radio" name="prompt-audit-violation-action" value="block" :checked="draft.violation_action !== 'fallback_group'" @change="patch({ violation_action: 'block', violation_fallback_group_id: null })" />
+                {{ t('admin.promptAudit.policy.blockViolation') }}
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="radio" name="prompt-audit-violation-action" value="fallback_group" :checked="draft.violation_action === 'fallback_group'" @change="patch({ violation_action: 'fallback_group' })" />
+                {{ t('admin.promptAudit.policy.fallbackViolation') }}
+              </label>
+            </div>
+          </fieldset>
+          <label v-if="draft.violation_action === 'fallback_group'" class="mt-3 block text-sm text-gray-700 dark:text-dark-200">
+            <span>{{ t('admin.promptAudit.policy.fallbackGroup') }}</span>
+            <select :value="draft.violation_fallback_group_id ?? ''" class="input mt-1.5 w-full" :aria-label="t('admin.promptAudit.policy.fallbackGroup')" @change="patch({ violation_fallback_group_id: Number(($event.target as HTMLSelectElement).value) || null })">
+              <option value="">{{ t('admin.promptAudit.policy.chooseFallbackGroup') }}</option>
+              <option v-for="group in fallbackGroups" :key="group.id" :value="group.id">{{ group.name }} · {{ group.platform }}</option>
+            </select>
+            <span class="mt-1 block text-xs text-gray-500 dark:text-dark-400">{{ t('admin.promptAudit.policy.fallbackHint') }}</span>
+          </label>
+          <p v-if="draft.violation_action === 'fallback_group' && draft.violation_fallback_group_id && !fallbackGroups.some((group) => group.id === draft.violation_fallback_group_id)" class="mt-2 text-xs text-amber-700 dark:text-amber-300">
+            {{ t('admin.promptAudit.policy.fallbackGroupUnavailable') }}
+          </p>
+        </fieldset>
       </div>
 
       <div class="space-y-4 rounded-xl border border-gray-200 p-4 dark:border-dark-700/60 dark:bg-dark-900/20 sm:p-5">
@@ -89,6 +131,7 @@ const filteredGroups = computed(() => {
 })
 const knownGroupIds = computed(() => new Set(props.groups.map((group) => group.id)))
 const missingGroupIds = computed(() => props.draft.group_ids.filter((id) => !knownGroupIds.value.has(id)))
+const fallbackGroups = computed(() => props.groups.filter((group) => group.status === 'active' && group.platform.trim() !== ''))
 
 function patch(value: Partial<PromptAuditDraft>) {
   emit('update:draft', { ...cloneData(props.draft), ...value })

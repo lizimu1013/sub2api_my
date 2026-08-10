@@ -163,7 +163,16 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 	if err != nil {
 		return nil, &GuardError{Code: ErrorCodeInvalidResponse, Cause: err}
 	}
-	return s.evaluator.Evaluate(ctx, cfg, snapshot)
+	decision, err := s.evaluator.Evaluate(ctx, cfg, snapshot)
+	if err != nil || decision == nil {
+		return decision, err
+	}
+	if decision.Kind == DecisionBlock && cfg.CustomPromptEnabled &&
+		cfg.ViolationAction == ViolationActionFallbackGroup && cfg.ViolationFallbackGroupID != nil {
+		id := *cfg.ViolationFallbackGroupID
+		decision.FallbackGroupID = &id
+	}
+	return decision, nil
 }
 
 func (s *PromptService) GetConfig() (PublicConfig, error) { return s.config.Public() }
@@ -269,7 +278,17 @@ func (s *PromptService) Probe(ctx context.Context, request ProbeRequest) ProbeRe
 		return s.finishProbe(endpoint.ID, started, ProbeResult{OK: true, Status: "healthy", Message: "审计节点连接正常", HTTPStatus: resp.StatusCode, TokenApplied: tokenApplied})
 	}
 	if (resp.StatusCode >= 200 && resp.StatusCode < 300) || resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
-		result, scanErr := s.scanner.Scan(ctx, endpoint, "Hello", AllScannerIDs)
+		customPromptEnabled := false
+		customSystemPrompt := ""
+		customPromptMaxTokens := DefaultCustomPromptMaxTokens
+		if s.config != nil {
+			if active, ok := s.config.Active(); ok {
+				customPromptEnabled = active.CustomPromptEnabled
+				customSystemPrompt = active.CustomSystemPrompt
+				customPromptMaxTokens = active.CustomPromptMaxTokens
+			}
+		}
+		result, scanErr := callPromptScannerSafely(ctx, s.scanner, endpoint, "Hello", AllScannerIDs, customPromptEnabled, customSystemPrompt, customPromptMaxTokens)
 		if scanErr == nil && result != nil {
 			return s.finishProbe(endpoint.ID, started, ProbeResult{OK: true, Status: "healthy", Message: "审计节点模型调用正常", HTTPStatus: http.StatusOK, TokenApplied: tokenApplied})
 		}
@@ -345,8 +364,12 @@ func (s *PromptService) resolveProbeEndpoint(input UpdateEndpoint) (ActiveEndpoi
 	if limit == 0 {
 		limit = DefaultInputLimit
 	}
-	storage := storageConfig{Enabled: false, Strategy: "priority", WorkerCount: DefaultWorkerCount, QueueCapacity: DefaultQueueCapacity, Scanners: append([]string(nil), AllScannerIDs...), AllGroups: true,
-		Endpoints: []StorageEndpoint{{ID: strings.TrimSpace(input.ID), Name: strings.TrimSpace(input.Name), Protocol: "openai_compatible", BaseURL: baseURL, Model: model, TimeoutMS: timeout, InputLimit: limit}}}
+	requestMode := strings.TrimSpace(input.RequestMode)
+	if requestMode == "" {
+		requestMode = RequestModeChatCompletions
+	}
+	storage := storageConfig{Enabled: false, Strategy: "priority", WorkerCount: DefaultWorkerCount, QueueCapacity: DefaultQueueCapacity, Scanners: append([]string(nil), AllScannerIDs...), AllGroups: true, ViolationAction: ViolationActionBlock,
+		Endpoints: []StorageEndpoint{{ID: strings.TrimSpace(input.ID), Name: strings.TrimSpace(input.Name), Protocol: "openai_compatible", RequestMode: requestMode, BaseURL: baseURL, Model: model, TimeoutMS: timeout, InputLimit: limit}}}
 	if storage.Endpoints[0].ID == "" {
 		storage.Endpoints[0].ID = "probe"
 	}
@@ -356,7 +379,7 @@ func (s *PromptService) resolveProbeEndpoint(input UpdateEndpoint) (ActiveEndpoi
 	if err := validateStorageConfig(storage); err != nil {
 		return ActiveEndpoint{}, false, err
 	}
-	return ActiveEndpoint{ID: storage.Endpoints[0].ID, Name: storage.Endpoints[0].Name, Protocol: "openai_compatible", BaseURL: baseURL, Model: model, Token: token, TimeoutMS: timeout, InputLimit: limit, Enabled: true}, token != "", nil
+	return ActiveEndpoint{ID: storage.Endpoints[0].ID, Name: storage.Endpoints[0].Name, Protocol: "openai_compatible", RequestMode: requestMode, BaseURL: baseURL, Model: model, Token: token, TimeoutMS: timeout, InputLimit: limit, Enabled: true}, token != "", nil
 }
 
 func (s *PromptService) finishProbe(id string, started time.Time, result ProbeResult) ProbeResult {

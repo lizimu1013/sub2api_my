@@ -23,6 +23,14 @@ const (
 	DefaultGuardModel = "sileader/qwen3guard:0.6b"
 )
 
+const (
+	RequestModeChatCompletions = "chat_completions"
+	RequestModeModerations     = "moderations"
+
+	ViolationActionBlock         = "block"
+	ViolationActionFallbackGroup = "fallback_group"
+)
+
 type Mode string
 
 const (
@@ -140,10 +148,11 @@ type NormalizedResult struct {
 }
 
 type PromptDecision struct {
-	Kind           DecisionKind      `json:"kind"`
-	ErrorCode      string            `json:"error_code,omitempty"`
-	Result         *NormalizedResult `json:"result,omitempty"`
-	AllowNextStage bool              `json:"allow_next_stage"`
+	Kind            DecisionKind      `json:"kind"`
+	ErrorCode       string            `json:"error_code,omitempty"`
+	Result          *NormalizedResult `json:"result,omitempty"`
+	AllowNextStage  bool              `json:"allow_next_stage"`
+	FallbackGroupID *int64            `json:"fallback_group_id,omitempty"`
 }
 
 type LegacyDecision struct {
@@ -276,4 +285,10 @@ type Metrics interface {
 
 type PromptScanner interface {
 	Scan(ctx context.Context, endpoint ActiveEndpoint, chunk string, enabledScanners []string) (*NormalizedResult, error)
+}
+
+// CustomPromptScanner is optional so existing scanner test doubles and future
+// scanner implementations can keep the original PromptScanner contract.
+type CustomPromptScanner interface {
+	ScanWithPrompt(ctx context.Context, endpoint ActiveEndpoint, chunk string, enabledScanners []string, systemPrompt string, maxTokens int) (*NormalizedResult, error)
 }

@@ -65,6 +65,50 @@ func TestBlockingLatestTurnOnlyConfigRoundTrip(t *testing.T) {
 	require.True(t, public.BlockingLatestTurnOnly)
 }
 
+func TestCustomPromptAuditConfigRoundTripAndFallbackAction(t *testing.T) {
+	fallbackGroupID := int64(42)
+	manager := &ConfigManager{encryptor: prefixEncryptor{}, encryptionKeyConfigured: true}
+	request := promptAuditUpdateRequest(1, 1, "")
+	request.CustomPromptEnabled = true
+	request.CustomSystemPrompt = "audit only cyber abuse"
+	request.CustomPromptMaxTokens = 1024
+	request.ViolationAction = ViolationActionFallbackGroup
+	request.ViolationFallbackGroupID = &fallbackGroupID
+	request.Endpoints[0].RequestMode = RequestModeModerations
+
+	next, err := manager.buildNextStorage(DefaultStorageConfig(), request, 9)
+	require.NoError(t, err)
+	require.True(t, next.CustomPromptEnabled)
+	require.Equal(t, "audit only cyber abuse", next.CustomSystemPrompt)
+	require.Equal(t, 1024, next.CustomPromptMaxTokens)
+	require.Equal(t, ViolationActionFallbackGroup, next.ViolationAction)
+	require.Equal(t, RequestModeModerations, next.Endpoints[0].RequestMode)
+	require.Equal(t, fallbackGroupID, *next.ViolationFallbackGroupID)
+	require.Contains(t, changeSummary(next), `"custom_prompt_enabled":true`)
+	require.NotContains(t, changeSummary(next), "audit only cyber abuse")
+
+	active, err := ActiveFromStorage(next, true, prefixEncryptor{})
+	require.NoError(t, err)
+	require.True(t, active.CustomPromptEnabled)
+	require.Equal(t, 1024, active.CustomPromptMaxTokens)
+	require.Equal(t, ViolationActionFallbackGroup, active.ViolationAction)
+	require.Equal(t, RequestModeModerations, active.Endpoints[0].RequestMode)
+	require.Equal(t, fallbackGroupID, *active.ViolationFallbackGroupID)
+	require.Equal(t, 1024, PublicFromStorage(next, true, nil).CustomPromptMaxTokens)
+}
+
+func TestCustomPromptAuditConfigValidationRequiresPromptAndFallbackGroup(t *testing.T) {
+	request := promptAuditUpdateRequest(1, 1, "")
+	request.CustomPromptEnabled = true
+	request.ViolationAction = ViolationActionBlock
+	require.Equal(t, "prompt_audit_custom_prompt_required", infraerrors.Reason(validateUpdateConfigRequest(request)))
+
+	request.CustomSystemPrompt = "prompt"
+	request.ViolationAction = ViolationActionFallbackGroup
+	request.ViolationFallbackGroupID = nil
+	require.Equal(t, "prompt_audit_fallback_group_required", infraerrors.Reason(validateUpdateConfigRequest(request)))
+}
+
 func TestConfigRejectsBlockingWithoutAudit(t *testing.T) {
 	storage := DefaultStorageConfig()
 	storage.BlockingEnabled = true
@@ -417,6 +461,7 @@ func TestParseLegacyConfigDefaultsMissingFieldsWithoutEnablingBlocking(t *testin
 	require.Equal(t, DefaultQueueCapacity, storage.QueueCapacity)
 	require.Equal(t, AllScannerIDs, storage.Scanners)
 	require.True(t, storage.AllGroups)
+	require.Equal(t, DefaultCustomPromptMaxTokens, storage.CustomPromptMaxTokens)
 }
 
 func TestUpdateConfigStrictBoundsAndKnownValues(t *testing.T) {
@@ -433,6 +478,8 @@ func TestUpdateConfigStrictBoundsAndKnownValues(t *testing.T) {
 		{name: "worker high", mutate: func(req *UpdateConfigRequest) { req.WorkerCount = MaxWorkerCount + 1 }, reason: "prompt_audit_invalid_worker_count"},
 		{name: "capacity low", mutate: func(req *UpdateConfigRequest) { req.QueueCapacity = 0 }, reason: "prompt_audit_invalid_queue_capacity"},
 		{name: "capacity high", mutate: func(req *UpdateConfigRequest) { req.QueueCapacity = MaxQueueCapacity + 1 }, reason: "prompt_audit_invalid_queue_capacity"},
+		{name: "custom max tokens low", mutate: func(req *UpdateConfigRequest) { req.CustomPromptMaxTokens = MinCustomPromptMaxTokens - 1 }, reason: "prompt_audit_invalid_custom_prompt_max_tokens"},
+		{name: "custom max tokens high", mutate: func(req *UpdateConfigRequest) { req.CustomPromptMaxTokens = MaxCustomPromptMaxTokens + 1 }, reason: "prompt_audit_invalid_custom_prompt_max_tokens"},
 		{name: "unknown scanner", mutate: func(req *UpdateConfigRequest) { req.Scanners = []string{"made_up"} }, reason: "prompt_audit_invalid_scanner"},
 		{name: "group required", mutate: func(req *UpdateConfigRequest) { req.AllGroups = false; req.GroupIDs = nil }, reason: "prompt_audit_groups_required"},
 		{name: "group positive", mutate: func(req *UpdateConfigRequest) { req.AllGroups = false; req.GroupIDs = []int64{0} }, reason: "prompt_audit_invalid_group"},

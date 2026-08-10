@@ -14,17 +14,20 @@ import (
 )
 
 const (
-	DefaultWorkerCount   = 4
-	MaxWorkerCount       = 32
-	DefaultQueueCapacity = 32768
-	MaxQueueCapacity     = 100000
-	DefaultTimeoutMS     = 3000
-	MinTimeoutMS         = 100
-	MaxTimeoutMS         = 30000
-	DefaultInputLimit    = 4000
-	MinInputLimit        = 128
-	MaxInputLimit        = 100000
-	DefaultPayloadTTL    = 30 * time.Minute
+	DefaultWorkerCount           = 4
+	MaxWorkerCount               = 32
+	DefaultQueueCapacity         = 32768
+	MaxQueueCapacity             = 100000
+	DefaultTimeoutMS             = 3000
+	MinTimeoutMS                 = 100
+	MaxTimeoutMS                 = 30000
+	DefaultInputLimit            = 4000
+	MinInputLimit                = 128
+	MaxInputLimit                = 100000
+	DefaultCustomPromptMaxTokens = 512
+	MinCustomPromptMaxTokens     = 64
+	MaxCustomPromptMaxTokens     = 4096
+	DefaultPayloadTTL            = 30 * time.Minute
 )
 
 type SecretEncryptor interface {
@@ -55,6 +58,7 @@ type StorageEndpoint struct {
 	ID              string `json:"id"`
 	Name            string `json:"name"`
 	Protocol        string `json:"protocol"`
+	RequestMode     string `json:"request_mode"`
 	BaseURL         string `json:"base_url"`
 	Model           string `json:"model"`
 	TokenCiphertext string `json:"token_ciphertext,omitempty"`
@@ -64,33 +68,39 @@ type StorageEndpoint struct {
 }
 
 type storageConfig struct {
-	Enabled                bool              `json:"enabled"`
-	BlockingEnabled        bool              `json:"blocking_enabled"`
-	BlockingLatestTurnOnly bool              `json:"blocking_latest_turn_only"`
-	StorePassEvents        bool              `json:"store_pass_events"`
-	Strategy               string            `json:"strategy"`
-	WorkerCount            int               `json:"worker_count"`
-	QueueCapacity          int               `json:"queue_capacity"`
-	Scanners               []string          `json:"scanners"`
-	AllGroups              bool              `json:"all_groups"`
-	GroupIDs               []int64           `json:"group_ids"`
-	Endpoints              []StorageEndpoint `json:"endpoints"`
-	ConfigVersion          int64             `json:"config_version"`
-	UpdatedAt              time.Time         `json:"updated_at"`
-	UpdatedBy              int64             `json:"updated_by"`
-	ChangeSummary          string            `json:"change_summary"`
+	Enabled                  bool              `json:"enabled"`
+	BlockingEnabled          bool              `json:"blocking_enabled"`
+	BlockingLatestTurnOnly   bool              `json:"blocking_latest_turn_only"`
+	StorePassEvents          bool              `json:"store_pass_events"`
+	CustomPromptEnabled      bool              `json:"custom_prompt_enabled"`
+	CustomSystemPrompt       string            `json:"custom_system_prompt"`
+	CustomPromptMaxTokens    int               `json:"custom_prompt_max_tokens"`
+	ViolationAction          string            `json:"violation_action"`
+	ViolationFallbackGroupID *int64            `json:"violation_fallback_group_id,omitempty"`
+	Strategy                 string            `json:"strategy"`
+	WorkerCount              int               `json:"worker_count"`
+	QueueCapacity            int               `json:"queue_capacity"`
+	Scanners                 []string          `json:"scanners"`
+	AllGroups                bool              `json:"all_groups"`
+	GroupIDs                 []int64           `json:"group_ids"`
+	Endpoints                []StorageEndpoint `json:"endpoints"`
+	ConfigVersion            int64             `json:"config_version"`
+	UpdatedAt                time.Time         `json:"updated_at"`
+	UpdatedBy                int64             `json:"updated_by"`
+	ChangeSummary            string            `json:"change_summary"`
 }
 
 type ActiveEndpoint struct {
-	ID         string
-	Name       string
-	Protocol   string
-	BaseURL    string
-	Model      string
-	Token      string
-	TimeoutMS  int
-	InputLimit int
-	Enabled    bool
+	ID          string
+	Name        string
+	Protocol    string
+	RequestMode string
+	BaseURL     string
+	Model       string
+	Token       string
+	TimeoutMS   int
+	InputLimit  int
+	Enabled     bool
 	// TokenInvalid marks an endpoint whose persisted token ciphertext cannot be
 	// decrypted with the current encryption key (key changed or auto-generated
 	// on restart). The endpoint is kept visible for admins but excluded from
@@ -99,28 +109,34 @@ type ActiveEndpoint struct {
 }
 
 type ActiveConfig struct {
-	RiskControlEnabled     bool
-	Enabled                bool
-	BlockingEnabled        bool
-	BlockingLatestTurnOnly bool
-	StorePassEvents        bool
-	Strategy               string
-	WorkerCount            int
-	QueueCapacity          int
-	Scanners               []string
-	AllGroups              bool
-	GroupIDs               []int64
-	Endpoints              []ActiveEndpoint
-	ConfigVersion          int64
-	UpdatedAt              time.Time
-	UpdatedBy              int64
-	ChangeSummary          string
+	RiskControlEnabled       bool
+	Enabled                  bool
+	BlockingEnabled          bool
+	BlockingLatestTurnOnly   bool
+	StorePassEvents          bool
+	CustomPromptEnabled      bool
+	CustomSystemPrompt       string
+	CustomPromptMaxTokens    int
+	ViolationAction          string
+	ViolationFallbackGroupID *int64
+	Strategy                 string
+	WorkerCount              int
+	QueueCapacity            int
+	Scanners                 []string
+	AllGroups                bool
+	GroupIDs                 []int64
+	Endpoints                []ActiveEndpoint
+	ConfigVersion            int64
+	UpdatedAt                time.Time
+	UpdatedBy                int64
+	ChangeSummary            string
 }
 
 type PublicEndpoint struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Protocol    string `json:"protocol"`
+	RequestMode string `json:"request_mode"`
 	BaseURL     string `json:"base_url"`
 	Model       string `json:"model"`
 	TimeoutMS   int    `json:"timeout_ms"`
@@ -131,50 +147,61 @@ type PublicEndpoint struct {
 }
 
 type PublicConfig struct {
-	Enabled                bool             `json:"enabled"`
-	BlockingEnabled        bool             `json:"blocking_enabled"`
-	BlockingLatestTurnOnly bool             `json:"blocking_latest_turn_only"`
-	StorePassEvents        bool             `json:"store_pass_events"`
-	EffectiveMode          Mode             `json:"effective_mode"`
-	Strategy               string           `json:"strategy"`
-	WorkerCount            int              `json:"worker_count"`
-	QueueCapacity          int              `json:"queue_capacity"`
-	Scanners               []string         `json:"scanners"`
-	AllGroups              bool             `json:"all_groups"`
-	GroupIDs               []int64          `json:"group_ids"`
-	Endpoints              []PublicEndpoint `json:"endpoints"`
-	ConfigVersion          int64            `json:"config_version"`
-	UpdatedAt              time.Time        `json:"updated_at"`
-	UpdatedBy              int64            `json:"updated_by"`
-	ChangeSummary          string           `json:"change_summary"`
+	Enabled                  bool             `json:"enabled"`
+	BlockingEnabled          bool             `json:"blocking_enabled"`
+	BlockingLatestTurnOnly   bool             `json:"blocking_latest_turn_only"`
+	StorePassEvents          bool             `json:"store_pass_events"`
+	CustomPromptEnabled      bool             `json:"custom_prompt_enabled"`
+	CustomSystemPrompt       string           `json:"custom_system_prompt"`
+	CustomPromptMaxTokens    int              `json:"custom_prompt_max_tokens"`
+	ViolationAction          string           `json:"violation_action"`
+	ViolationFallbackGroupID *int64           `json:"violation_fallback_group_id,omitempty"`
+	EffectiveMode            Mode             `json:"effective_mode"`
+	Strategy                 string           `json:"strategy"`
+	WorkerCount              int              `json:"worker_count"`
+	QueueCapacity            int              `json:"queue_capacity"`
+	Scanners                 []string         `json:"scanners"`
+	AllGroups                bool             `json:"all_groups"`
+	GroupIDs                 []int64          `json:"group_ids"`
+	Endpoints                []PublicEndpoint `json:"endpoints"`
+	ConfigVersion            int64            `json:"config_version"`
+	UpdatedAt                time.Time        `json:"updated_at"`
+	UpdatedBy                int64            `json:"updated_by"`
+	ChangeSummary            string           `json:"change_summary"`
 }
 
 type UpdateEndpoint struct {
-	ID         string `json:"id" binding:"required"`
-	Name       string `json:"name" binding:"required"`
-	Protocol   string `json:"protocol"`
-	BaseURL    string `json:"base_url" binding:"required"`
-	Model      string `json:"model"`
-	Token      string `json:"token,omitempty"`
-	ClearToken bool   `json:"clear_token"`
-	TimeoutMS  int    `json:"timeout_ms"`
-	InputLimit int    `json:"input_limit"`
-	Enabled    bool   `json:"enabled"`
+	ID          string `json:"id" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	Protocol    string `json:"protocol"`
+	RequestMode string `json:"request_mode"`
+	BaseURL     string `json:"base_url" binding:"required"`
+	Model       string `json:"model"`
+	Token       string `json:"token,omitempty"`
+	ClearToken  bool   `json:"clear_token"`
+	TimeoutMS   int    `json:"timeout_ms"`
+	InputLimit  int    `json:"input_limit"`
+	Enabled     bool   `json:"enabled"`
 }
 
 type UpdateConfigRequest struct {
-	ExpectedConfigVersion  int64            `json:"expected_config_version" binding:"required"`
-	Enabled                bool             `json:"enabled"`
-	BlockingEnabled        bool             `json:"blocking_enabled"`
-	BlockingLatestTurnOnly bool             `json:"blocking_latest_turn_only"`
-	StorePassEvents        bool             `json:"store_pass_events"`
-	Strategy               string           `json:"strategy"`
-	WorkerCount            int              `json:"worker_count"`
-	QueueCapacity          int              `json:"queue_capacity"`
-	Scanners               []string         `json:"scanners"`
-	AllGroups              bool             `json:"all_groups"`
-	GroupIDs               []int64          `json:"group_ids"`
-	Endpoints              []UpdateEndpoint `json:"endpoints"`
+	ExpectedConfigVersion    int64            `json:"expected_config_version" binding:"required"`
+	Enabled                  bool             `json:"enabled"`
+	BlockingEnabled          bool             `json:"blocking_enabled"`
+	BlockingLatestTurnOnly   bool             `json:"blocking_latest_turn_only"`
+	StorePassEvents          bool             `json:"store_pass_events"`
+	CustomPromptEnabled      bool             `json:"custom_prompt_enabled"`
+	CustomSystemPrompt       string           `json:"custom_system_prompt"`
+	CustomPromptMaxTokens    int              `json:"custom_prompt_max_tokens"`
+	ViolationAction          string           `json:"violation_action"`
+	ViolationFallbackGroupID *int64           `json:"violation_fallback_group_id,omitempty"`
+	Strategy                 string           `json:"strategy"`
+	WorkerCount              int              `json:"worker_count"`
+	QueueCapacity            int              `json:"queue_capacity"`
+	Scanners                 []string         `json:"scanners"`
+	AllGroups                bool             `json:"all_groups"`
+	GroupIDs                 []int64          `json:"group_ids"`
+	Endpoints                []UpdateEndpoint `json:"endpoints"`
 }
 
 func DefaultStorageConfig() storageConfig {
@@ -183,6 +210,8 @@ func DefaultStorageConfig() storageConfig {
 		BlockingEnabled:        false,
 		BlockingLatestTurnOnly: false,
 		StorePassEvents:        false,
+		CustomPromptMaxTokens:  DefaultCustomPromptMaxTokens,
+		ViolationAction:        ViolationActionBlock,
 		Strategy:               "priority",
 		WorkerCount:            DefaultWorkerCount,
 		QueueCapacity:          DefaultQueueCapacity,
@@ -219,6 +248,13 @@ func normalizeStorageConfig(cfg *storageConfig) {
 	if strings.TrimSpace(cfg.Strategy) == "" {
 		cfg.Strategy = "priority"
 	}
+	if strings.TrimSpace(cfg.ViolationAction) == "" {
+		cfg.ViolationAction = ViolationActionBlock
+	}
+	cfg.CustomSystemPrompt = strings.TrimSpace(cfg.CustomSystemPrompt)
+	if cfg.CustomPromptMaxTokens == 0 {
+		cfg.CustomPromptMaxTokens = DefaultCustomPromptMaxTokens
+	}
 	if cfg.WorkerCount == 0 {
 		cfg.WorkerCount = DefaultWorkerCount
 	}
@@ -240,6 +276,10 @@ func normalizeStorageConfig(cfg *storageConfig) {
 		if ep.Protocol == "" {
 			ep.Protocol = "openai_compatible"
 		}
+		ep.RequestMode = strings.TrimSpace(ep.RequestMode)
+		if ep.RequestMode == "" {
+			ep.RequestMode = RequestModeChatCompletions
+		}
 		ep.BaseURL = strings.TrimSpace(ep.BaseURL)
 		ep.Model = strings.TrimSpace(ep.Model)
 		if ep.Model == "" {
@@ -260,6 +300,26 @@ func validateStorageConfig(cfg storageConfig) error {
 	}
 	if cfg.Strategy != "priority" {
 		return infraerrors.BadRequest("prompt_audit_invalid_strategy", "提示词审计策略仅支持 priority")
+	}
+	if cfg.ViolationAction != ViolationActionBlock && cfg.ViolationAction != ViolationActionFallbackGroup {
+		return infraerrors.BadRequest("prompt_audit_invalid_violation_action", "违规后处理仅支持直接拒绝或降级到指定分组")
+	}
+	if cfg.CustomPromptEnabled && strings.TrimSpace(cfg.CustomSystemPrompt) == "" {
+		return infraerrors.BadRequest("prompt_audit_custom_prompt_required", "启用自定义提示词审计时系统提示词不能为空")
+	}
+	if len([]rune(cfg.CustomSystemPrompt)) > 100000 {
+		return infraerrors.BadRequest("prompt_audit_custom_prompt_too_long", "自定义系统提示词不能超过 100000 个字符")
+	}
+	if cfg.CustomPromptMaxTokens != 0 && (cfg.CustomPromptMaxTokens < MinCustomPromptMaxTokens || cfg.CustomPromptMaxTokens > MaxCustomPromptMaxTokens) {
+		return infraerrors.BadRequest("prompt_audit_invalid_custom_prompt_max_tokens", "自定义提示词审计 max_tokens 超出允许范围")
+	}
+	if cfg.ViolationAction == ViolationActionFallbackGroup {
+		if !cfg.CustomPromptEnabled {
+			return infraerrors.BadRequest("prompt_audit_fallback_requires_custom_prompt", "降级处理仅适用于自定义提示词审计")
+		}
+		if cfg.ViolationFallbackGroupID == nil || *cfg.ViolationFallbackGroupID <= 0 {
+			return infraerrors.BadRequest("prompt_audit_fallback_group_required", "降级处理必须指定有效的目标分组")
+		}
 	}
 	if cfg.WorkerCount < 1 || cfg.WorkerCount > MaxWorkerCount {
 		return infraerrors.BadRequest("prompt_audit_invalid_worker_count", "Worker 数量超出允许范围")
@@ -286,6 +346,9 @@ func validateStorageConfig(cfg storageConfig) error {
 		if ep.Protocol != "openai_compatible" {
 			return infraerrors.BadRequest("prompt_audit_invalid_endpoint_protocol", "审计节点仅支持 OpenAI 兼容协议")
 		}
+		if ep.RequestMode != RequestModeChatCompletions && ep.RequestMode != RequestModeModerations {
+			return infraerrors.BadRequest("prompt_audit_invalid_request_mode", "审计节点请求模式无效")
+		}
 		if _, err := NormalizeBaseURL(ep.BaseURL); err != nil {
 			return err
 		}
@@ -308,6 +371,30 @@ func validateStorageConfig(cfg storageConfig) error {
 func validateUpdateConfigRequest(req UpdateConfigRequest) error {
 	if strings.TrimSpace(req.Strategy) != "priority" {
 		return infraerrors.BadRequest("prompt_audit_invalid_strategy", "提示词审计策略仅支持 priority")
+	}
+	violationAction := strings.TrimSpace(req.ViolationAction)
+	if violationAction == "" {
+		violationAction = ViolationActionBlock
+	}
+	if violationAction != ViolationActionBlock && violationAction != ViolationActionFallbackGroup {
+		return infraerrors.BadRequest("prompt_audit_invalid_violation_action", "违规后处理仅支持直接拒绝或降级到指定分组")
+	}
+	if req.CustomPromptEnabled && strings.TrimSpace(req.CustomSystemPrompt) == "" {
+		return infraerrors.BadRequest("prompt_audit_custom_prompt_required", "启用自定义提示词审计时系统提示词不能为空")
+	}
+	if len([]rune(req.CustomSystemPrompt)) > 100000 {
+		return infraerrors.BadRequest("prompt_audit_custom_prompt_too_long", "自定义系统提示词不能超过 100000 个字符")
+	}
+	if req.CustomPromptMaxTokens != 0 && (req.CustomPromptMaxTokens < MinCustomPromptMaxTokens || req.CustomPromptMaxTokens > MaxCustomPromptMaxTokens) {
+		return infraerrors.BadRequest("prompt_audit_invalid_custom_prompt_max_tokens", "自定义提示词审计 max_tokens 超出允许范围")
+	}
+	if violationAction == ViolationActionFallbackGroup {
+		if !req.CustomPromptEnabled {
+			return infraerrors.BadRequest("prompt_audit_fallback_requires_custom_prompt", "降级处理仅适用于自定义提示词审计")
+		}
+		if req.ViolationFallbackGroupID == nil || *req.ViolationFallbackGroupID <= 0 {
+			return infraerrors.BadRequest("prompt_audit_fallback_group_required", "降级处理必须指定有效的目标分组")
+		}
 	}
 	if req.WorkerCount < 1 || req.WorkerCount > MaxWorkerCount {
 		return infraerrors.BadRequest("prompt_audit_invalid_worker_count", "Worker 数量超出允许范围")
@@ -334,6 +421,13 @@ func validateUpdateConfigRequest(req UpdateConfigRequest) error {
 		}
 	}
 	for _, endpoint := range req.Endpoints {
+		mode := strings.TrimSpace(endpoint.RequestMode)
+		if mode == "" {
+			mode = RequestModeChatCompletions
+		}
+		if mode != RequestModeChatCompletions && mode != RequestModeModerations {
+			return infraerrors.BadRequest("prompt_audit_invalid_request_mode", "审计节点请求模式无效")
+		}
 		if endpoint.TimeoutMS < MinTimeoutMS || endpoint.TimeoutMS > MaxTimeoutMS {
 			return infraerrors.BadRequest("prompt_audit_invalid_timeout", "审计节点超时超出允许范围")
 		}
@@ -405,7 +499,7 @@ func PublicFromStorage(cfg storageConfig, riskControlEnabled bool, invalidTokenE
 			}
 		}
 		endpoints = append(endpoints, PublicEndpoint{
-			ID: ep.ID, Name: ep.Name, Protocol: ep.Protocol, BaseURL: ep.BaseURL,
+			ID: ep.ID, Name: ep.Name, Protocol: ep.Protocol, RequestMode: ep.RequestMode, BaseURL: ep.BaseURL,
 			Model: ep.Model, TimeoutMS: ep.TimeoutMS, InputLimit: ep.InputLimit,
 			Enabled: ep.Enabled, HasToken: hasToken, TokenStatus: status,
 		})
@@ -413,6 +507,8 @@ func PublicFromStorage(cfg storageConfig, riskControlEnabled bool, invalidTokenE
 	active := ActiveConfig{RiskControlEnabled: riskControlEnabled, Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled}
 	return PublicConfig{
 		Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled, BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly, StorePassEvents: cfg.StorePassEvents,
+		CustomPromptEnabled: cfg.CustomPromptEnabled, CustomSystemPrompt: cfg.CustomSystemPrompt, CustomPromptMaxTokens: cfg.CustomPromptMaxTokens,
+		ViolationAction: cfg.ViolationAction, ViolationFallbackGroupID: cloneInt64Pointer(cfg.ViolationFallbackGroupID),
 		EffectiveMode: active.EffectiveMode(), Strategy: cfg.Strategy, WorkerCount: cfg.WorkerCount,
 		QueueCapacity: cfg.QueueCapacity, Scanners: scanners, AllGroups: cfg.AllGroups,
 		GroupIDs: groupIDs, Endpoints: endpoints, ConfigVersion: cfg.ConfigVersion,
@@ -424,7 +520,9 @@ func ActiveFromStorage(cfg storageConfig, riskControlEnabled bool, encryptor Sec
 	active := ActiveConfig{
 		RiskControlEnabled: riskControlEnabled, Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled,
 		BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly,
-		StorePassEvents:        cfg.StorePassEvents, Strategy: cfg.Strategy, WorkerCount: cfg.WorkerCount,
+		CustomPromptEnabled:    cfg.CustomPromptEnabled, CustomSystemPrompt: cfg.CustomSystemPrompt, CustomPromptMaxTokens: cfg.CustomPromptMaxTokens,
+		ViolationAction: cfg.ViolationAction, ViolationFallbackGroupID: cloneInt64Pointer(cfg.ViolationFallbackGroupID),
+		StorePassEvents: cfg.StorePassEvents, Strategy: cfg.Strategy, WorkerCount: cfg.WorkerCount,
 		QueueCapacity: cfg.QueueCapacity, Scanners: append([]string(nil), cfg.Scanners...), AllGroups: cfg.AllGroups,
 		GroupIDs: append([]int64(nil), cfg.GroupIDs...), ConfigVersion: cfg.ConfigVersion,
 		UpdatedAt: cfg.UpdatedAt, UpdatedBy: cfg.UpdatedBy, ChangeSummary: cfg.ChangeSummary,
@@ -450,7 +548,7 @@ func ActiveFromStorage(cfg storageConfig, riskControlEnabled bool, encryptor Sec
 			}
 		}
 		active.Endpoints = append(active.Endpoints, ActiveEndpoint{
-			ID: ep.ID, Name: ep.Name, Protocol: ep.Protocol, BaseURL: ep.BaseURL, Model: ep.Model,
+			ID: ep.ID, Name: ep.Name, Protocol: ep.Protocol, RequestMode: ep.RequestMode, BaseURL: ep.BaseURL, Model: ep.Model,
 			Token: token, TimeoutMS: ep.TimeoutMS, InputLimit: ep.InputLimit,
 			Enabled: ep.Enabled && !tokenInvalid, TokenInvalid: tokenInvalid,
 		})
@@ -460,21 +558,43 @@ func ActiveFromStorage(cfg storageConfig, riskControlEnabled bool, encryptor Sec
 
 func changeSummary(cfg storageConfig) string {
 	summary := struct {
-		Enabled                bool   `json:"enabled"`
-		BlockingEnabled        bool   `json:"blocking_enabled"`
-		BlockingLatestTurnOnly bool   `json:"blocking_latest_turn_only"`
-		StorePassEvents        bool   `json:"store_pass_events"`
-		EndpointCount          int    `json:"endpoint_count"`
-		ScannerCount           int    `json:"scanner_count"`
-		AllGroups              bool   `json:"all_groups"`
-		GroupCount             int    `json:"group_count"`
-		GroupHash              string `json:"group_hash"`
-	}{cfg.Enabled, cfg.BlockingEnabled, cfg.BlockingLatestTurnOnly, cfg.StorePassEvents, len(cfg.Endpoints), len(cfg.Scanners), cfg.AllGroups, len(cfg.GroupIDs), ""}
+		Enabled                  bool   `json:"enabled"`
+		BlockingEnabled          bool   `json:"blocking_enabled"`
+		BlockingLatestTurnOnly   bool   `json:"blocking_latest_turn_only"`
+		StorePassEvents          bool   `json:"store_pass_events"`
+		EndpointCount            int    `json:"endpoint_count"`
+		ScannerCount             int    `json:"scanner_count"`
+		AllGroups                bool   `json:"all_groups"`
+		GroupCount               int    `json:"group_count"`
+		GroupHash                string `json:"group_hash"`
+		CustomPromptEnabled      bool   `json:"custom_prompt_enabled"`
+		CustomPromptHash         string `json:"custom_prompt_hash,omitempty"`
+		CustomPromptMaxTokens    int    `json:"custom_prompt_max_tokens"`
+		ViolationAction          string `json:"violation_action"`
+		ViolationFallbackGroupID *int64 `json:"violation_fallback_group_id,omitempty"`
+	}{
+		Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled, BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly,
+		StorePassEvents: cfg.StorePassEvents, EndpointCount: len(cfg.Endpoints), ScannerCount: len(cfg.Scanners),
+		AllGroups: cfg.AllGroups, GroupCount: len(cfg.GroupIDs), ViolationAction: cfg.ViolationAction,
+		ViolationFallbackGroupID: cloneInt64Pointer(cfg.ViolationFallbackGroupID), CustomPromptEnabled: cfg.CustomPromptEnabled, CustomPromptMaxTokens: cfg.CustomPromptMaxTokens,
+	}
+	if strings.TrimSpace(cfg.CustomSystemPrompt) != "" {
+		digest := sha256.Sum256([]byte(cfg.CustomSystemPrompt))
+		summary.CustomPromptHash = hex.EncodeToString(digest[:])
+	}
 	rawGroups, _ := json.Marshal(cfg.GroupIDs)
 	digest := sha256.Sum256(rawGroups)
 	summary.GroupHash = hex.EncodeToString(digest[:])
 	raw, _ := json.Marshal(summary)
 	return string(raw)
+}
+
+func cloneInt64Pointer(value *int64) *int64 {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func canonicalInt64s(values []int64) []int64 {

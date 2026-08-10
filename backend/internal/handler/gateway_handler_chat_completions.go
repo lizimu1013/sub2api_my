@@ -96,9 +96,6 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	pricingCtx, pricingAt := service.WithGatewayTokenRequestPricing(c.Request.Context())
 	c.Request = c.Request.WithContext(pricingCtx)
 
-	// 解析渠道级模型映射
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
-
 	// Claude Code only restriction
 	if apiKey.Group != nil && apiKey.Group.ClaudeCodeOnly {
 		h.chatCompletionsErrorResponse(c, http.StatusForbidden, "permission_error",
@@ -110,6 +107,10 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		h.openAISecurityAuditError(c, decision)
 		return
 	}
+
+	// Resolve after security-audit fallback so a replacement group uses its own
+	// channel-level model mapping.
+	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 
 	// Error passthrough binding
 	if h.errorPassthroughService != nil {

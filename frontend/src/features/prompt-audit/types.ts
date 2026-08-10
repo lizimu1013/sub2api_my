@@ -1,11 +1,14 @@
 export type PromptAuditMode = 'off' | 'async_audit' | 'blocking'
 export type PromptDecision = 'pass' | 'flag' | 'critical'
 export type PromptRiskLevel = 'low' | 'medium' | 'high' | 'critical'
+export type PromptAuditRequestMode = 'chat_completions' | 'moderations'
+export type PromptViolationAction = 'block' | 'fallback_group'
 
 export interface PromptAuditEndpoint {
   id: string
   name: string
   protocol: 'openai_compatible'
+  request_mode?: PromptAuditRequestMode | string
   base_url: string
   model: string
   timeout_ms: number
@@ -25,6 +28,11 @@ export interface PromptAuditConfig {
   blocking_enabled: boolean
   blocking_latest_turn_only: boolean
   store_pass_events: boolean
+  custom_prompt_enabled?: boolean
+  custom_system_prompt?: string
+  custom_prompt_max_tokens?: number
+  violation_action?: PromptViolationAction | string
+  violation_fallback_group_id?: number | null
   effective_mode: PromptAuditMode
   strategy: 'priority'
   worker_count: number
@@ -49,6 +57,11 @@ export interface PromptAuditUpdateRequest {
   blocking_enabled: boolean
   blocking_latest_turn_only: boolean
   store_pass_events: boolean
+  custom_prompt_enabled?: boolean
+  custom_system_prompt?: string
+  custom_prompt_max_tokens?: number
+  violation_action?: PromptViolationAction
+  violation_fallback_group_id?: number | null
   strategy: 'priority'
   worker_count: number
   queue_capacity: number
@@ -59,6 +72,7 @@ export interface PromptAuditUpdateRequest {
     id: string
     name: string
     protocol: 'openai_compatible'
+    request_mode: PromptAuditRequestMode
     base_url: string
     model: string
     token?: string

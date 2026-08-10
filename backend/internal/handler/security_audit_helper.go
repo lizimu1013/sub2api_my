@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -12,6 +14,8 @@ import (
 )
 
 const securityAuditCompletedContextKey = "sub2api.security_audit.completed"
+
+type securityAuditGroupResolver func(context.Context, int64) (*service.Group, error)
 
 // cachesSecurityAuditCompletion reports whether a successful audit may be
 // reused for the rest of the gin request. WebSocket turns share one Context
@@ -29,24 +33,35 @@ func (h *GatewayHandler) checkSecurityAudit(c *gin.Context, reqLog *zap.Logger, 
 	if h == nil {
 		return nil
 	}
-	return runSecurityAudit(c, reqLog, h.securityAuditCoordinator, h.contentModerationService, apiKey, subject, protocol, model, body, "http")
+	return runSecurityAuditWithResolver(c, reqLog, h.securityAuditCoordinator, h.contentModerationService, apiKey, subject, apiKeyGroupResolver(h.apiKeyService), protocol, model, body, "http")
 }
 
 func (h *OpenAIGatewayHandler) checkSecurityAudit(c *gin.Context, reqLog *zap.Logger, apiKey *service.APIKey, subject middleware2.AuthSubject, protocol, model string, body []byte) *securityaudit.Decision {
 	if h == nil {
 		return nil
 	}
-	return runSecurityAudit(c, reqLog, h.securityAuditCoordinator, h.contentModerationService, apiKey, subject, protocol, model, body, "http")
+	return runSecurityAuditWithResolver(c, reqLog, h.securityAuditCoordinator, h.contentModerationService, apiKey, subject, apiKeyGroupResolver(h.apiKeyService), protocol, model, body, "http")
 }
 
 func (h *OpenAIGatewayHandler) checkSecurityAuditStage(c *gin.Context, reqLog *zap.Logger, apiKey *service.APIKey, subject middleware2.AuthSubject, protocol, model string, body []byte, stage string) *securityaudit.Decision {
 	if h == nil {
 		return nil
 	}
-	return runSecurityAudit(c, reqLog, h.securityAuditCoordinator, h.contentModerationService, apiKey, subject, protocol, model, body, stage)
+	return runSecurityAuditWithResolver(c, reqLog, h.securityAuditCoordinator, h.contentModerationService, apiKey, subject, apiKeyGroupResolver(h.apiKeyService), protocol, model, body, stage)
 }
 
 func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securityaudit.Coordinator, legacy *service.ContentModerationService, apiKey *service.APIKey, subject middleware2.AuthSubject, protocol, model string, body []byte, stage string) *securityaudit.Decision {
+	return runSecurityAuditWithResolver(c, reqLog, coordinator, legacy, apiKey, subject, nil, protocol, model, body, stage)
+}
+
+func apiKeyGroupResolver(apiKeys *service.APIKeyService) securityAuditGroupResolver {
+	if apiKeys == nil {
+		return nil
+	}
+	return apiKeys.ResolveGroupByID
+}
+
+func runSecurityAuditWithResolver(c *gin.Context, reqLog *zap.Logger, coordinator *securityaudit.Coordinator, legacy *service.ContentModerationService, apiKey *service.APIKey, subject middleware2.AuthSubject, resolveGroup securityAuditGroupResolver, protocol, model string, body []byte, stage string) *securityaudit.Decision {
 	if c == nil || c.Request == nil {
 		return nil
 	}
@@ -85,6 +100,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			zap.Int("body_bytes", len(body)))
 	}
 	decision := coordinator.Check(c.Request.Context(), request)
+	applyPromptAuditFallback(c, reqLog, &decision, apiKey, resolveGroup)
 	if decision.AllowNextStage && cacheCompletion {
 		c.Set(securityAuditCompletedContextKey, true)
 	}
@@ -95,6 +111,61 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			zap.String("stage", request.Stage))
 	}
 	return &decision
+}
+
+func applyPromptAuditFallback(c *gin.Context, reqLog *zap.Logger, decision *securityaudit.Decision, apiKey *service.APIKey, resolveGroup securityAuditGroupResolver) {
+	if decision == nil || decision.Kind != securityaudit.DecisionBlock || decision.Legacy != nil && decision.Legacy.Blocked ||
+		decision.Prompt == nil || decision.Prompt.FallbackGroupID == nil {
+		return
+	}
+	groupID := *decision.Prompt.FallbackGroupID
+	if resolveGroup == nil {
+		if reqLog != nil {
+			reqLog.Warn("security_audit.fallback_unavailable", zap.Int64("fallback_group_id", groupID), zap.String("reason", "group_resolver_unavailable"))
+		}
+		return
+	}
+	group, err := resolveGroup(c.Request.Context(), groupID)
+	if err != nil || !service.IsGroupContextValid(group) || !group.IsActive() {
+		if reqLog != nil {
+			reqLog.Warn("security_audit.fallback_unavailable", zap.Int64("fallback_group_id", groupID), zap.String("reason", "group_unavailable"), zap.Error(err))
+		}
+		return
+	}
+	if apiKey == nil {
+		apiKey, _ = middleware2.GetAPIKeyFromContext(c)
+	}
+	if apiKey == nil {
+		if reqLog != nil {
+			reqLog.Warn("security_audit.fallback_unavailable", zap.Int64("fallback_group_id", groupID), zap.String("reason", "api_key_unavailable"))
+		}
+		return
+	}
+	replacement := cloneAPIKeyWithGroup(apiKey, group)
+	*apiKey = *replacement
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+	// The original subscription was derived from the original group and must not
+	// leak into billing or routing after a current-request group switch.
+	c.Set(string(middleware2.ContextKeySubscription), (*service.UserSubscription)(nil))
+	requestContext := context.WithValue(c.Request.Context(), ctxkey.Group, group)
+	// A composite request may already have resolved its provider/model before
+	// the audit ran. Those values belong to the original group and must not
+	// leak into the fallback route; the scheduler will resolve them again for
+	// the replacement group when needed.
+	requestContext = context.WithValue(requestContext, ctxkey.ResolvedTargetPlatform, "")
+	requestContext = context.WithValue(requestContext, ctxkey.ResolvedUpstreamModel, "")
+	requestContext = context.WithValue(requestContext, ctxkey.RequestedPublicModel, "")
+	requestContext = context.WithValue(requestContext, ctxkey.CompositeRouteSource, "")
+	c.Request = c.Request.WithContext(requestContext)
+	decision.Kind = securityaudit.DecisionFlag
+	decision.HTTPStatus = http.StatusOK
+	decision.ErrorCode = ""
+	decision.ClientMessage = ""
+	decision.AllowNextStage = true
+	decision.Prompt.AllowNextStage = true
+	if reqLog != nil {
+		reqLog.Warn("security_audit.fallback_applied", zap.Int64("fallback_group_id", groupID), zap.String("group", group.Name), zap.Bool("current_request_only", true))
+	}
 }
 
 func buildSecurityAuditRequest(c *gin.Context, apiKey *service.APIKey, subject middleware2.AuthSubject, protocol, model string, body []byte, stage string) securityaudit.Request {

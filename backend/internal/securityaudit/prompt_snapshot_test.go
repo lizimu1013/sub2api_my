@@ -82,6 +82,12 @@ func TestFullPromptFromScanTextRestoresMultiSegmentLayout(t *testing.T) {
 	require.Equal(t, singleMeta, FullPromptFromScanText(singleScan))
 }
 
+func TestLatestPriorityScanSegmentDropsLegacyContext(t *testing.T) {
+	legacy := "latest user" + promptAuditPrioritySeparator + "system prompt\n\nassistant output"
+	require.Equal(t, "latest user", latestPriorityScanSegment(legacy))
+	require.Equal(t, "new user", latestPriorityScanSegment("new user"))
+}
+
 func TestSplitRunesDoesNotSplitUTF8(t *testing.T) {
 	chunks := SplitRunes("中文😀éabc", 2)
 	require.Equal(t, []string{"中文", "😀e", "́a", "bc"}, chunks)
@@ -291,6 +297,39 @@ func TestPromptSnapshotIncludesClientControlledInstructions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLatestUserPromptSnapshotExcludesContextAndHistory(t *testing.T) {
+	body := []byte(`{"messages":[
+		{"role":"system","content":"system instruction"},
+		{"role":"user","content":"older user input"},
+		{"role":"assistant","content":"previous assistant output"},
+		{"role":"tool","content":"tool payload"},
+		{"role":"user","content":[
+			{"type":"text","text":"latest user first part"},
+			{"type":"image_url","image_url":{"url":"data:image/png;base64,IMAGE_CANARY_BASE64"}},
+			{"type":"text","text":"latest user second part"}
+		]}
+	]}`)
+
+	snapshot, err := ExtractLatestUserPromptSnapshot(Request{Protocol: "openai_chat_completions", Body: body})
+	require.NoError(t, err)
+	require.Equal(t, "latest user first part\n\nlatest user second part", snapshot.ScanText)
+	require.Equal(t, 1, snapshot.MessageCount)
+	require.Equal(t, utf8.RuneCountInString(snapshot.ScanText), snapshot.PromptLength)
+	require.NotContains(t, snapshot.ScanText, "system instruction")
+	require.NotContains(t, snapshot.ScanText, "older user input")
+	require.NotContains(t, snapshot.ScanText, "previous assistant output")
+	require.NotContains(t, snapshot.ScanText, "tool payload")
+	require.NotContains(t, snapshot.ScanText, "IMAGE_CANARY_BASE64")
+}
+
+func TestLatestUserPromptSnapshotSkipsRequestsWithoutUserText(t *testing.T) {
+	_, err := ExtractLatestUserPromptSnapshot(Request{
+		Protocol: "openai_chat_completions",
+		Body:     []byte(`{"messages":[{"role":"system","content":"system only"},{"role":"assistant","content":"output only"}]}`),
+	})
+	require.True(t, errors.Is(err, ErrNoPromptText))
 }
 
 func TestBlockingPromptSnapshotLimitsInputToLatestUserAndPreviousOutput(t *testing.T) {

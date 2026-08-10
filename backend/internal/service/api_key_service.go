@@ -976,6 +976,25 @@ func (s *APIKeyService) IncrementUsage(ctx context.Context, keyID int64) error {
 	return nil
 }
 
+// ResolveGroupByID resolves an active, routable group for a current-request
+// fallback. It deliberately does not modify any API Key binding.
+func (s *APIKeyService) ResolveGroupByID(ctx context.Context, groupID int64) (*Group, error) {
+	if s == nil || s.groupRepo == nil {
+		return nil, fmt.Errorf("group repository unavailable")
+	}
+	if groupID <= 0 {
+		return nil, fmt.Errorf("invalid fallback group id")
+	}
+	group, err := s.groupRepo.GetByIDLite(ctx, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve fallback group: %w", err)
+	}
+	if !IsGroupContextValid(group) || !group.IsActive() {
+		return nil, fmt.Errorf("fallback group is inactive or unroutable")
+	}
+	return group, nil
+}
+
 // GetAvailableGroups 获取用户有权限绑定的分组列表
 // 返回用户可以选择的分组：
 // - 标准类型分组：公开的（非专属）或用户被明确允许的

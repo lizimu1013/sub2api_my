@@ -140,9 +140,15 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 	if err != nil {
 		return r.finishFailure(ctx, job, &GuardError{Code: "payload_missing", Retryable: false, Cause: err})
 	}
+	// Older queued jobs may still contain the full transcript. Keep only their
+	// prioritized latest-user segment so a deploy does not replay system and
+	// assistant context to the guard node.
+	scanText = latestPriorityScanSegment(scanText)
 	// The job row only carries redacted metadata; the full prompt for the audit
 	// event is reconstructed here from the transient scan payload.
 	job.Snapshot.FullPrompt = FullPromptFromScanText(scanText)
+	job.Snapshot.PromptLength = len([]rune(scanText))
+	job.Snapshot.MessageCount = 1
 	endpoints := cfg.EnabledEndpoints()
 	if len(endpoints) == 0 {
 		return r.finishFailure(ctx, job, &GuardError{Code: "no_enabled_endpoint", Retryable: true})
@@ -156,7 +162,7 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 		}
 		chunkStarted := r.clock.Now()
 		LogInfo(EventChunkStarted, mergeLogFields(baseFields, map[string]any{"worker_id": workerID, "chunk_index": index + 1, "chunk_total": len(chunks), "chunk_chars": len([]rune(chunk)), "input_chars": job.Snapshot.PromptLength, "input_limit": minimumInputLimit(endpoints), "status": "started"}))
-		result, scanErr := scanWithFailover(ctx, r.scanner, cfg.Scanners, endpoints, chunk, r.metrics)
+		result, scanErr := scanWithFailover(ctx, r.scanner, cfg, endpoints, chunk, r.metrics)
 		if scanErr != nil {
 			LogWarn(EventChunkFailed, mergeLogFields(baseFields, map[string]any{
 				"worker_id": workerID, "chunk_index": index + 1, "chunk_total": len(chunks),
@@ -306,10 +312,10 @@ func (r *Runner) setLastError(code, _ string) {
 	r.runtime.lastErrorMu.Unlock()
 }
 
-func scanWithFailover(ctx context.Context, scanner PromptScanner, scanners []string, endpoints []ActiveEndpoint, chunk string, metrics Metrics) (*NormalizedResult, error) {
+func scanWithFailover(ctx context.Context, scanner PromptScanner, cfg ActiveConfig, endpoints []ActiveEndpoint, chunk string, metrics Metrics) (*NormalizedResult, error) {
 	var lastErr error
 	for index, endpoint := range endpoints {
-		result, err := scanner.Scan(ctx, endpoint, chunk, scanners)
+		result, err := callPromptScanner(ctx, scanner, endpoint, chunk, cfg.Scanners, cfg.CustomPromptEnabled, cfg.CustomSystemPrompt, cfg.CustomPromptMaxTokens)
 		if err == nil && result != nil {
 			return result, nil
 		}

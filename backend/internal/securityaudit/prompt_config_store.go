@@ -336,6 +336,8 @@ func (m *ConfigManager) buildNextStorage(current storageConfig, req UpdateConfig
 	}
 	next := storageConfig{
 		Enabled: req.Enabled, BlockingEnabled: req.BlockingEnabled, BlockingLatestTurnOnly: req.BlockingLatestTurnOnly, StorePassEvents: req.StorePassEvents,
+		CustomPromptEnabled: req.CustomPromptEnabled, CustomSystemPrompt: strings.TrimSpace(req.CustomSystemPrompt), CustomPromptMaxTokens: req.CustomPromptMaxTokens,
+		ViolationAction: strings.TrimSpace(req.ViolationAction), ViolationFallbackGroupID: cloneInt64Pointer(req.ViolationFallbackGroupID),
 		Strategy: strings.TrimSpace(req.Strategy), WorkerCount: req.WorkerCount,
 		QueueCapacity: req.QueueCapacity, Scanners: append([]string(nil), req.Scanners...),
 		AllGroups: req.AllGroups, GroupIDs: append([]int64(nil), req.GroupIDs...),
@@ -349,7 +351,7 @@ func (m *ConfigManager) buildNextStorage(current storageConfig, req UpdateConfig
 		}
 		stored := StorageEndpoint{
 			ID: strings.TrimSpace(endpoint.ID), Name: strings.TrimSpace(endpoint.Name),
-			Protocol: strings.TrimSpace(endpoint.Protocol), BaseURL: baseURL, Model: strings.TrimSpace(endpoint.Model),
+			Protocol: strings.TrimSpace(endpoint.Protocol), RequestMode: strings.TrimSpace(endpoint.RequestMode), BaseURL: baseURL, Model: strings.TrimSpace(endpoint.Model),
 			TimeoutMS: endpoint.TimeoutMS, InputLimit: endpoint.InputLimit, Enabled: endpoint.Enabled,
 		}
 		old, hadOld := currentByID[stored.ID]
@@ -501,6 +503,7 @@ func cloneStorageConfig(cfg storageConfig) storageConfig {
 	cfg.Scanners = append([]string(nil), cfg.Scanners...)
 	cfg.GroupIDs = append([]int64(nil), cfg.GroupIDs...)
 	cfg.Endpoints = append([]StorageEndpoint(nil), cfg.Endpoints...)
+	cfg.ViolationFallbackGroupID = cloneInt64Pointer(cfg.ViolationFallbackGroupID)
 	return cfg
 }
 
@@ -508,5 +511,6 @@ func cloneActiveConfig(cfg ActiveConfig) ActiveConfig {
 	cfg.Scanners = append([]string(nil), cfg.Scanners...)
 	cfg.GroupIDs = append([]int64(nil), cfg.GroupIDs...)
 	cfg.Endpoints = append([]ActiveEndpoint(nil), cfg.Endpoints...)
+	cfg.ViolationFallbackGroupID = cloneInt64Pointer(cfg.ViolationFallbackGroupID)
 	return cfg
 }

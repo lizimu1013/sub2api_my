@@ -43,7 +43,7 @@ export default {
     metrics: { total: 'Total', allowed: 'Allowed', flagged: 'Flagged', blocked: 'Blocked', unavailable: 'Unavailable', timeouts: 'Timeouts', failovers: 'Failovers' },
     pool: {
       title: 'Audit pool', description: 'Enabled OpenAI-compatible nodes are tried in order. Probes run from the server network.',
-      add: 'Add node', edit: 'Edit node', empty: 'No audit nodes configured.', node: 'Node', model: 'Model', limits: 'Timeout / chunk limit', credential: 'Credential and probe',
+      add: 'Add node', edit: 'Edit node', empty: 'No audit nodes configured.', node: 'Node', model: 'Model', requestMode: 'Request mode', chatCompletions: 'Chat Completions', moderations: 'Moderations API', limits: 'Timeout / chunk limit', credential: 'Credential and probe',
       configured: 'API Key configured', missing: 'API Key missing', invalid: 'API Key cannot be decrypted; re-enter it', probe: 'Test connection', probing: 'Probing…',
       probeProgress: 'Config validated ✓ · request sent · awaiting service response…', probeResult: 'Config ✓ · request ✓ · HTTP {http} · {status} · {latency} ms',
       name: 'Node name', id: 'Stable node ID', baseUrl: 'Base URL', apiKey: 'API Key', keepSecret: 'Leave blank to keep the saved API Key', reenterSecret: 'The saved API Key cannot be decrypted (encryption key changed); enter a new one',
@@ -54,6 +54,7 @@ export default {
       title: 'Audit policy', description: 'Configure group scope, nine input-risk categories, workers, and queue bounds.', scope: 'Scope', allGroups: 'All groups', selectedGroups: 'Selected groups',
       searchGroups: 'Search groups', noGroups: 'No matching groups', missingGroups: 'Configured IDs for groups that no longer exist', selectedCount: '{count} groups selected',
       scanners: 'Qwen3Guard input-risk categories', workerCount: 'Worker count', queueCapacity: 'Persistent queue capacity', strategy: 'Node strategy', strategyHint: 'Try nodes in configuration order and fail over when allowed.',
+      customPromptTitle: 'Custom prompt audit', customPromptEnabled: 'Enable custom prompt audit', customPromptHint: 'The audit node receives the system prompt and wrapped <user_input> content; it may return flagged or confidence JSON.', customPromptMaxTokens: 'Custom audit max_tokens', customPromptMaxTokensHint: 'Controls the output budget for custom prompt audits. Default: 512. Increase it when reasoning consumes the budget before JSON is emitted.', systemPrompt: 'System prompt', violationAction: 'After a violation', blockViolation: 'Reject the request', fallbackViolation: 'Fallback to a selected group', fallbackGroup: 'Fallback target group', chooseFallbackGroup: 'Choose a target group', fallbackHint: 'Only the current request changes groups; the API Key binding is not modified. The target group must remain active.', fallbackGroupUnavailable: 'The configured target group is missing, inactive, or unroutable. Choose another group before saving.',
     },
     saveBar: { enabled: 'Enable prompt audit', blocking: 'Synchronous blocking', blockingLatestTurnOnly: 'Only latest input and prior output', storePass: 'Store safe events', dirty: 'Unsaved changes', synced: 'Configuration synced' },
     blockingConfirm: {

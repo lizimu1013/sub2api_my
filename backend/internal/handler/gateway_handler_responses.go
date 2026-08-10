@@ -100,9 +100,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	}
 	c.Request = c.Request.WithContext(requestCtx)
 
-	// 解析渠道级模型映射
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(requestCtx, apiKey.GroupID, reqModel)
-
 	// Claude Code only restriction:
 	// /v1/responses is never a Claude Code endpoint.
 	// When claude_code_only is enabled, this endpoint is rejected.
@@ -119,6 +116,12 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		h.responsesSecurityAuditError(c, decision)
 		return
 	}
+
+	// The audit may have switched the current request to a fallback group. Use
+	// the updated request context and group-specific model mapping everywhere
+	// below instead of the pre-audit context.
+	requestCtx = c.Request.Context()
+	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(requestCtx, apiKey.GroupID, reqModel)
 
 	// Error passthrough binding
 	if h.errorPassthroughService != nil {

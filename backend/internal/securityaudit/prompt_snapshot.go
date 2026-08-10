@@ -30,26 +30,52 @@ type promptSegment struct {
 }
 
 func ExtractPromptSnapshot(req Request) (PromptSnapshot, error) {
-	return extractPromptSnapshot(req, false)
+	return extractPromptSnapshot(req, promptSnapshotSelectionFull)
+}
+
+// ExtractLatestUserPromptSnapshot is the default async-audit scope. It keeps
+// only the latest user turn and excludes system, developer, assistant, tool,
+// and earlier user turns before the payload is sent to a guard node.
+func ExtractLatestUserPromptSnapshot(req Request) (PromptSnapshot, error) {
+	return extractPromptSnapshot(req, promptSnapshotSelectionLatestUser)
 }
 
 // ExtractBlockingPromptSnapshot builds the narrow, low-latency blocking input
-// when configured. Asynchronous auditing always uses ExtractPromptSnapshot so
-// the complete client-controlled transcript is retained for review.
+// when configured. The default keeps the established full scope; the opt-in
+// latest-turn mode also includes the nearest preceding assistant output.
 func ExtractBlockingPromptSnapshot(req Request, latestTurnOnly bool) (PromptSnapshot, error) {
-	return extractPromptSnapshot(req, latestTurnOnly)
+	selection := promptSnapshotSelectionFull
+	if latestTurnOnly {
+		selection = promptSnapshotSelectionLatestTurn
+	}
+	return extractPromptSnapshot(req, selection)
 }
 
-func extractPromptSnapshot(req Request, latestTurnOnly bool) (PromptSnapshot, error) {
+type promptSnapshotSelection uint8
+
+const (
+	promptSnapshotSelectionFull promptSnapshotSelection = iota
+	promptSnapshotSelectionLatestUser
+	promptSnapshotSelectionLatestTurn
+)
+
+func extractPromptSnapshot(req Request, selection promptSnapshotSelection) (PromptSnapshot, error) {
 	var document any
 	if err := json.Unmarshal(req.Body, &document); err != nil {
 		return PromptSnapshot{}, errors.New("prompt audit request JSON is invalid")
 	}
 	extracted := extractProtocolSegments(req.Protocol, document)
 	segments := normalizeSegmentsLatestUserFirst(extracted)
-	if latestTurnOnly {
+	switch selection {
+	case promptSnapshotSelectionLatestUser:
+		segments = latestUserPromptSegments(extracted)
+	case promptSnapshotSelectionLatestTurn:
 		segments = blockingSegmentsLatestUserAndPreviousOutput(extracted)
 	}
+	return buildPromptSnapshot(req, segments)
+}
+
+func buildPromptSnapshot(req Request, segments []string) (PromptSnapshot, error) {
 	if len(segments) == 0 {
 		return PromptSnapshot{}, ErrNoPromptText
 	}
@@ -495,6 +521,23 @@ func blockingSegmentsLatestUserAndPreviousOutput(values []promptSegment) []strin
 	return promptSegmentTexts(selected)
 }
 
+func latestUserPromptSegments(values []promptSegment) []string {
+	normalized := normalizedPromptSegments(values)
+	latestUserStart := latestUserSegmentStart(normalized)
+	if latestUserStart < 0 {
+		return nil
+	}
+	latestUserEnd := latestUserStart
+	for latestUserEnd < len(normalized) && isUserSegment(normalized[latestUserEnd]) {
+		latestUserEnd++
+	}
+	textParts := make([]string, 0, latestUserEnd-latestUserStart)
+	for _, segment := range normalized[latestUserStart:latestUserEnd] {
+		textParts = append(textParts, segment.text)
+	}
+	return []string{strings.Join(textParts, "\n\n")}
+}
+
 func normalizedPromptSegments(values []promptSegment) []promptSegment {
 	normalized := make([]promptSegment, 0, len(values))
 	for _, value := range values {
@@ -542,6 +585,16 @@ func buildPrioritizedScanText(segments []string) (scanText string, metadataText 
 		return metadataText, metadataText
 	}
 	return segments[0] + promptAuditPrioritySeparator + strings.Join(segments[1:], "\n\n"), metadataText
+}
+
+// latestPriorityScanSegment trims payloads created before async auditing was
+// narrowed to the latest user turn. New payloads do not contain the separator,
+// so this also provides a no-op compatibility path for them.
+func latestPriorityScanSegment(scanText string) string {
+	if separatorIndex := strings.Index(scanText, promptAuditPrioritySeparator); separatorIndex > 0 {
+		return scanText[:separatorIndex]
+	}
+	return scanText
 }
 
 func promptSegmentsForRole(texts []string, role string) []promptSegment {
