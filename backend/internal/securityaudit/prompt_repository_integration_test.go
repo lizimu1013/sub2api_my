@@ -43,7 +43,7 @@ func openPromptAuditIntegrationDB(t *testing.T) *sql.DB {
 		);
 	`)
 	require.NoError(t, err)
-	for _, name := range []string{"181_prompt_audit.sql", "182_prompt_audit_full_prompt.sql"} {
+	for _, name := range []string{"181_prompt_audit.sql", "182_prompt_audit_full_prompt.sql", "194_prompt_audit_event_turns.sql"} {
 		migration, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		require.NoError(t, err)
 		// The migration runner can retry an interrupted deployment; the migration
@@ -156,12 +156,13 @@ func TestPromptAuditDatabasePersistsFullPromptOnEventsOnly(t *testing.T) {
 	repo := NewPostgreSQLRepository(db)
 	ctx := context.Background()
 	const promptCanary = "PROMPT_AUDIT_CANARY_SECRET_DO_NOT_PERSIST"
+	const previousOutputCanary = "PROMPT_AUDIT_PREVIOUS_OUTPUT_CANARY"
 	request := Request{
 		RequestID: "canary-request", Provider: "openai",
 		Endpoint: "/v1/chat/completions", Protocol: "openai_chat", Model: "gpt-test", Stage: "http",
-		Body: []byte(`{"messages":[{"role":"user","content":"` + promptCanary + `"}]}`),
+		Body: []byte(`{"messages":[{"role":"assistant","content":"` + previousOutputCanary + `"},{"role":"user","content":"` + promptCanary + `"}]}`),
 	}
-	snapshot, err := ExtractPromptSnapshot(request)
+	snapshot, err := ExtractAuditPromptSnapshot(request, true)
 	require.NoError(t, err)
 	require.NotContains(t, snapshot.RedactedPreview, promptCanary)
 	require.Contains(t, snapshot.FullPrompt, promptCanary)
@@ -181,6 +182,8 @@ func TestPromptAuditDatabasePersistsFullPromptOnEventsOnly(t *testing.T) {
 	detail, err := repo.GetEvent(ctx, event.ID)
 	require.NoError(t, err)
 	require.Contains(t, detail.Snapshot.FullPrompt, promptCanary)
+	require.Contains(t, detail.Snapshot.LatestUserInput, promptCanary)
+	require.Contains(t, detail.Snapshot.PreviousAssistantOutput, previousOutputCanary)
 
 	var jobJSON string
 	require.NoError(t, db.QueryRow(`SELECT row_to_json(j)::text FROM prompt_audit_jobs j WHERE id=$1`, event.JobID).Scan(&jobJSON))

@@ -156,7 +156,8 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 	if cfg.EffectiveMode() != ModeBlocking || !cfg.IncludesGroup(req.GroupID) {
 		return &PromptDecision{Kind: DecisionAllow, AllowNextStage: true}, nil
 	}
-	snapshot, err := ExtractBlockingPromptSnapshot(req, cfg.BlockingLatestTurnOnly)
+	includePreviousAssistantOutput := cfg.AuditPreviousAssistantOutput || cfg.BlockingLatestTurnOnly
+	snapshot, err := ExtractAuditPromptSnapshot(req, includePreviousAssistantOutput)
 	if errors.Is(err, ErrNoPromptText) {
 		return &PromptDecision{Kind: DecisionAllow, AllowNextStage: true}, nil
 	}
@@ -171,6 +172,10 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 		cfg.ViolationAction == ViolationActionFallbackGroup && cfg.ViolationFallbackGroupID != nil {
 		id := *cfg.ViolationFallbackGroupID
 		decision.FallbackGroupID = &id
+	}
+	if decision.Kind == DecisionBlock {
+		decision.HTTPStatus = cfg.BlockHTTPStatus
+		decision.ClientMessage = cfg.BlockMessage
 	}
 	return decision, nil
 }
@@ -281,14 +286,18 @@ func (s *PromptService) Probe(ctx context.Context, request ProbeRequest) ProbeRe
 		customPromptEnabled := false
 		customSystemPrompt := ""
 		customPromptMaxTokens := DefaultCustomPromptMaxTokens
+		customPromptFlagThreshold := DefaultCustomPromptFlagThreshold
+		customPromptBlockThreshold := DefaultCustomPromptBlockThreshold
 		if s.config != nil {
 			if active, ok := s.config.Active(); ok {
 				customPromptEnabled = active.CustomPromptEnabled
 				customSystemPrompt = active.CustomSystemPrompt
 				customPromptMaxTokens = active.CustomPromptMaxTokens
+				customPromptFlagThreshold = active.CustomPromptFlagThreshold
+				customPromptBlockThreshold = active.CustomPromptBlockThreshold
 			}
 		}
-		result, scanErr := callPromptScannerSafely(ctx, s.scanner, endpoint, "Hello", AllScannerIDs, customPromptEnabled, customSystemPrompt, customPromptMaxTokens)
+		result, scanErr := callPromptScannerSafely(ctx, s.scanner, endpoint, "Hello", AllScannerIDs, customPromptEnabled, customSystemPrompt, customPromptMaxTokens, customPromptFlagThreshold, customPromptBlockThreshold)
 		if scanErr == nil && result != nil {
 			return s.finishProbe(endpoint.ID, started, ProbeResult{OK: true, Status: "healthy", Message: "审计节点模型调用正常", HTTPStatus: http.StatusOK, TokenApplied: tokenApplied})
 		}
@@ -368,8 +377,8 @@ func (s *PromptService) resolveProbeEndpoint(input UpdateEndpoint) (ActiveEndpoi
 	if requestMode == "" {
 		requestMode = RequestModeChatCompletions
 	}
-	storage := storageConfig{Enabled: false, Strategy: "priority", WorkerCount: DefaultWorkerCount, QueueCapacity: DefaultQueueCapacity, Scanners: append([]string(nil), AllScannerIDs...), AllGroups: true, ViolationAction: ViolationActionBlock,
-		Endpoints: []StorageEndpoint{{ID: strings.TrimSpace(input.ID), Name: strings.TrimSpace(input.Name), Protocol: "openai_compatible", RequestMode: requestMode, BaseURL: baseURL, Model: model, TimeoutMS: timeout, InputLimit: limit}}}
+	storage := DefaultStorageConfig()
+	storage.Endpoints = []StorageEndpoint{{ID: strings.TrimSpace(input.ID), Name: strings.TrimSpace(input.Name), Protocol: "openai_compatible", RequestMode: requestMode, BaseURL: baseURL, Model: model, TimeoutMS: timeout, InputLimit: limit}}
 	if storage.Endpoints[0].ID == "" {
 		storage.Endpoints[0].ID = "probe"
 	}

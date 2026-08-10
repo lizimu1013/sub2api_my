@@ -82,11 +82,14 @@ describe('Prompt Audit components', () => {
     await wrapper.get('[aria-label="admin.promptAudit.policy.workerCount"]').setValue('6')
     const emitted = wrapper.emitted('update:draft')?.at(-1)?.[0] as PromptAuditDraft
     expect(emitted.worker_count).toBe(6)
+	await wrapper.get('[aria-label="admin.promptAudit.policy.blockThreshold"]').setValue('0.8')
+	const thresholdDraft = wrapper.emitted('update:draft')?.at(-1)?.[0] as PromptAuditDraft
+	expect(thresholdDraft.custom_prompt_block_threshold).toBe(0.8)
   })
 
   it('keeps identity fields separate, supports selection, and opens filter deletion from the toolbar', async () => {
     const event: PromptAuditEvent = {
-      id: 1, job_id: 1, decision: 'critical', risk_level: 'critical', action: 'Block', categories: ['pii'], matched_scanners: ['pii'], scanner_scores: { pii: 1 }, scanner_evidence: { pii: 'redacted' }, scanner_backend: 'qwen3guard-openai', scanner_version: '1', guard_endpoint_id: 'guard-1', policy_id: 'priority', policy_version: 1, config_version: 1, chunk_total: 1, latency_ms: 10, issue_summaries: [], created_at: '2026-07-16T00:00:00Z',
+	  id: 1, job_id: 1, decision: 'critical', risk_level: 'critical', action: 'Block', categories: ['pii'], matched_scanners: ['pii'], scanner_scores: { pii: 1, custom_prompt: 0.72 }, confidence: 0.72, scanner_evidence: { pii: 'redacted' }, scanner_backend: 'custom_prompt', scanner_version: '1', guard_endpoint_id: 'guard-1', policy_id: 'priority', policy_version: 1, config_version: 1, chunk_total: 1, latency_ms: 10, issue_summaries: [], created_at: '2026-07-16T00:00:00Z',
       snapshot: { request_id: 'req-1', user_id: 1, username: 'alice', user_email: 'alice@example.test', api_key_id: 2, api_key_name: 'alice-key', group_id: 3, group_name: 'Alpha', provider: 'openai', endpoint: '/v1/chat/completions', protocol: 'openai_chat', model: 'gpt-test', prompt_hash: 'a'.repeat(64), redacted_preview: 'redacted preview', full_prompt: 'full prompt text', prompt_length: 10, message_count: 1, stage: 'http' },
     }
     const wrapper = mount(EventWorkspace, {
@@ -98,6 +101,7 @@ describe('Prompt Audit components', () => {
     expect(wrapper.text()).toContain('alice-key')
     expect(wrapper.text()).toContain('admin.promptAudit.decisions.critical · admin.promptAudit.riskLevels.critical')
     expect(wrapper.text()).toContain('admin.promptAudit.scanners.pii')
+	expect(wrapper.text()).toContain('72.0%')
     expect(wrapper.get('[data-test="filter-delete"]').attributes()).not.toHaveProperty('disabled')
     await wrapper.get('[data-test="filter-delete"]').trigger('click')
     expect(wrapper.emitted('preview-delete')).toHaveLength(1)
@@ -205,7 +209,7 @@ describe('Prompt Audit components', () => {
     const event: PromptAuditEvent = {
       id: 1, job_id: 1, decision: 'critical', risk_level: 'critical', action: 'Block',
       categories: ['sexual_content_or_sexual_acts'], matched_scanners: ['sexual_content_or_sexual_acts'],
-      scanner_scores: { sexual_content_or_sexual_acts: 1 },
+	  scanner_scores: { sexual_content_or_sexual_acts: 1, custom_prompt: 0.72 }, confidence: 0.72,
       scanner_evidence: { sexual_content_or_sexual_acts: 'Sexual Content or Sexual Acts' },
       scanner_backend: 'qwen3guard-openai', scanner_version: 'qwen3guard', guard_endpoint_id: 'guard-1',
       policy_id: 'priority', policy_version: 1, config_version: 1, chunk_total: 1, latency_ms: 12,
@@ -221,7 +225,8 @@ describe('Prompt Audit components', () => {
         request_id: 'req-1', user_id: 1, username: 'alice', user_email: 'alice@example.test',
         api_key_id: 2, api_key_name: 'alice-key', group_id: 3, group_name: 'Alpha', provider: 'openai',
         endpoint: '/v1/chat/completions', protocol: 'openai_chat', model: 'gpt-test',
-        prompt_hash: 'a'.repeat(64), redacted_preview: 'redacted prompt body', full_prompt: 'complete unmasked prompt body', prompt_length: 20,
+		prompt_hash: 'a'.repeat(64), redacted_preview: 'redacted prompt body', full_prompt: 'complete unmasked prompt body',
+		latest_user_input: 'latest unmasked user input', previous_assistant_output: 'previous unmasked model output', prompt_length: 20,
         message_count: 1, stage: 'http',
       },
     }
@@ -232,12 +237,16 @@ describe('Prompt Audit components', () => {
     const panel = wrapper.get('[data-test="event-detail-tab-panel"]')
     expect(panel.classes()).toContain('h-[min(62vh,36rem)]')
     expect(panel.classes()).toContain('overflow-y-auto')
+	expect(wrapper.get('[data-test="summary-prompt-full"]').text()).toContain('latest unmasked user input')
+	expect(wrapper.get('[data-test="summary-previous-assistant-output"]').text()).toContain('previous unmasked model output')
+	expect(wrapper.text()).toContain('0.72 (72.0%)')
 
     const riskTab = wrapper.findAll('[role="tab"]').find((tab) => tab.text().includes('admin.promptAudit.events.tabs.risks'))
     expect(riskTab).toBeTruthy()
     await riskTab!.trigger('click')
     expect(wrapper.get('[data-test="event-detail-tab-panel"]').classes()).toContain('h-[min(62vh,36rem)]')
-    expect(wrapper.get('[data-test="risk-prompt-preview"]').text()).toContain('complete unmasked prompt body')
+	expect(wrapper.get('[data-test="risk-prompt-preview"]').text()).toContain('latest unmasked user input')
+	expect(wrapper.get('[data-test="risk-prompt-preview"]').text()).toContain('previous unmasked model output')
     expect(wrapper.get('[data-test="risk-prompt-preview"]').text()).not.toContain('redacted prompt body')
     expect(wrapper.get('[data-test="risk-prompt-full"]').classes()).toContain('overflow-auto')
     expect(wrapper.get('[data-test="risk-guard-return"]').text()).toContain('"decision": "admin.promptAudit.decisions.critical"')

@@ -174,3 +174,14 @@ func TestCoordinatorAsyncEnqueueFailuresNeverChangeResponseOrDownstreamDispatch(
 		require.Zero(t, prompt.evaluates.Load())
 	}
 }
+
+func TestCoordinatorUsesConfiguredPromptBlockResponse(t *testing.T) {
+	prompt := &PromptDecision{
+		Kind: DecisionBlock, HTTPStatus: http.StatusUnprocessableEntity,
+		ClientMessage: "custom audit rejection",
+	}
+	decision := prioritize(nil, prompt)
+	require.Equal(t, http.StatusUnprocessableEntity, decision.HTTPStatus)
+	require.Equal(t, "custom audit rejection", decision.ClientMessage)
+	require.False(t, decision.AllowNextStage)
+}

@@ -37,7 +37,36 @@ func ExtractPromptSnapshot(req Request) (PromptSnapshot, error) {
 // only the latest user turn and excludes system, developer, assistant, tool,
 // and earlier user turns before the payload is sent to a guard node.
 func ExtractLatestUserPromptSnapshot(req Request) (PromptSnapshot, error) {
-	return extractPromptSnapshot(req, promptSnapshotSelectionLatestUser)
+	return ExtractAuditPromptSnapshot(req, false)
+}
+
+// ExtractAuditPromptSnapshot is the only runtime audit scope. It always keeps
+// the latest user turn and may additionally include the nearest preceding
+// assistant/model output. System, developer, tool, older user, and older
+// assistant turns are never included.
+func ExtractAuditPromptSnapshot(req Request, includePreviousAssistantOutput bool) (PromptSnapshot, error) {
+	var document any
+	if err := json.Unmarshal(req.Body, &document); err != nil {
+		return PromptSnapshot{}, errors.New("prompt audit request JSON is invalid")
+	}
+	extracted := extractProtocolSegments(req.Protocol, document)
+	latestUserInput, previousAssistantOutput := latestAuditTurns(extracted)
+	if latestUserInput == "" {
+		return PromptSnapshot{}, ErrNoPromptText
+	}
+	segments := []string{latestUserInput}
+	if includePreviousAssistantOutput && previousAssistantOutput != "" {
+		segments = append(segments, previousAssistantOutput)
+	} else {
+		previousAssistantOutput = ""
+	}
+	snapshot, err := buildPromptSnapshot(req, segments)
+	if err != nil {
+		return PromptSnapshot{}, err
+	}
+	snapshot.LatestUserInput = BuildFullPrompt(latestUserInput, DefaultFullPromptMaxRunes)
+	snapshot.PreviousAssistantOutput = BuildFullPrompt(previousAssistantOutput, DefaultFullPromptMaxRunes)
+	return snapshot, nil
 }
 
 // ExtractBlockingPromptSnapshot builds the narrow, low-latency blocking input
@@ -488,12 +517,24 @@ func normalizeSegmentsLatestUserFirst(values []promptSegment) []string {
 // deliberately opt-in because full transcript scanning remains stronger at
 // finding client-controlled content placed in older or non-user messages.
 func blockingSegmentsLatestUserAndPreviousOutput(values []promptSegment) []string {
-	normalized := normalizedPromptSegments(values)
-	latestUserStart := latestUserSegmentStart(normalized)
-	if latestUserStart < 0 {
+	latestUserInput, previousAssistantOutput := latestAuditTurns(values)
+	if latestUserInput == "" {
 		// A request without user content cannot be narrowed safely. Preserve the
 		// established full-snapshot behavior for unusual protocol payloads.
 		return normalizeSegmentsLatestUserFirst(values)
+	}
+	selected := []string{latestUserInput}
+	if previousAssistantOutput != "" {
+		selected = append(selected, previousAssistantOutput)
+	}
+	return selected
+}
+
+func latestAuditTurns(values []promptSegment) (latestUserInput, previousAssistantOutput string) {
+	normalized := normalizedPromptSegments(values)
+	latestUserStart := latestUserSegmentStart(normalized)
+	if latestUserStart < 0 {
+		return "", ""
 	}
 	latestUserEnd := latestUserStart
 	for latestUserEnd < len(normalized) && isUserSegment(normalized[latestUserEnd]) {
@@ -506,7 +547,7 @@ func blockingSegmentsLatestUserAndPreviousOutput(values []promptSegment) []strin
 	// A single client turn may have several text content parts. Keep it in one
 	// priority segment so every part of the latest input is scanned before the
 	// prior output begins.
-	selected := []promptSegment{{text: strings.Join(currentUserText, "\n\n"), user: true, role: "user"}}
+	latestUserInput = strings.Join(currentUserText, "\n\n")
 	for index := latestUserStart - 1; index >= 0; index-- {
 		if !isAssistantOutputSegment(normalized[index]) {
 			continue
@@ -515,10 +556,14 @@ func blockingSegmentsLatestUserAndPreviousOutput(values []promptSegment) []strin
 		for start > 0 && isAssistantOutputSegment(normalized[start-1]) {
 			start--
 		}
-		selected = append(selected, normalized[start:index+1]...)
+		previousParts := make([]string, 0, index-start+1)
+		for _, segment := range normalized[start : index+1] {
+			previousParts = append(previousParts, segment.text)
+		}
+		previousAssistantOutput = strings.Join(previousParts, "\n\n")
 		break
 	}
-	return promptSegmentTexts(selected)
+	return latestUserInput, previousAssistantOutput
 }
 
 func latestUserPromptSegments(values []promptSegment) []string {
@@ -569,14 +614,6 @@ func isUserSegment(segment promptSegment) bool {
 
 func isAssistantOutputSegment(segment promptSegment) bool {
 	return segment.role == "assistant" || segment.role == "model"
-}
-
-func promptSegmentTexts(values []promptSegment) []string {
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		result = append(result, value.text)
-	}
-	return result
 }
 
 func buildPrioritizedScanText(segments []string) (scanText string, metadataText string) {

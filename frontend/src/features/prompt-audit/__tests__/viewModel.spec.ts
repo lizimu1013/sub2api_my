@@ -36,7 +36,12 @@ const config = (): PromptAuditConfig => ({
 describe('Prompt Audit view model', () => {
   it('normalizes legacy null collections from the public config', () => {
     const legacy = { ...config(), group_ids: null, scanners: null, endpoints: null } as unknown as PromptAuditConfig
-    expect(configToDraft(legacy)).toMatchObject({ group_ids: [], scanners: [], endpoints: [], custom_prompt_max_tokens: 512 })
+	const draft = configToDraft(legacy)
+	expect(draft).toMatchObject({
+	  group_ids: [], scanners: [], endpoints: [], custom_prompt_max_tokens: 512,
+	  custom_prompt_block_threshold: 0.7, custom_prompt_flag_threshold: 0.4,
+	  block_http_status: 403, audit_previous_assistant_output: false,
+	})
   })
 
   it('models all nine official input scanners', () => {
@@ -57,10 +62,13 @@ describe('Prompt Audit view model', () => {
     expect(buildUpdateRequest(draft).endpoints[0]).toMatchObject({ token: undefined, clear_token: true })
   })
 
-  it('includes the optional narrow blocking scope in the update payload', () => {
+  it('includes the latest-input and previous-output scope in the update payload', () => {
     const draft = configToDraft(config())
-    draft.blocking_latest_turn_only = true
-    expect(buildUpdateRequest(draft)).toMatchObject({ blocking_latest_turn_only: true })
+	draft.audit_previous_assistant_output = true
+	expect(buildUpdateRequest(draft)).toMatchObject({
+	  blocking_latest_turn_only: true,
+	  audit_previous_assistant_output: true,
+	})
   })
 
   it('tracks dirty state from the full normalized save payload', () => {
@@ -72,6 +80,16 @@ describe('Prompt Audit view model', () => {
 
     changed.custom_prompt_max_tokens = 1024
     expect(buildUpdateRequest(changed).custom_prompt_max_tokens).toBe(1024)
+	changed.custom_prompt_block_threshold = 0.8
+	changed.custom_prompt_flag_threshold = 0.3
+	changed.block_http_status = 422
+	changed.block_message = 'blocked by test policy'
+	expect(buildUpdateRequest(changed)).toMatchObject({
+	  custom_prompt_block_threshold: 0.8,
+	  custom_prompt_flag_threshold: 0.3,
+	  block_http_status: 422,
+	  block_message: 'blocked by test policy',
+	})
   })
 
   it('requires a valid explicit range and sends canonical ISO timestamps for filter deletion', () => {

@@ -293,6 +293,24 @@ func TestGuardEvaluatorNilResultAndScannerPanicBecomeStableFailures(t *testing.T
 	}
 }
 
+func TestApplyCustomPromptThresholdsUsesAllowFlagAndBlockBands(t *testing.T) {
+	for _, test := range []struct {
+		confidence float64
+		decision   EventDecision
+		action     Action
+	}{
+		{confidence: 0.39, decision: EventPass, action: ActionAllow},
+		{confidence: 0.40, decision: EventFlag, action: ActionWarn},
+		{confidence: 0.69, decision: EventFlag, action: ActionWarn},
+		{confidence: 0.70, decision: EventCritical, action: ActionBlock},
+	} {
+		result := &NormalizedResult{ScannerScores: map[string]float64{"custom_prompt": test.confidence}}
+		applyCustomPromptThresholds(result, 0.4, 0.7)
+		require.Equal(t, test.decision, result.Decision)
+		require.Equal(t, test.action, result.Action)
+	}
+}
+
 type PromptScannerFunc func(context.Context, ActiveEndpoint, string, []string) (*NormalizedResult, error)
 
 func (f PromptScannerFunc) Scan(ctx context.Context, endpoint ActiveEndpoint, chunk string, scanners []string) (*NormalizedResult, error) {

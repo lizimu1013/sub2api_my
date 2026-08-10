@@ -334,9 +334,18 @@ func (m *ConfigManager) buildNextStorage(current storageConfig, req UpdateConfig
 	for _, endpoint := range current.Endpoints {
 		currentByID[endpoint.ID] = endpoint
 	}
+	flagThreshold, blockThreshold := updateThresholds(req)
+	blockHTTPStatus, blockMessage := updateBlockResponse(req)
+	auditPreviousAssistantOutput := req.BlockingLatestTurnOnly
+	if req.AuditPreviousAssistantOutput != nil {
+		auditPreviousAssistantOutput = *req.AuditPreviousAssistantOutput
+	}
 	next := storageConfig{
-		Enabled: req.Enabled, BlockingEnabled: req.BlockingEnabled, BlockingLatestTurnOnly: req.BlockingLatestTurnOnly, StorePassEvents: req.StorePassEvents,
+		Enabled: req.Enabled, BlockingEnabled: req.BlockingEnabled, BlockingLatestTurnOnly: auditPreviousAssistantOutput,
+		AuditPreviousAssistantOutput: auditPreviousAssistantOutput, StorePassEvents: req.StorePassEvents,
 		CustomPromptEnabled: req.CustomPromptEnabled, CustomSystemPrompt: strings.TrimSpace(req.CustomSystemPrompt), CustomPromptMaxTokens: req.CustomPromptMaxTokens,
+		CustomPromptBlockThreshold: blockThreshold, CustomPromptFlagThreshold: flagThreshold,
+		BlockHTTPStatus: blockHTTPStatus, BlockMessage: blockMessage,
 		ViolationAction: strings.TrimSpace(req.ViolationAction), ViolationFallbackGroupID: cloneInt64Pointer(req.ViolationFallbackGroupID),
 		Strategy: strings.TrimSpace(req.Strategy), WorkerCount: req.WorkerCount,
 		QueueCapacity: req.QueueCapacity, Scanners: append([]string(nil), req.Scanners...),

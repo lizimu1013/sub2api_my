@@ -136,19 +136,25 @@ func (r *Runner) processSafely(ctx context.Context, workerID int, cfg ActiveConf
 func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig, job *Job) error {
 	baseFields := jobLogFields(job)
 	LogInfo(EventAuditStarted, mergeLogFields(baseFields, map[string]any{"worker_id": workerID, "attempts": job.Attempts, "status": "processing"}))
-	scanText, err := r.payload.Get(ctx, job.ID)
+	rawPayload, err := r.payload.Get(ctx, job.ID)
 	if err != nil {
 		return r.finishFailure(ctx, job, &GuardError{Code: "payload_missing", Retryable: false, Cause: err})
 	}
-	// Older queued jobs may still contain the full transcript. Keep only their
-	// prioritized latest-user segment so a deploy does not replay system and
-	// assistant context to the guard node.
-	scanText = latestPriorityScanSegment(scanText)
+	payload, err := decodePromptAuditPayload(rawPayload)
+	if err != nil {
+		return r.finishFailure(ctx, job, &GuardError{Code: "payload_invalid", Retryable: false, Cause: err})
+	}
+	scanText := payload.ScanText
 	// The job row only carries redacted metadata; the full prompt for the audit
 	// event is reconstructed here from the transient scan payload.
 	job.Snapshot.FullPrompt = FullPromptFromScanText(scanText)
+	job.Snapshot.LatestUserInput = payload.LatestUserInput
+	job.Snapshot.PreviousAssistantOutput = payload.PreviousAssistantOutput
 	job.Snapshot.PromptLength = len([]rune(scanText))
 	job.Snapshot.MessageCount = 1
+	if payload.PreviousAssistantOutput != "" {
+		job.Snapshot.MessageCount++
+	}
 	endpoints := cfg.EnabledEndpoints()
 	if len(endpoints) == 0 {
 		return r.finishFailure(ctx, job, &GuardError{Code: "no_enabled_endpoint", Retryable: true})
@@ -315,7 +321,7 @@ func (r *Runner) setLastError(code, _ string) {
 func scanWithFailover(ctx context.Context, scanner PromptScanner, cfg ActiveConfig, endpoints []ActiveEndpoint, chunk string, metrics Metrics) (*NormalizedResult, error) {
 	var lastErr error
 	for index, endpoint := range endpoints {
-		result, err := callPromptScanner(ctx, scanner, endpoint, chunk, cfg.Scanners, cfg.CustomPromptEnabled, cfg.CustomSystemPrompt, cfg.CustomPromptMaxTokens)
+		result, err := callPromptScanner(ctx, scanner, endpoint, chunk, cfg.Scanners, cfg.CustomPromptEnabled, cfg.CustomSystemPrompt, cfg.CustomPromptMaxTokens, cfg.CustomPromptFlagThreshold, cfg.CustomPromptBlockThreshold)
 		if err == nil && result != nil {
 			return result, nil
 		}

@@ -14,20 +14,25 @@ import (
 )
 
 const (
-	DefaultWorkerCount           = 4
-	MaxWorkerCount               = 32
-	DefaultQueueCapacity         = 32768
-	MaxQueueCapacity             = 100000
-	DefaultTimeoutMS             = 3000
-	MinTimeoutMS                 = 100
-	MaxTimeoutMS                 = 30000
-	DefaultInputLimit            = 4000
-	MinInputLimit                = 128
-	MaxInputLimit                = 100000
-	DefaultCustomPromptMaxTokens = 512
-	MinCustomPromptMaxTokens     = 64
-	MaxCustomPromptMaxTokens     = 4096
-	DefaultPayloadTTL            = 30 * time.Minute
+	DefaultWorkerCount                = 4
+	MaxWorkerCount                    = 32
+	DefaultQueueCapacity              = 32768
+	MaxQueueCapacity                  = 100000
+	DefaultTimeoutMS                  = 3000
+	MinTimeoutMS                      = 100
+	MaxTimeoutMS                      = 30000
+	DefaultInputLimit                 = 4000
+	MinInputLimit                     = 128
+	MaxInputLimit                     = 100000
+	DefaultCustomPromptMaxTokens      = 512
+	MinCustomPromptMaxTokens          = 64
+	MaxCustomPromptMaxTokens          = 4096
+	DefaultCustomPromptBlockThreshold = 0.7
+	DefaultCustomPromptFlagThreshold  = 0.4
+	DefaultBlockHTTPStatus            = 403
+	DefaultBlockMessage               = "请检查你的提示词，本次请求被审计系统拦截。"
+	MaxBlockMessageRunes              = 500
+	DefaultPayloadTTL                 = 30 * time.Minute
 )
 
 type SecretEncryptor interface {
@@ -68,26 +73,31 @@ type StorageEndpoint struct {
 }
 
 type storageConfig struct {
-	Enabled                  bool              `json:"enabled"`
-	BlockingEnabled          bool              `json:"blocking_enabled"`
-	BlockingLatestTurnOnly   bool              `json:"blocking_latest_turn_only"`
-	StorePassEvents          bool              `json:"store_pass_events"`
-	CustomPromptEnabled      bool              `json:"custom_prompt_enabled"`
-	CustomSystemPrompt       string            `json:"custom_system_prompt"`
-	CustomPromptMaxTokens    int               `json:"custom_prompt_max_tokens"`
-	ViolationAction          string            `json:"violation_action"`
-	ViolationFallbackGroupID *int64            `json:"violation_fallback_group_id,omitempty"`
-	Strategy                 string            `json:"strategy"`
-	WorkerCount              int               `json:"worker_count"`
-	QueueCapacity            int               `json:"queue_capacity"`
-	Scanners                 []string          `json:"scanners"`
-	AllGroups                bool              `json:"all_groups"`
-	GroupIDs                 []int64           `json:"group_ids"`
-	Endpoints                []StorageEndpoint `json:"endpoints"`
-	ConfigVersion            int64             `json:"config_version"`
-	UpdatedAt                time.Time         `json:"updated_at"`
-	UpdatedBy                int64             `json:"updated_by"`
-	ChangeSummary            string            `json:"change_summary"`
+	Enabled                      bool              `json:"enabled"`
+	BlockingEnabled              bool              `json:"blocking_enabled"`
+	BlockingLatestTurnOnly       bool              `json:"blocking_latest_turn_only"`
+	AuditPreviousAssistantOutput bool              `json:"audit_previous_assistant_output"`
+	StorePassEvents              bool              `json:"store_pass_events"`
+	CustomPromptEnabled          bool              `json:"custom_prompt_enabled"`
+	CustomSystemPrompt           string            `json:"custom_system_prompt"`
+	CustomPromptMaxTokens        int               `json:"custom_prompt_max_tokens"`
+	CustomPromptBlockThreshold   float64           `json:"custom_prompt_block_threshold"`
+	CustomPromptFlagThreshold    float64           `json:"custom_prompt_flag_threshold"`
+	BlockHTTPStatus              int               `json:"block_http_status"`
+	BlockMessage                 string            `json:"block_message"`
+	ViolationAction              string            `json:"violation_action"`
+	ViolationFallbackGroupID     *int64            `json:"violation_fallback_group_id,omitempty"`
+	Strategy                     string            `json:"strategy"`
+	WorkerCount                  int               `json:"worker_count"`
+	QueueCapacity                int               `json:"queue_capacity"`
+	Scanners                     []string          `json:"scanners"`
+	AllGroups                    bool              `json:"all_groups"`
+	GroupIDs                     []int64           `json:"group_ids"`
+	Endpoints                    []StorageEndpoint `json:"endpoints"`
+	ConfigVersion                int64             `json:"config_version"`
+	UpdatedAt                    time.Time         `json:"updated_at"`
+	UpdatedBy                    int64             `json:"updated_by"`
+	ChangeSummary                string            `json:"change_summary"`
 }
 
 type ActiveEndpoint struct {
@@ -109,27 +119,32 @@ type ActiveEndpoint struct {
 }
 
 type ActiveConfig struct {
-	RiskControlEnabled       bool
-	Enabled                  bool
-	BlockingEnabled          bool
-	BlockingLatestTurnOnly   bool
-	StorePassEvents          bool
-	CustomPromptEnabled      bool
-	CustomSystemPrompt       string
-	CustomPromptMaxTokens    int
-	ViolationAction          string
-	ViolationFallbackGroupID *int64
-	Strategy                 string
-	WorkerCount              int
-	QueueCapacity            int
-	Scanners                 []string
-	AllGroups                bool
-	GroupIDs                 []int64
-	Endpoints                []ActiveEndpoint
-	ConfigVersion            int64
-	UpdatedAt                time.Time
-	UpdatedBy                int64
-	ChangeSummary            string
+	RiskControlEnabled           bool
+	Enabled                      bool
+	BlockingEnabled              bool
+	BlockingLatestTurnOnly       bool
+	AuditPreviousAssistantOutput bool
+	StorePassEvents              bool
+	CustomPromptEnabled          bool
+	CustomSystemPrompt           string
+	CustomPromptMaxTokens        int
+	CustomPromptBlockThreshold   float64
+	CustomPromptFlagThreshold    float64
+	BlockHTTPStatus              int
+	BlockMessage                 string
+	ViolationAction              string
+	ViolationFallbackGroupID     *int64
+	Strategy                     string
+	WorkerCount                  int
+	QueueCapacity                int
+	Scanners                     []string
+	AllGroups                    bool
+	GroupIDs                     []int64
+	Endpoints                    []ActiveEndpoint
+	ConfigVersion                int64
+	UpdatedAt                    time.Time
+	UpdatedBy                    int64
+	ChangeSummary                string
 }
 
 type PublicEndpoint struct {
@@ -147,27 +162,32 @@ type PublicEndpoint struct {
 }
 
 type PublicConfig struct {
-	Enabled                  bool             `json:"enabled"`
-	BlockingEnabled          bool             `json:"blocking_enabled"`
-	BlockingLatestTurnOnly   bool             `json:"blocking_latest_turn_only"`
-	StorePassEvents          bool             `json:"store_pass_events"`
-	CustomPromptEnabled      bool             `json:"custom_prompt_enabled"`
-	CustomSystemPrompt       string           `json:"custom_system_prompt"`
-	CustomPromptMaxTokens    int              `json:"custom_prompt_max_tokens"`
-	ViolationAction          string           `json:"violation_action"`
-	ViolationFallbackGroupID *int64           `json:"violation_fallback_group_id,omitempty"`
-	EffectiveMode            Mode             `json:"effective_mode"`
-	Strategy                 string           `json:"strategy"`
-	WorkerCount              int              `json:"worker_count"`
-	QueueCapacity            int              `json:"queue_capacity"`
-	Scanners                 []string         `json:"scanners"`
-	AllGroups                bool             `json:"all_groups"`
-	GroupIDs                 []int64          `json:"group_ids"`
-	Endpoints                []PublicEndpoint `json:"endpoints"`
-	ConfigVersion            int64            `json:"config_version"`
-	UpdatedAt                time.Time        `json:"updated_at"`
-	UpdatedBy                int64            `json:"updated_by"`
-	ChangeSummary            string           `json:"change_summary"`
+	Enabled                      bool             `json:"enabled"`
+	BlockingEnabled              bool             `json:"blocking_enabled"`
+	BlockingLatestTurnOnly       bool             `json:"blocking_latest_turn_only"`
+	AuditPreviousAssistantOutput bool             `json:"audit_previous_assistant_output"`
+	StorePassEvents              bool             `json:"store_pass_events"`
+	CustomPromptEnabled          bool             `json:"custom_prompt_enabled"`
+	CustomSystemPrompt           string           `json:"custom_system_prompt"`
+	CustomPromptMaxTokens        int              `json:"custom_prompt_max_tokens"`
+	CustomPromptBlockThreshold   float64          `json:"custom_prompt_block_threshold"`
+	CustomPromptFlagThreshold    float64          `json:"custom_prompt_flag_threshold"`
+	BlockHTTPStatus              int              `json:"block_http_status"`
+	BlockMessage                 string           `json:"block_message"`
+	ViolationAction              string           `json:"violation_action"`
+	ViolationFallbackGroupID     *int64           `json:"violation_fallback_group_id,omitempty"`
+	EffectiveMode                Mode             `json:"effective_mode"`
+	Strategy                     string           `json:"strategy"`
+	WorkerCount                  int              `json:"worker_count"`
+	QueueCapacity                int              `json:"queue_capacity"`
+	Scanners                     []string         `json:"scanners"`
+	AllGroups                    bool             `json:"all_groups"`
+	GroupIDs                     []int64          `json:"group_ids"`
+	Endpoints                    []PublicEndpoint `json:"endpoints"`
+	ConfigVersion                int64            `json:"config_version"`
+	UpdatedAt                    time.Time        `json:"updated_at"`
+	UpdatedBy                    int64            `json:"updated_by"`
+	ChangeSummary                string           `json:"change_summary"`
 }
 
 type UpdateEndpoint struct {
@@ -185,41 +205,50 @@ type UpdateEndpoint struct {
 }
 
 type UpdateConfigRequest struct {
-	ExpectedConfigVersion    int64            `json:"expected_config_version" binding:"required"`
-	Enabled                  bool             `json:"enabled"`
-	BlockingEnabled          bool             `json:"blocking_enabled"`
-	BlockingLatestTurnOnly   bool             `json:"blocking_latest_turn_only"`
-	StorePassEvents          bool             `json:"store_pass_events"`
-	CustomPromptEnabled      bool             `json:"custom_prompt_enabled"`
-	CustomSystemPrompt       string           `json:"custom_system_prompt"`
-	CustomPromptMaxTokens    int              `json:"custom_prompt_max_tokens"`
-	ViolationAction          string           `json:"violation_action"`
-	ViolationFallbackGroupID *int64           `json:"violation_fallback_group_id,omitempty"`
-	Strategy                 string           `json:"strategy"`
-	WorkerCount              int              `json:"worker_count"`
-	QueueCapacity            int              `json:"queue_capacity"`
-	Scanners                 []string         `json:"scanners"`
-	AllGroups                bool             `json:"all_groups"`
-	GroupIDs                 []int64          `json:"group_ids"`
-	Endpoints                []UpdateEndpoint `json:"endpoints"`
+	ExpectedConfigVersion        int64            `json:"expected_config_version" binding:"required"`
+	Enabled                      bool             `json:"enabled"`
+	BlockingEnabled              bool             `json:"blocking_enabled"`
+	BlockingLatestTurnOnly       bool             `json:"blocking_latest_turn_only"`
+	AuditPreviousAssistantOutput *bool            `json:"audit_previous_assistant_output,omitempty"`
+	StorePassEvents              bool             `json:"store_pass_events"`
+	CustomPromptEnabled          bool             `json:"custom_prompt_enabled"`
+	CustomSystemPrompt           string           `json:"custom_system_prompt"`
+	CustomPromptMaxTokens        int              `json:"custom_prompt_max_tokens"`
+	CustomPromptBlockThreshold   *float64         `json:"custom_prompt_block_threshold,omitempty"`
+	CustomPromptFlagThreshold    *float64         `json:"custom_prompt_flag_threshold,omitempty"`
+	BlockHTTPStatus              *int             `json:"block_http_status,omitempty"`
+	BlockMessage                 *string          `json:"block_message,omitempty"`
+	ViolationAction              string           `json:"violation_action"`
+	ViolationFallbackGroupID     *int64           `json:"violation_fallback_group_id,omitempty"`
+	Strategy                     string           `json:"strategy"`
+	WorkerCount                  int              `json:"worker_count"`
+	QueueCapacity                int              `json:"queue_capacity"`
+	Scanners                     []string         `json:"scanners"`
+	AllGroups                    bool             `json:"all_groups"`
+	GroupIDs                     []int64          `json:"group_ids"`
+	Endpoints                    []UpdateEndpoint `json:"endpoints"`
 }
 
 func DefaultStorageConfig() storageConfig {
 	return storageConfig{
-		Enabled:                false,
-		BlockingEnabled:        false,
-		BlockingLatestTurnOnly: false,
-		StorePassEvents:        false,
-		CustomPromptMaxTokens:  DefaultCustomPromptMaxTokens,
-		ViolationAction:        ViolationActionBlock,
-		Strategy:               "priority",
-		WorkerCount:            DefaultWorkerCount,
-		QueueCapacity:          DefaultQueueCapacity,
-		Scanners:               append([]string(nil), AllScannerIDs...),
-		AllGroups:              true,
-		GroupIDs:               []int64{},
-		Endpoints:              []StorageEndpoint{},
-		ConfigVersion:          1,
+		Enabled:                    false,
+		BlockingEnabled:            false,
+		BlockingLatestTurnOnly:     false,
+		StorePassEvents:            false,
+		CustomPromptMaxTokens:      DefaultCustomPromptMaxTokens,
+		CustomPromptBlockThreshold: DefaultCustomPromptBlockThreshold,
+		CustomPromptFlagThreshold:  DefaultCustomPromptFlagThreshold,
+		BlockHTTPStatus:            DefaultBlockHTTPStatus,
+		BlockMessage:               DefaultBlockMessage,
+		ViolationAction:            ViolationActionBlock,
+		Strategy:                   "priority",
+		WorkerCount:                DefaultWorkerCount,
+		QueueCapacity:              DefaultQueueCapacity,
+		Scanners:                   append([]string(nil), AllScannerIDs...),
+		AllGroups:                  true,
+		GroupIDs:                   []int64{},
+		Endpoints:                  []StorageEndpoint{},
+		ConfigVersion:              1,
 	}
 }
 
@@ -230,6 +259,12 @@ func ParseStorageConfig(raw string) (storageConfig, error) {
 	}
 	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
 		return storageConfig{}, fmt.Errorf("decode prompt audit config: %w", err)
+	}
+	var compatibility struct {
+		AuditPreviousAssistantOutput *bool `json:"audit_previous_assistant_output"`
+	}
+	if json.Unmarshal([]byte(raw), &compatibility) == nil && compatibility.AuditPreviousAssistantOutput == nil {
+		cfg.AuditPreviousAssistantOutput = cfg.BlockingLatestTurnOnly
 	}
 	normalizeStorageConfig(&cfg)
 	if err := validateStorageConfig(cfg); err != nil {
@@ -251,7 +286,15 @@ func normalizeStorageConfig(cfg *storageConfig) {
 	if strings.TrimSpace(cfg.ViolationAction) == "" {
 		cfg.ViolationAction = ViolationActionBlock
 	}
+	cfg.BlockingLatestTurnOnly = cfg.AuditPreviousAssistantOutput
 	cfg.CustomSystemPrompt = strings.TrimSpace(cfg.CustomSystemPrompt)
+	cfg.BlockMessage = strings.TrimSpace(cfg.BlockMessage)
+	if cfg.BlockHTTPStatus == 0 {
+		cfg.BlockHTTPStatus = DefaultBlockHTTPStatus
+	}
+	if cfg.BlockMessage == "" {
+		cfg.BlockMessage = DefaultBlockMessage
+	}
 	if cfg.CustomPromptMaxTokens == 0 {
 		cfg.CustomPromptMaxTokens = DefaultCustomPromptMaxTokens
 	}
@@ -312,6 +355,15 @@ func validateStorageConfig(cfg storageConfig) error {
 	}
 	if cfg.CustomPromptMaxTokens != 0 && (cfg.CustomPromptMaxTokens < MinCustomPromptMaxTokens || cfg.CustomPromptMaxTokens > MaxCustomPromptMaxTokens) {
 		return infraerrors.BadRequest("prompt_audit_invalid_custom_prompt_max_tokens", "自定义提示词审计 max_tokens 超出允许范围")
+	}
+	if err := validateCustomPromptThresholds(cfg.CustomPromptFlagThreshold, cfg.CustomPromptBlockThreshold); err != nil {
+		return err
+	}
+	if cfg.BlockHTTPStatus < 400 || cfg.BlockHTTPStatus > 499 {
+		return infraerrors.BadRequest("prompt_audit_invalid_block_http_status", "拦截响应状态码必须在 400 到 499 之间")
+	}
+	if strings.TrimSpace(cfg.BlockMessage) == "" || len([]rune(cfg.BlockMessage)) > MaxBlockMessageRunes {
+		return infraerrors.BadRequest("prompt_audit_invalid_block_message", "拦截提示文案不能为空且不能超过 500 个字符")
 	}
 	if cfg.ViolationAction == ViolationActionFallbackGroup {
 		if !cfg.CustomPromptEnabled {
@@ -388,6 +440,17 @@ func validateUpdateConfigRequest(req UpdateConfigRequest) error {
 	if req.CustomPromptMaxTokens != 0 && (req.CustomPromptMaxTokens < MinCustomPromptMaxTokens || req.CustomPromptMaxTokens > MaxCustomPromptMaxTokens) {
 		return infraerrors.BadRequest("prompt_audit_invalid_custom_prompt_max_tokens", "自定义提示词审计 max_tokens 超出允许范围")
 	}
+	flagThreshold, blockThreshold := updateThresholds(req)
+	if err := validateCustomPromptThresholds(flagThreshold, blockThreshold); err != nil {
+		return err
+	}
+	blockHTTPStatus, blockMessage := updateBlockResponse(req)
+	if blockHTTPStatus < 400 || blockHTTPStatus > 499 {
+		return infraerrors.BadRequest("prompt_audit_invalid_block_http_status", "拦截响应状态码必须在 400 到 499 之间")
+	}
+	if blockMessage == "" || len([]rune(blockMessage)) > MaxBlockMessageRunes {
+		return infraerrors.BadRequest("prompt_audit_invalid_block_message", "拦截提示文案不能为空且不能超过 500 个字符")
+	}
 	if violationAction == ViolationActionFallbackGroup {
 		if !req.CustomPromptEnabled {
 			return infraerrors.BadRequest("prompt_audit_fallback_requires_custom_prompt", "降级处理仅适用于自定义提示词审计")
@@ -436,6 +499,38 @@ func validateUpdateConfigRequest(req UpdateConfigRequest) error {
 		}
 	}
 	return nil
+}
+
+func updateThresholds(req UpdateConfigRequest) (flagThreshold, blockThreshold float64) {
+	flagThreshold, blockThreshold = DefaultCustomPromptFlagThreshold, DefaultCustomPromptBlockThreshold
+	if req.CustomPromptFlagThreshold != nil {
+		flagThreshold = *req.CustomPromptFlagThreshold
+	}
+	if req.CustomPromptBlockThreshold != nil {
+		blockThreshold = *req.CustomPromptBlockThreshold
+	}
+	return
+}
+
+func validateCustomPromptThresholds(flagThreshold, blockThreshold float64) error {
+	if flagThreshold < 0 || flagThreshold > 1 || blockThreshold < 0 || blockThreshold > 1 {
+		return infraerrors.BadRequest("prompt_audit_invalid_custom_prompt_threshold", "自定义提示词审计阈值必须在 0 到 1 之间")
+	}
+	if flagThreshold > blockThreshold {
+		return infraerrors.BadRequest("prompt_audit_invalid_custom_prompt_threshold_order", "标记阈值不能高于阻断阈值")
+	}
+	return nil
+}
+
+func updateBlockResponse(req UpdateConfigRequest) (int, string) {
+	status, message := DefaultBlockHTTPStatus, DefaultBlockMessage
+	if req.BlockHTTPStatus != nil {
+		status = *req.BlockHTTPStatus
+	}
+	if req.BlockMessage != nil {
+		message = strings.TrimSpace(*req.BlockMessage)
+	}
+	return status, message
 }
 
 func (cfg ActiveConfig) EffectiveMode() Mode {
@@ -508,6 +603,9 @@ func PublicFromStorage(cfg storageConfig, riskControlEnabled bool, invalidTokenE
 	return PublicConfig{
 		Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled, BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly, StorePassEvents: cfg.StorePassEvents,
 		CustomPromptEnabled: cfg.CustomPromptEnabled, CustomSystemPrompt: cfg.CustomSystemPrompt, CustomPromptMaxTokens: cfg.CustomPromptMaxTokens,
+		AuditPreviousAssistantOutput: cfg.AuditPreviousAssistantOutput,
+		CustomPromptBlockThreshold:   cfg.CustomPromptBlockThreshold, CustomPromptFlagThreshold: cfg.CustomPromptFlagThreshold,
+		BlockHTTPStatus: cfg.BlockHTTPStatus, BlockMessage: cfg.BlockMessage,
 		ViolationAction: cfg.ViolationAction, ViolationFallbackGroupID: cloneInt64Pointer(cfg.ViolationFallbackGroupID),
 		EffectiveMode: active.EffectiveMode(), Strategy: cfg.Strategy, WorkerCount: cfg.WorkerCount,
 		QueueCapacity: cfg.QueueCapacity, Scanners: scanners, AllGroups: cfg.AllGroups,
@@ -519,8 +617,10 @@ func PublicFromStorage(cfg storageConfig, riskControlEnabled bool, invalidTokenE
 func ActiveFromStorage(cfg storageConfig, riskControlEnabled bool, encryptor SecretEncryptor) (ActiveConfig, error) {
 	active := ActiveConfig{
 		RiskControlEnabled: riskControlEnabled, Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled,
-		BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly,
-		CustomPromptEnabled:    cfg.CustomPromptEnabled, CustomSystemPrompt: cfg.CustomSystemPrompt, CustomPromptMaxTokens: cfg.CustomPromptMaxTokens,
+		BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly, AuditPreviousAssistantOutput: cfg.AuditPreviousAssistantOutput,
+		CustomPromptEnabled: cfg.CustomPromptEnabled, CustomSystemPrompt: cfg.CustomSystemPrompt, CustomPromptMaxTokens: cfg.CustomPromptMaxTokens,
+		CustomPromptBlockThreshold: cfg.CustomPromptBlockThreshold, CustomPromptFlagThreshold: cfg.CustomPromptFlagThreshold,
+		BlockHTTPStatus: cfg.BlockHTTPStatus, BlockMessage: cfg.BlockMessage,
 		ViolationAction: cfg.ViolationAction, ViolationFallbackGroupID: cloneInt64Pointer(cfg.ViolationFallbackGroupID),
 		StorePassEvents: cfg.StorePassEvents, Strategy: cfg.Strategy, WorkerCount: cfg.WorkerCount,
 		QueueCapacity: cfg.QueueCapacity, Scanners: append([]string(nil), cfg.Scanners...), AllGroups: cfg.AllGroups,
@@ -558,26 +658,36 @@ func ActiveFromStorage(cfg storageConfig, riskControlEnabled bool, encryptor Sec
 
 func changeSummary(cfg storageConfig) string {
 	summary := struct {
-		Enabled                  bool   `json:"enabled"`
-		BlockingEnabled          bool   `json:"blocking_enabled"`
-		BlockingLatestTurnOnly   bool   `json:"blocking_latest_turn_only"`
-		StorePassEvents          bool   `json:"store_pass_events"`
-		EndpointCount            int    `json:"endpoint_count"`
-		ScannerCount             int    `json:"scanner_count"`
-		AllGroups                bool   `json:"all_groups"`
-		GroupCount               int    `json:"group_count"`
-		GroupHash                string `json:"group_hash"`
-		CustomPromptEnabled      bool   `json:"custom_prompt_enabled"`
-		CustomPromptHash         string `json:"custom_prompt_hash,omitempty"`
-		CustomPromptMaxTokens    int    `json:"custom_prompt_max_tokens"`
-		ViolationAction          string `json:"violation_action"`
-		ViolationFallbackGroupID *int64 `json:"violation_fallback_group_id,omitempty"`
+		Enabled                      bool    `json:"enabled"`
+		BlockingEnabled              bool    `json:"blocking_enabled"`
+		BlockingLatestTurnOnly       bool    `json:"blocking_latest_turn_only"`
+		AuditPreviousAssistantOutput bool    `json:"audit_previous_assistant_output"`
+		StorePassEvents              bool    `json:"store_pass_events"`
+		EndpointCount                int     `json:"endpoint_count"`
+		ScannerCount                 int     `json:"scanner_count"`
+		AllGroups                    bool    `json:"all_groups"`
+		GroupCount                   int     `json:"group_count"`
+		GroupHash                    string  `json:"group_hash"`
+		CustomPromptEnabled          bool    `json:"custom_prompt_enabled"`
+		CustomPromptHash             string  `json:"custom_prompt_hash,omitempty"`
+		CustomPromptMaxTokens        int     `json:"custom_prompt_max_tokens"`
+		CustomPromptBlockThreshold   float64 `json:"custom_prompt_block_threshold"`
+		CustomPromptFlagThreshold    float64 `json:"custom_prompt_flag_threshold"`
+		BlockHTTPStatus              int     `json:"block_http_status"`
+		BlockMessageHash             string  `json:"block_message_hash"`
+		ViolationAction              string  `json:"violation_action"`
+		ViolationFallbackGroupID     *int64  `json:"violation_fallback_group_id,omitempty"`
 	}{
 		Enabled: cfg.Enabled, BlockingEnabled: cfg.BlockingEnabled, BlockingLatestTurnOnly: cfg.BlockingLatestTurnOnly,
-		StorePassEvents: cfg.StorePassEvents, EndpointCount: len(cfg.Endpoints), ScannerCount: len(cfg.Scanners),
+		AuditPreviousAssistantOutput: cfg.AuditPreviousAssistantOutput,
+		StorePassEvents:              cfg.StorePassEvents, EndpointCount: len(cfg.Endpoints), ScannerCount: len(cfg.Scanners),
 		AllGroups: cfg.AllGroups, GroupCount: len(cfg.GroupIDs), ViolationAction: cfg.ViolationAction,
 		ViolationFallbackGroupID: cloneInt64Pointer(cfg.ViolationFallbackGroupID), CustomPromptEnabled: cfg.CustomPromptEnabled, CustomPromptMaxTokens: cfg.CustomPromptMaxTokens,
+		CustomPromptBlockThreshold: cfg.CustomPromptBlockThreshold, CustomPromptFlagThreshold: cfg.CustomPromptFlagThreshold,
+		BlockHTTPStatus: cfg.BlockHTTPStatus,
 	}
+	blockMessageDigest := sha256.Sum256([]byte(cfg.BlockMessage))
+	summary.BlockMessageHash = hex.EncodeToString(blockMessageDigest[:])
 	if strings.TrimSpace(cfg.CustomSystemPrompt) != "" {
 		digest := sha256.Sum256([]byte(cfg.CustomSystemPrompt))
 		summary.CustomPromptHash = hex.EncodeToString(digest[:])

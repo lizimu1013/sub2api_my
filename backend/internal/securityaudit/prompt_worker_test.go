@@ -252,7 +252,10 @@ func TestEnqueuerStagingPayloadPublishProtocolAndFailureCleanup(t *testing.T) {
 		require.NoError(t, enqueuer.Enqueue(context.Background(), asyncRequest()))
 		require.Equal(t, []string{"create_staging", "payload_set", "publish_queued"}, trace)
 		require.Empty(t, repo.createdSnapshot.ScanText)
-		require.Equal(t, "payload canary text", payload.values[41])
+		storedPayload, err := decodePromptAuditPayload(payload.values[41])
+		require.NoError(t, err)
+		require.Equal(t, "payload canary text", storedPayload.ScanText)
+		require.Equal(t, "payload canary text", storedPayload.LatestUserInput)
 		require.Equal(t, DefaultPayloadTTL, payload.setTTL)
 	})
 
@@ -287,6 +290,26 @@ func TestEnqueuerStagingPayloadPublishProtocolAndFailureCleanup(t *testing.T) {
 		require.Equal(t, "queue_publish_failed", repo.markedCode)
 		require.NotContains(t, payload.values, int64(43))
 	})
+}
+
+func TestPromptAuditPayloadRoundTripAndLegacyCompatibility(t *testing.T) {
+	snapshot := PromptSnapshot{
+		ScanText:        "latest" + promptAuditPrioritySeparator + "previous",
+		LatestUserInput: "latest", PreviousAssistantOutput: "previous",
+	}
+	raw, err := encodePromptAuditPayload(snapshot)
+	require.NoError(t, err)
+	decoded, err := decodePromptAuditPayload(raw)
+	require.NoError(t, err)
+	require.Equal(t, snapshot.ScanText, decoded.ScanText)
+	require.Equal(t, snapshot.LatestUserInput, decoded.LatestUserInput)
+	require.Equal(t, snapshot.PreviousAssistantOutput, decoded.PreviousAssistantOutput)
+
+	legacy, err := decodePromptAuditPayload("latest legacy" + promptAuditPrioritySeparator + "system history")
+	require.NoError(t, err)
+	require.Equal(t, "latest legacy", legacy.ScanText)
+	require.Equal(t, "latest legacy", legacy.LatestUserInput)
+	require.Empty(t, legacy.PreviousAssistantOutput)
 }
 
 func TestEnqueuerSkipsOffOutOfScopeAndNoText(t *testing.T) {

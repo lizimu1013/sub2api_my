@@ -118,7 +118,7 @@ describe('PromptAuditView', () => {
     expect(wrapper.get('[data-test="tab-panel-config"]').attributes('style') || '').not.toContain('display: none')
   })
 
-  it('requires confirmation for blocking and disables it when audit is turned off', async () => {
+  it('requires confirmation for blocking and disables audit controls when audit is turned off', async () => {
     const wrapper = mountView()
     await flushPromises()
     await wrapper.get('[data-test="tab-config"]').trigger('click')
@@ -126,13 +126,13 @@ describe('PromptAuditView', () => {
     expect(wrapper.find('[data-test="confirm"]').exists()).toBe(true)
     await wrapper.get('[data-test="confirm-action"]').trigger('click')
     expect(wrapper.get('[data-test="blocking-toggle"]').attributes('aria-checked')).toBe('true')
-    await wrapper.get('[data-test="blocking-latest-turn-only-toggle"]').trigger('click')
-    expect(wrapper.get('[data-test="blocking-latest-turn-only-toggle"]').attributes('aria-checked')).toBe('true')
+    await wrapper.get('[data-test="audit-previous-assistant-output-toggle"]').trigger('click')
+    expect(wrapper.get('[data-test="audit-previous-assistant-output-toggle"]').attributes('aria-checked')).toBe('true')
     await wrapper.get('[data-test="enabled-toggle"]').trigger('click')
     expect(wrapper.get('[data-test="enabled-toggle"]').attributes('aria-checked')).toBe('false')
     expect(wrapper.get('[data-test="blocking-toggle"]').attributes('aria-checked')).toBe('false')
     expect(wrapper.get('[data-test="blocking-toggle"]').attributes()).toHaveProperty('disabled')
-    expect(wrapper.get('[data-test="blocking-latest-turn-only-toggle"]').attributes()).toHaveProperty('disabled')
+    expect(wrapper.get('[data-test="audit-previous-assistant-output-toggle"]').attributes()).toHaveProperty('disabled')
   })
 
   it('clears plaintext token state after a successful save', async () => {

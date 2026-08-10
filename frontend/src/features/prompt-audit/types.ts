@@ -27,10 +27,15 @@ export interface PromptAuditConfig {
   enabled: boolean
   blocking_enabled: boolean
   blocking_latest_turn_only: boolean
+  audit_previous_assistant_output?: boolean
   store_pass_events: boolean
   custom_prompt_enabled?: boolean
   custom_system_prompt?: string
   custom_prompt_max_tokens?: number
+  custom_prompt_block_threshold?: number
+  custom_prompt_flag_threshold?: number
+  block_http_status?: number
+  block_message?: string
   violation_action?: PromptViolationAction | string
   violation_fallback_group_id?: number | null
   effective_mode: PromptAuditMode
@@ -56,10 +61,15 @@ export interface PromptAuditUpdateRequest {
   enabled: boolean
   blocking_enabled: boolean
   blocking_latest_turn_only: boolean
+  audit_previous_assistant_output: boolean
   store_pass_events: boolean
   custom_prompt_enabled?: boolean
   custom_system_prompt?: string
   custom_prompt_max_tokens?: number
+  custom_prompt_block_threshold: number
+  custom_prompt_flag_threshold: number
+  block_http_status: number
+  block_message: string
   violation_action?: PromptViolationAction
   violation_fallback_group_id?: number | null
   strategy: 'priority'
@@ -164,6 +174,8 @@ export interface PromptSnapshot {
   prompt_hash: string
   redacted_preview: string
   full_prompt: string
+  latest_user_input?: string
+  previous_assistant_output?: string
   prompt_length: number
   message_count: number
   stage: string
@@ -196,6 +208,7 @@ export interface PromptAuditEvent {
   categories: string[]
   matched_scanners: string[]
   scanner_scores: Record<string, number>
+  confidence?: number
   scanner_evidence: Record<string, string>
   scanner_backend: string
   scanner_version: string

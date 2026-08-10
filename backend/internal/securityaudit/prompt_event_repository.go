@@ -320,10 +320,10 @@ func eventColumns(alias string) string {
 		%[1]s.chunk_total,%[1]s.latency_ms,%[1]s.created_at`, alias)
 }
 
-// eventDetailColumns adds the full prompt, which can be large, so it is only
-// loaded for single-event detail reads and never for list pages.
+// eventDetailColumns adds original audit inputs, which can be large, so they
+// are only loaded for single-event detail reads and never for list pages.
 func eventDetailColumns(alias string) string {
-	return eventColumns(alias) + fmt.Sprintf(",%[1]s.full_prompt", alias)
+	return eventColumns(alias) + fmt.Sprintf(",%[1]s.full_prompt,%[1]s.latest_user_input,%[1]s.previous_assistant_output", alias)
 }
 
 func scanEvent(row rowScanner, withFullPrompt ...bool) (*Event, error) {
@@ -339,7 +339,7 @@ func scanEvent(row rowScanner, withFullPrompt ...bool) (*Event, error) {
 		&event.ScannerVersion, &event.GuardEndpointID, &event.PolicyID, &event.PolicyVersion,
 		&event.ConfigVersion, &event.ChunkTotal, &event.LatencyMS, &event.CreatedAt}
 	if len(withFullPrompt) > 0 && withFullPrompt[0] {
-		dest = append(dest, &event.Snapshot.FullPrompt)
+		dest = append(dest, &event.Snapshot.FullPrompt, &event.Snapshot.LatestUserInput, &event.Snapshot.PreviousAssistantOutput)
 	}
 	err := row.Scan(dest...)
 	if err != nil {
@@ -351,6 +351,9 @@ func scanEvent(row rowScanner, withFullPrompt ...bool) (*Event, error) {
 	_ = json.Unmarshal(categories, &event.Categories)
 	_ = json.Unmarshal(matched, &event.MatchedScanners)
 	_ = json.Unmarshal(scores, &event.ScannerScores)
+	if confidence, ok := event.ScannerScores["custom_prompt"]; ok {
+		event.Confidence = &confidence
+	}
 	_ = json.Unmarshal(evidence, &event.ScannerEvidence)
 	result := NormalizedResult{Decision: event.Decision, RiskLevel: event.RiskLevel, Action: event.Action,
 		Categories: event.Categories, MatchedScanners: event.MatchedScanners, ScannerScores: event.ScannerScores,

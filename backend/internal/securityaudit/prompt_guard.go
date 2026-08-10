@@ -205,7 +205,7 @@ func (g *GuardEvaluator) scanChunk(ctx context.Context, cfg ActiveConfig, endpoi
 			}
 			continue
 		}
-		result, err := callPromptScannerSafely(ctx, g.scanner, endpoint, chunk, cfg.Scanners, cfg.CustomPromptEnabled, cfg.CustomSystemPrompt, cfg.CustomPromptMaxTokens)
+		result, err := callPromptScannerSafely(ctx, g.scanner, endpoint, chunk, cfg.Scanners, cfg.CustomPromptEnabled, cfg.CustomSystemPrompt, cfg.CustomPromptMaxTokens, cfg.CustomPromptFlagThreshold, cfg.CustomPromptBlockThreshold)
 		<-semaphore
 		if err == nil && result != nil {
 			return result, nil
@@ -228,25 +228,56 @@ func (g *GuardEvaluator) scanChunk(ctx context.Context, cfg ActiveConfig, endpoi
 	return nil, lastErr
 }
 
-func callPromptScanner(ctx context.Context, scanner PromptScanner, endpoint ActiveEndpoint, chunk string, scanners []string, customPromptEnabled bool, systemPrompt string, maxTokens int) (result *NormalizedResult, err error) {
+func callPromptScanner(ctx context.Context, scanner PromptScanner, endpoint ActiveEndpoint, chunk string, scanners []string, customPromptEnabled bool, systemPrompt string, maxTokens int, flagThreshold, blockThreshold float64) (result *NormalizedResult, err error) {
 	if customPromptEnabled || endpoint.RequestMode == RequestModeModerations {
 		customScanner, ok := scanner.(CustomPromptScanner)
 		if !ok {
 			return nil, &GuardError{Code: ErrorCodeUnavailable}
 		}
-		return customScanner.ScanWithPrompt(ctx, endpoint, chunk, scanners, systemPrompt, maxTokens)
+		result, err = customScanner.ScanWithPrompt(ctx, endpoint, chunk, scanners, systemPrompt, maxTokens)
+		if err == nil && result != nil && customPromptEnabled && endpoint.RequestMode != RequestModeModerations {
+			applyCustomPromptThresholds(result, flagThreshold, blockThreshold)
+		}
+		return result, err
 	}
 	return scanner.Scan(ctx, endpoint, chunk, scanners)
 }
 
-func callPromptScannerSafely(ctx context.Context, scanner PromptScanner, endpoint ActiveEndpoint, chunk string, scanners []string, customPromptEnabled bool, systemPrompt string, maxTokens int) (result *NormalizedResult, err error) {
+func callPromptScannerSafely(ctx context.Context, scanner PromptScanner, endpoint ActiveEndpoint, chunk string, scanners []string, customPromptEnabled bool, systemPrompt string, maxTokens int, flagThreshold, blockThreshold float64) (result *NormalizedResult, err error) {
 	defer func() {
 		if recover() != nil {
 			result = nil
 			err = &GuardError{Code: ErrorCodeUnavailable, Retryable: false}
 		}
 	}()
-	return callPromptScanner(ctx, scanner, endpoint, chunk, scanners, customPromptEnabled, systemPrompt, maxTokens)
+	return callPromptScanner(ctx, scanner, endpoint, chunk, scanners, customPromptEnabled, systemPrompt, maxTokens, flagThreshold, blockThreshold)
+}
+
+func applyCustomPromptThresholds(result *NormalizedResult, flagThreshold, blockThreshold float64) {
+	if result == nil {
+		return
+	}
+	confidence, ok := result.ScannerScores["custom_prompt"]
+	if !ok {
+		return
+	}
+	result.Safety = "Safe"
+	result.Categories = []string{}
+	result.MatchedScanners = []string{}
+	result.Decision, result.RiskLevel, result.Action = EventPass, RiskLow, ActionAllow
+	if confidence >= blockThreshold {
+		result.Safety = "Unsafe"
+		result.Categories = []string{"custom_prompt"}
+		result.MatchedScanners = []string{"custom_prompt"}
+		result.Decision, result.RiskLevel, result.Action = EventCritical, RiskCritical, ActionBlock
+		return
+	}
+	if confidence >= flagThreshold {
+		result.Safety = "Controversial"
+		result.Categories = []string{"custom_prompt"}
+		result.MatchedScanners = []string{"custom_prompt"}
+		result.Decision, result.RiskLevel, result.Action = EventFlag, RiskMedium, ActionWarn
+	}
 }
 
 func (g *GuardEvaluator) nodeSemaphore(id string) chan struct{} {

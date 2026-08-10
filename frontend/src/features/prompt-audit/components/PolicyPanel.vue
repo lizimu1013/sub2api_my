@@ -59,6 +59,28 @@
             {{ t('admin.promptAudit.policy.customPromptEnabled') }}
           </label>
           <p class="mt-2 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.promptAudit.policy.customPromptHint') }}</p>
+          <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            <label class="block text-sm text-gray-700 dark:text-dark-200">
+              <span>{{ t('admin.promptAudit.policy.blockThreshold') }}</span>
+              <input :value="draft.custom_prompt_block_threshold" type="number" min="0" max="1" step="0.01" class="input mt-1.5 w-full" :aria-label="t('admin.promptAudit.policy.blockThreshold')" @input="patch({ custom_prompt_block_threshold: Number(($event.target as HTMLInputElement).value) })" />
+              <span class="mt-1 block text-xs text-gray-500 dark:text-dark-400">{{ t('admin.promptAudit.policy.blockThresholdHint') }}</span>
+            </label>
+            <label class="block text-sm text-gray-700 dark:text-dark-200">
+              <span>{{ t('admin.promptAudit.policy.flagThreshold') }}</span>
+              <input :value="draft.custom_prompt_flag_threshold" type="number" min="0" max="1" step="0.01" class="input mt-1.5 w-full" :aria-label="t('admin.promptAudit.policy.flagThreshold')" @input="patch({ custom_prompt_flag_threshold: Number(($event.target as HTMLInputElement).value) })" />
+              <span class="mt-1 block text-xs text-gray-500 dark:text-dark-400">{{ t('admin.promptAudit.policy.flagThresholdHint') }}</span>
+            </label>
+            <label class="block text-sm text-gray-700 dark:text-dark-200">
+              <span>{{ t('admin.promptAudit.policy.blockHTTPStatus') }}</span>
+              <input :value="draft.block_http_status" type="number" min="400" max="499" step="1" class="input mt-1.5 w-full" :aria-label="t('admin.promptAudit.policy.blockHTTPStatus')" @input="patch({ block_http_status: Number(($event.target as HTMLInputElement).value) })" />
+              <span class="mt-1 block text-xs text-gray-500 dark:text-dark-400">{{ t('admin.promptAudit.policy.blockHTTPStatusHint') }}</span>
+            </label>
+            <label class="block text-sm text-gray-700 dark:text-dark-200">
+              <span>{{ t('admin.promptAudit.policy.blockMessage') }}</span>
+              <input :value="draft.block_message || ''" type="text" maxlength="500" class="input mt-1.5 w-full" :aria-label="t('admin.promptAudit.policy.blockMessage')" @input="patch({ block_message: ($event.target as HTMLInputElement).value })" />
+              <span class="mt-1 block text-xs text-gray-500 dark:text-dark-400">{{ t('admin.promptAudit.policy.blockMessageHint') }}</span>
+            </label>
+          </div>
           <label class="mt-3 block text-sm text-gray-700 dark:text-dark-200">
             <span>{{ t('admin.promptAudit.policy.customPromptMaxTokens') }}</span>
             <input :value="draft.custom_prompt_max_tokens" type="number" min="64" max="4096" step="1" class="input mt-1.5 w-full" :aria-label="t('admin.promptAudit.policy.customPromptMaxTokens')" @input="patch({ custom_prompt_max_tokens: Number(($event.target as HTMLInputElement).value) })" />

@@ -11,12 +11,19 @@
       <!-- Fixed panel height so switching tabs does not resize the dialog -->
       <div class="mt-5 h-[min(62vh,36rem)] overflow-y-auto" data-test="event-detail-tab-panel">
         <div v-show="activeTab === 'summary'" class="grid gap-5 lg:grid-cols-2" role="tabpanel">
-          <div>
-            <h4 class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.promptAudit.events.promptFull') }}</h4>
-            <pre class="mt-2 max-h-[min(46vh,26rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-gray-50 p-4 text-sm text-gray-700 dark:bg-dark-900 dark:text-dark-200" data-test="summary-prompt-full">{{ displayPrompt(event) }}</pre>
+          <div class="space-y-4">
+            <section>
+              <h4 class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.promptAudit.events.latestUserInput') }}</h4>
+              <pre class="mt-2 max-h-[min(30vh,18rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-gray-50 p-4 text-sm text-gray-700 dark:bg-dark-900 dark:text-dark-200" data-test="summary-prompt-full">{{ displayLatestUserInput(event) }}</pre>
+            </section>
+            <section>
+              <h4 class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.promptAudit.events.previousAssistantOutput') }}</h4>
+              <pre class="mt-2 max-h-[min(24vh,14rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-gray-50 p-4 text-sm text-gray-700 dark:bg-dark-900 dark:text-dark-200" data-test="summary-previous-assistant-output">{{ displayPreviousAssistantOutput(event) }}</pre>
+            </section>
           </div>
           <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.decision') }}</dt><dd class="font-medium text-gray-900 dark:text-white">{{ formatDecisionAction(event.decision, event.action) }}</dd>
+            <dt class="text-gray-500">{{ t('admin.promptAudit.events.confidence') }}</dt><dd class="font-mono">{{ formatConfidence(event) }}</dd>
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.user') }}</dt><dd>{{ event.snapshot.username || '—' }}</dd>
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.email') }}</dt><dd>{{ event.snapshot.user_email || '—' }}</dd>
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.apiKey') }}</dt><dd>{{ event.snapshot.api_key_name || '—' }}</dd>
@@ -31,7 +38,7 @@
             <section data-test="risk-prompt-preview">
               <h4 class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.promptAudit.events.promptFull') }}</h4>
               <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.promptAudit.events.promptFullHint') }}</p>
-              <pre class="mt-2 h-[min(46vh,26rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-gray-50 p-4 text-sm text-gray-700 dark:bg-dark-900 dark:text-dark-200" data-test="risk-prompt-full">{{ displayPrompt(event) }}</pre>
+              <pre class="mt-2 h-[min(46vh,26rem)] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-gray-50 p-4 text-sm text-gray-700 dark:bg-dark-900 dark:text-dark-200" data-test="risk-prompt-full">{{ displayAuditedContent(event) }}</pre>
             </section>
             <section data-test="risk-guard-return">
               <h4 class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.promptAudit.events.guardReturn') }}</h4>
@@ -93,8 +100,32 @@ const DECISIONS = new Set(['pass', 'flag', 'critical'])
 const ACTIONS = new Set(['Allow', 'Warn', 'Block'])
 const RISK_LEVELS = new Set(['low', 'medium', 'high', 'critical'])
 
-function displayPrompt(event: PromptAuditEvent): string {
-  return event.snapshot.full_prompt || event.snapshot.redacted_preview || '—'
+function displayLatestUserInput(event: PromptAuditEvent): string {
+  return event.snapshot.latest_user_input || event.snapshot.full_prompt || event.snapshot.redacted_preview || '—'
+}
+
+function displayPreviousAssistantOutput(event: PromptAuditEvent): string {
+  return event.snapshot.previous_assistant_output || '—'
+}
+
+function displayAuditedContent(event: PromptAuditEvent): string {
+  if (!event.snapshot.latest_user_input && !event.snapshot.previous_assistant_output) {
+    return event.snapshot.full_prompt || event.snapshot.redacted_preview || '—'
+  }
+  const sections = [`${t('admin.promptAudit.events.latestUserInput')}:\n${displayLatestUserInput(event)}`]
+  if (event.snapshot.previous_assistant_output) {
+    sections.push(`${t('admin.promptAudit.events.previousAssistantOutput')}:\n${event.snapshot.previous_assistant_output}`)
+  }
+  return sections.join('\n\n')
+}
+
+function eventConfidence(event: PromptAuditEvent): number | undefined {
+  return event.confidence ?? event.scanner_scores?.custom_prompt
+}
+
+function formatConfidence(event: PromptAuditEvent): string {
+  const confidence = eventConfidence(event)
+  return typeof confidence === 'number' ? `${confidence.toFixed(2)} (${(confidence * 100).toFixed(1)}%)` : '—'
 }
 
 function formatDecisionAction(decision: string, action: string): string {
@@ -124,6 +155,7 @@ function formatGuardReturn(event: PromptAuditEvent): string {
     evidence[key] = translateEvidence(value)
   }
   return JSON.stringify({
+    confidence: eventConfidence(event) ?? null,
     decision: DECISIONS.has(event.decision) ? t(`admin.promptAudit.decisions.${event.decision}`) : event.decision,
     risk_level: RISK_LEVELS.has(event.risk_level) ? t(`admin.promptAudit.riskLevels.${event.risk_level}`) : event.risk_level,
     action: ACTIONS.has(event.action) ? t(`admin.promptAudit.actions.${event.action}`) : event.action,

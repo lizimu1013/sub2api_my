@@ -462,6 +462,38 @@ func TestParseLegacyConfigDefaultsMissingFieldsWithoutEnablingBlocking(t *testin
 	require.Equal(t, AllScannerIDs, storage.Scanners)
 	require.True(t, storage.AllGroups)
 	require.Equal(t, DefaultCustomPromptMaxTokens, storage.CustomPromptMaxTokens)
+	require.Equal(t, DefaultCustomPromptBlockThreshold, storage.CustomPromptBlockThreshold)
+	require.Equal(t, DefaultCustomPromptFlagThreshold, storage.CustomPromptFlagThreshold)
+	require.Equal(t, DefaultBlockHTTPStatus, storage.BlockHTTPStatus)
+	require.Equal(t, DefaultBlockMessage, storage.BlockMessage)
+}
+
+func TestPromptAuditConfigCompatibilityAndNewValidation(t *testing.T) {
+	oldConfig, err := ParseStorageConfig(`{
+		"enabled":false,"blocking_enabled":false,"blocking_latest_turn_only":true,
+		"strategy":"priority","worker_count":4,"queue_capacity":100,
+		"scanners":["pii"],"all_groups":true,"group_ids":[],"endpoints":[],"config_version":1
+	}`)
+	require.NoError(t, err)
+	require.True(t, oldConfig.AuditPreviousAssistantOutput)
+
+	flag, block, status := 0.4, 0.7, 422
+	message := "custom rejection"
+	request := promptAuditUpdateRequest(1, 1, "")
+	request.CustomPromptFlagThreshold = &flag
+	request.CustomPromptBlockThreshold = &block
+	request.BlockHTTPStatus = &status
+	request.BlockMessage = &message
+	require.NoError(t, validateUpdateConfigRequest(request))
+
+	flag = 0.8
+	require.Equal(t, "prompt_audit_invalid_custom_prompt_threshold_order", infraerrors.Reason(validateUpdateConfigRequest(request)))
+	flag = 0.4
+	status = 500
+	require.Equal(t, "prompt_audit_invalid_block_http_status", infraerrors.Reason(validateUpdateConfigRequest(request)))
+	status = 422
+	message = " "
+	require.Equal(t, "prompt_audit_invalid_block_message", infraerrors.Reason(validateUpdateConfigRequest(request)))
 }
 
 func TestUpdateConfigStrictBoundsAndKnownValues(t *testing.T) {

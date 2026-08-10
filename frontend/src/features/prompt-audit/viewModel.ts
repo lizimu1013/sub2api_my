@@ -44,6 +44,10 @@ export const DEFAULT_CUSTOM_SYSTEM_PROMPT = `[SYSTEM — IMMUTABLE]
 其中 confidence 表示标签内内容【属于上述违规行为】的置信度：0.0=完全合规、1.0=确定违规，请按真实把握给 0~1 之间的两位小数（例如 0.05、0.3、0.55、0.9），不要只给 0 或 1。reason 用一句话说明，合规时可留空。`
 
 export const DEFAULT_CUSTOM_PROMPT_MAX_TOKENS = 512
+export const DEFAULT_CUSTOM_PROMPT_BLOCK_THRESHOLD = 0.7
+export const DEFAULT_CUSTOM_PROMPT_FLAG_THRESHOLD = 0.4
+export const DEFAULT_BLOCK_HTTP_STATUS = 403
+export const DEFAULT_BLOCK_MESSAGE = '请检查你的提示词，本次请求被审计系统拦截。'
 
 export const SCANNER_CATALOG = [
   { id: 'violent', label: 'Violent' },
@@ -65,11 +69,18 @@ export function cloneData<T>(value: T): T {
 }
 
 export function configToDraft(config: PromptAuditConfig): PromptAuditDraft {
+	const auditPreviousAssistantOutput = Boolean(config.audit_previous_assistant_output ?? config.blocking_latest_turn_only)
   return {
     ...cloneData(config),
+	blocking_latest_turn_only: auditPreviousAssistantOutput,
+	audit_previous_assistant_output: auditPreviousAssistantOutput,
     custom_prompt_enabled: Boolean(config.custom_prompt_enabled),
     custom_system_prompt: config.custom_system_prompt || DEFAULT_CUSTOM_SYSTEM_PROMPT,
     custom_prompt_max_tokens: Number(config.custom_prompt_max_tokens) || DEFAULT_CUSTOM_PROMPT_MAX_TOKENS,
+	custom_prompt_block_threshold: finiteNumberOrDefault(config.custom_prompt_block_threshold, DEFAULT_CUSTOM_PROMPT_BLOCK_THRESHOLD),
+	custom_prompt_flag_threshold: finiteNumberOrDefault(config.custom_prompt_flag_threshold, DEFAULT_CUSTOM_PROMPT_FLAG_THRESHOLD),
+	block_http_status: finiteNumberOrDefault(config.block_http_status, DEFAULT_BLOCK_HTTP_STATUS),
+	block_message: config.block_message?.trim() || DEFAULT_BLOCK_MESSAGE,
     violation_action: config.violation_action || 'block',
     violation_fallback_group_id: config.violation_fallback_group_id ?? null,
     group_ids: [...(config.group_ids ?? [])],
@@ -103,15 +114,21 @@ export function createDefaultEndpoint(index = 1): PromptAuditEndpointDraft {
 
 export function buildUpdateRequest(draft: PromptAuditDraft): PromptAuditUpdateRequest {
   const violationAction: PromptViolationAction = draft.violation_action === 'fallback_group' ? 'fallback_group' : 'block'
+	const auditPreviousAssistantOutput = Boolean(draft.audit_previous_assistant_output)
   return {
     expected_config_version: draft.config_version,
     enabled: draft.enabled,
     blocking_enabled: draft.enabled && draft.blocking_enabled,
-    blocking_latest_turn_only: draft.blocking_latest_turn_only,
+	blocking_latest_turn_only: auditPreviousAssistantOutput,
+	audit_previous_assistant_output: auditPreviousAssistantOutput,
     store_pass_events: draft.store_pass_events,
     custom_prompt_enabled: Boolean(draft.custom_prompt_enabled),
     custom_system_prompt: draft.custom_system_prompt?.trim() || '',
     custom_prompt_max_tokens: Number(draft.custom_prompt_max_tokens) || DEFAULT_CUSTOM_PROMPT_MAX_TOKENS,
+	custom_prompt_block_threshold: Number(draft.custom_prompt_block_threshold),
+	custom_prompt_flag_threshold: Number(draft.custom_prompt_flag_threshold),
+	block_http_status: Number(draft.block_http_status),
+	block_message: draft.block_message?.trim() || '',
     violation_action: violationAction,
     violation_fallback_group_id: violationAction === 'fallback_group' ? draft.violation_fallback_group_id ?? null : null,
     strategy: 'priority',
@@ -137,6 +154,11 @@ export function buildUpdateRequest(draft: PromptAuditDraft): PromptAuditUpdateRe
       }
     }),
   }
+}
+
+function finiteNumberOrDefault(value: unknown, fallback: number): number {
+	const number = Number(value)
+	return Number.isFinite(number) ? number : fallback
 }
 
 export function draftFingerprint(draft: PromptAuditDraft | null): string {

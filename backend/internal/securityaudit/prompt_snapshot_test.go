@@ -441,6 +441,32 @@ func TestBuildPromptPreviewFullyMasksShortUnlabelledSecrets(t *testing.T) {
 	require.Contains(t, partial, "***")
 }
 
+func TestExtractAuditPromptSnapshotStoresOnlyLatestInputAndOptionalPreviousOutput(t *testing.T) {
+	req := Request{Protocol: "openai_chat_completions", Body: []byte(`{"messages":[
+		{"role":"system","content":"system instruction"},
+		{"role":"user","content":"older user input"},
+		{"role":"assistant","content":"older assistant output"},
+		{"role":"tool","content":"tool output"},
+		{"role":"assistant","content":"previous assistant output"},
+		{"role":"user","content":"latest user input"}
+	]}`)}
+
+	latestOnly, err := ExtractAuditPromptSnapshot(req, false)
+	require.NoError(t, err)
+	require.Equal(t, "latest user input", latestOnly.ScanText)
+	require.Equal(t, "latest user input", latestOnly.LatestUserInput)
+	require.Empty(t, latestOnly.PreviousAssistantOutput)
+
+	withPrevious, err := ExtractAuditPromptSnapshot(req, true)
+	require.NoError(t, err)
+	require.Equal(t, "latest user input"+promptAuditPrioritySeparator+"previous assistant output", withPrevious.ScanText)
+	require.Equal(t, "latest user input", withPrevious.LatestUserInput)
+	require.Equal(t, "previous assistant output", withPrevious.PreviousAssistantOutput)
+	require.NotContains(t, withPrevious.ScanText, "system instruction")
+	require.NotContains(t, withPrevious.ScanText, "tool output")
+	require.NotContains(t, withPrevious.ScanText, "older user input")
+}
+
 func mustJSON(t *testing.T, value string) []byte {
 	t.Helper()
 	raw, err := json.Marshal(value)
