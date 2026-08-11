@@ -3,6 +3,7 @@ package securityaudit
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 )
@@ -71,13 +72,15 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 	evalCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	inputLimit := minimumInputLimit(endpoints)
-	chunks := SplitRunes(snapshot.ScanText, inputLimit)
-	if len(chunks) == 0 {
+	syncSource := strings.ReplaceAll(snapshot.ScanText, promptAuditPrioritySeparator, "\n\n")
+	syncInput, truncated := headTailRunes(syncSource, inputLimit)
+	if syncInput == "" {
 		if g.metrics != nil {
 			g.metrics.Observe(DecisionAllow, g.clock.Now().Sub(start))
 		}
 		return &PromptDecision{Kind: DecisionAllow, AllowNextStage: true}, nil
 	}
+	chunks := []string{syncInput}
 	LogInfo(EventEvaluationStarted, mergeLogFields(baseFields, map[string]any{"chunk_total": len(chunks), "status": "started"}))
 	results := make([]*NormalizedResult, 0, len(chunks))
 	for index, chunk := range chunks {
@@ -137,7 +140,10 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 	if aggregated.Action == ActionBlock {
 		kind = DecisionBlock
 	}
-	decision := &PromptDecision{Kind: kind, Result: aggregated, AllowNextStage: kind == DecisionAllow || kind == DecisionFlag}
+	decision := &PromptDecision{
+		Kind: kind, Result: aggregated, AllowNextStage: kind == DecisionAllow || kind == DecisionFlag,
+		SyncTruncated: truncated,
+	}
 	if kind == DecisionBlock {
 		decision.ErrorCode = ErrorCodeBlocked
 	}
@@ -176,6 +182,16 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 		}))
 	}
 	return decision, nil
+}
+
+func headTailRunes(value string, limit int) (string, bool) {
+	runes := []rune(value)
+	if limit <= 0 || len(runes) <= limit {
+		return value, false
+	}
+	head := limit / 2
+	tail := limit - head
+	return string(runes[:head]) + string(runes[len(runes)-tail:]), true
 }
 
 func logGuardFailure(snapshot PromptSnapshot, cfg ActiveConfig, kind DecisionKind, code, guardEndpointID string, latency time.Duration) {

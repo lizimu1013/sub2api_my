@@ -15,6 +15,16 @@ type staticSettingRepository struct {
 	values map[string]string
 }
 
+type customPromptScannerFunc func(context.Context, ActiveEndpoint, string) (*NormalizedResult, error)
+
+func (f customPromptScannerFunc) Scan(ctx context.Context, endpoint ActiveEndpoint, chunk string, _ []string) (*NormalizedResult, error) {
+	return f(ctx, endpoint, chunk)
+}
+
+func (f customPromptScannerFunc) ScanWithPrompt(ctx context.Context, endpoint ActiveEndpoint, chunk string, _ []string, _ string, _ int) (*NormalizedResult, error) {
+	return f(ctx, endpoint, chunk)
+}
+
 func (r staticSettingRepository) Get(context.Context, string) (*service.Setting, error) {
 	return nil, service.ErrSettingNotFound
 }
@@ -84,7 +94,100 @@ func TestPromptServiceBlockingLatestTurnOnlyUsesNarrowSnapshot(t *testing.T) {
 	decision, err := service.Evaluate(context.Background(), Request{Protocol: "openai_chat_completions", Body: []byte(`{"messages":[{"role":"system","content":"system instruction"},{"role":"user","content":"older user input"},{"role":"assistant","content":"previous output"},{"role":"user","content":"latest user input"}]}`)})
 	require.NoError(t, err)
 	require.Equal(t, DecisionAllow, decision.Kind)
-	require.Equal(t, []string{"latest user input", "previous output"}, seen)
+	require.Equal(t, []string{"latest user input\n\nprevious output"}, seen)
+}
+
+func TestPromptServiceOversizeFollowupUsesConfidenceBandAndFullSnapshot(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		confidence    float64
+		wantKind      DecisionKind
+		wantFollowup  bool
+		wantSyncInput string
+	}{
+		{name: "low confidence does not enqueue", input: "abcdefghij", confidence: 0.39, wantKind: DecisionAllow, wantSyncInput: "abchij"},
+		{name: "flagged oversize enqueues full input", input: "abcdefghij", confidence: 0.50, wantKind: DecisionFlag, wantFollowup: true, wantSyncInput: "abchij"},
+		{name: "blocked oversize does not enqueue", input: "abcdefghij", confidence: 0.70, wantKind: DecisionBlock, wantSyncInput: "abchij"},
+		{name: "flagged short input does not enqueue", input: "abc", confidence: 0.50, wantKind: DecisionFlag, wantSyncInput: "abc"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var syncInputs []string
+			scanner := customPromptScannerFunc(func(_ context.Context, _ ActiveEndpoint, chunk string) (*NormalizedResult, error) {
+				syncInputs = append(syncInputs, chunk)
+				return &NormalizedResult{
+					ScannerScores:   map[string]float64{"custom_prompt": test.confidence},
+					ScannerEvidence: map[string]string{"custom_prompt": "test"},
+				}, nil
+			})
+			cfg := ActiveConfig{
+				RiskControlEnabled: true, Enabled: true, BlockingEnabled: true, AllGroups: true,
+				CustomPromptEnabled: true, CustomPromptFlagThreshold: 0.4, CustomPromptBlockThreshold: 0.7,
+				BlockHTTPStatus: 403, BlockMessage: "blocked", WorkerCount: 1, QueueCapacity: 8,
+				Endpoints: []ActiveEndpoint{{ID: "guard", Enabled: true, TimeoutMS: 1000, InputLimit: 6}},
+			}
+			config := &fakeConfigStore{cfg: cfg, active: true}
+			repo := &fakeJobRepository{}
+			payload := &fakePayloadStore{values: map[int64]string{}}
+			service := &PromptService{
+				config: config, repo: nil, payload: nil,
+				enqueuer:   NewEnqueuer(config, repo, payload),
+				evaluator:  newGuardEvaluator(scanner, repo, NewAtomicMetrics(), 2, 2),
+				background: context.Background(), enqueueSlots: make(chan struct{}, 4),
+			}
+			body, err := json.Marshal(map[string]any{"messages": []map[string]string{{"role": "user", "content": test.input}}})
+			require.NoError(t, err)
+
+			decision, err := service.Evaluate(context.Background(), Request{RequestID: "followup-test", Protocol: "openai_chat_completions", Body: body})
+			require.NoError(t, err)
+			require.Equal(t, test.wantKind, decision.Kind)
+			require.Equal(t, []string{test.wantSyncInput}, syncInputs)
+			service.enqueueWG.Wait()
+
+			if !test.wantFollowup {
+				require.Empty(t, payload.values)
+				return
+			}
+			require.Len(t, payload.values, 1)
+			for _, raw := range payload.values {
+				stored, decodeErr := decodePromptAuditPayload(raw)
+				require.NoError(t, decodeErr)
+				require.Equal(t, test.input, stored.ScanText)
+				require.Equal(t, test.input, stored.LatestUserInput)
+			}
+		})
+	}
+}
+
+func TestPromptServiceOversizeUnavailableDoesNotEnqueueFollowup(t *testing.T) {
+	scanner := customPromptScannerFunc(func(context.Context, ActiveEndpoint, string) (*NormalizedResult, error) {
+		return nil, &GuardError{Code: ErrorCodeUnavailable, Retryable: true}
+	})
+	cfg := ActiveConfig{
+		RiskControlEnabled: true, Enabled: true, BlockingEnabled: true, AllGroups: true,
+		CustomPromptEnabled: true, CustomPromptFlagThreshold: 0.4, CustomPromptBlockThreshold: 0.7,
+		WorkerCount: 1, QueueCapacity: 8,
+		Endpoints: []ActiveEndpoint{{ID: "guard", Enabled: true, TimeoutMS: 1000, InputLimit: 6}},
+	}
+	config := &fakeConfigStore{cfg: cfg, active: true}
+	repo := &fakeJobRepository{}
+	payload := &fakePayloadStore{values: map[int64]string{}}
+	service := &PromptService{
+		config:     config,
+		enqueuer:   NewEnqueuer(config, repo, payload),
+		evaluator:  newGuardEvaluator(scanner, repo, NewAtomicMetrics(), 2, 2),
+		background: context.Background(), enqueueSlots: make(chan struct{}, 4),
+	}
+
+	decision, err := service.Evaluate(context.Background(), Request{
+		RequestID: "followup-unavailable", Protocol: "openai_chat_completions",
+		Body: []byte(`{"messages":[{"role":"user","content":"abcdefghij"}]}`),
+	})
+	require.Error(t, err)
+	require.Nil(t, decision)
+	service.enqueueWG.Wait()
+	require.Empty(t, payload.values)
 }
 
 func TestPromptServiceRejectsInvalidDeleteConfirmationClaims(t *testing.T) {

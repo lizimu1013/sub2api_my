@@ -111,13 +111,29 @@ func (s *PromptService) Enqueue(_ context.Context, req Request) error {
 	if s == nil || s.enqueuer == nil || s.EffectiveMode() != ModeAsync {
 		return nil
 	}
+	requestCopy := req.Clone()
+	return s.enqueueInBackground(requestCopy.RequestID, func(ctx context.Context) error {
+		return s.enqueuer.Enqueue(ctx, requestCopy)
+	})
+}
+
+func (s *PromptService) enqueueFollowup(snapshot PromptSnapshot, cfg ActiveConfig) error {
+	if s == nil || s.enqueuer == nil {
+		return nil
+	}
+	return s.enqueueInBackground(snapshot.RequestID, func(ctx context.Context) error {
+		return s.enqueuer.EnqueueFollowup(ctx, snapshot, cfg)
+	})
+}
+
+func (s *PromptService) enqueueInBackground(requestID string, enqueue func(context.Context) error) error {
 	select {
 	case s.enqueueSlots <- struct{}{}:
 	default:
 		if s.metrics != nil {
 			s.metrics.IncDropped()
 		}
-		LogWarn(EventEnqueueDropped, map[string]any{"request_id": req.RequestID, "status": "dropped", "error_code": "local_enqueue_busy"})
+		LogWarn(EventEnqueueDropped, map[string]any{"request_id": requestID, "status": "dropped", "error_code": "local_enqueue_busy"})
 		return nil
 	}
 	s.lifecycleMu.Lock()
@@ -127,14 +143,13 @@ func (s *PromptService) Enqueue(_ context.Context, req Request) error {
 		<-s.enqueueSlots
 		return errors.New("prompt audit service not started")
 	}
-	requestCopy := req.Clone()
 	s.enqueueWG.Add(1)
 	go func() {
 		defer s.enqueueWG.Done()
 		defer func() { <-s.enqueueSlots }()
 		ctx, cancel := context.WithTimeout(background, 2*time.Second)
 		defer cancel()
-		_ = s.enqueuer.Enqueue(ctx, requestCopy)
+		_ = enqueue(ctx)
 	}()
 	return nil
 }
@@ -168,6 +183,9 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 	if err != nil || decision == nil {
 		return decision, err
 	}
+	if shouldEnqueueFullFollowup(decision, cfg) {
+		_ = s.enqueueFollowup(snapshot, cfg)
+	}
 	if decision.Kind == DecisionBlock && cfg.CustomPromptEnabled &&
 		cfg.ViolationAction == ViolationActionFallbackGroup && cfg.ViolationFallbackGroupID != nil {
 		id := *cfg.ViolationFallbackGroupID
@@ -178,6 +196,15 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 		decision.ClientMessage = cfg.BlockMessage
 	}
 	return decision, nil
+}
+
+func shouldEnqueueFullFollowup(decision *PromptDecision, cfg ActiveConfig) bool {
+	if decision == nil || !decision.SyncTruncated || decision.Kind != DecisionFlag ||
+		!cfg.CustomPromptEnabled || decision.Result == nil {
+		return false
+	}
+	confidence, ok := decision.Result.ScannerScores["custom_prompt"]
+	return ok && confidence >= cfg.CustomPromptFlagThreshold && confidence < cfg.CustomPromptBlockThreshold
 }
 
 func (s *PromptService) GetConfig() (PublicConfig, error) { return s.config.Public() }

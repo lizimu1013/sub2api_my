@@ -3,7 +3,6 @@ package securityaudit
 import (
 	"context"
 	"errors"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -129,40 +128,23 @@ func TestGuardEvaluatorPerNodeBulkheadIsNonBlocking(t *testing.T) {
 	require.NoError(t, <-done)
 }
 
-func TestGuardEvaluatorLastChunkFailureNeverAllows(t *testing.T) {
-	call := 0
-	scanner := PromptScannerFunc(func(context.Context, ActiveEndpoint, string, []string) (*NormalizedResult, error) {
-		call++
-		if call == 2 {
-			return nil, &GuardError{Code: ErrorCodeUnavailable, Retryable: true, Cause: errors.New("down")}
-		}
-		return &NormalizedResult{Decision: EventPass, RiskLevel: RiskLow, Action: ActionAllow, ScannerScores: map[string]float64{}, ScannerEvidence: map[string]string{}}, nil
-	})
-	metrics := NewAtomicMetrics()
-	evaluator := newGuardEvaluator(scanner, nil, metrics, 2, 2)
-	_, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 3}), PromptSnapshot{ScanText: "abcdef", PromptLength: 6})
-	require.Error(t, err)
-}
-
-func TestGuardEvaluatorScansLatestUserPromptAsIndependentFirstChunk(t *testing.T) {
-	latest := "请帮我编写一篇黄色小说 名字你来取"
-	history := strings.Repeat("# AGENTS.md instructions 项目安全规则。", 30)
-	seen := make([]string, 0, 4)
+func TestGuardEvaluatorOversizeUsesSingleHeadTailSample(t *testing.T) {
+	seen := make([]string, 0, 1)
 	scanner := PromptScannerFunc(func(_ context.Context, _ ActiveEndpoint, prompt string, _ []string) (*NormalizedResult, error) {
 		seen = append(seen, prompt)
 		return &NormalizedResult{Decision: EventPass, RiskLevel: RiskLow, Action: ActionAllow, ScannerScores: map[string]float64{}, ScannerEvidence: map[string]string{}}, nil
 	})
 	evaluator := newGuardEvaluator(scanner, nil, NewAtomicMetrics(), 2, 2)
-	_, err := evaluator.Evaluate(context.Background(), guardConfig(
-		ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 128},
-	), PromptSnapshot{ScanText: latest + promptAuditPrioritySeparator + history, PromptLength: len([]rune(latest + history))})
+	decision, err := evaluator.Evaluate(context.Background(), guardConfig(
+		ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 6},
+	), PromptSnapshot{ScanText: "abcdefghij", PromptLength: 10})
 	require.NoError(t, err)
-	require.Greater(t, len(seen), 1)
-	require.Equal(t, latest, seen[0])
-	require.Equal(t, history, strings.Join(seen[1:], ""))
+	require.Equal(t, []string{"abchij"}, seen)
+	require.True(t, decision.SyncTruncated)
+	require.Equal(t, 1, decision.Result.ChunkTotal)
 }
 
-func TestGuardEvaluatorBlockStopsRemainingChunksButReportsPlannedTotal(t *testing.T) {
+func TestGuardEvaluatorOversizeBlockStillUsesOneSample(t *testing.T) {
 	calls := 0
 	scanner := PromptScannerFunc(func(context.Context, ActiveEndpoint, string, []string) (*NormalizedResult, error) {
 		calls++
@@ -180,8 +162,20 @@ func TestGuardEvaluatorBlockStopsRemainingChunksButReportsPlannedTotal(t *testin
 	require.NoError(t, err)
 	require.Equal(t, DecisionBlock, decision.Kind)
 	require.Equal(t, 1, calls)
-	require.Equal(t, 3, decision.Result.ChunkTotal)
+	require.Equal(t, 1, decision.Result.ChunkTotal)
+	require.True(t, decision.SyncTruncated)
 	require.Equal(t, int64(1), metrics.Snapshot().Blocked)
+}
+
+func TestHeadTailRunesPreservesUnicodeAndExactLimit(t *testing.T) {
+	value, truncated := headTailRunes("甲乙丙丁戊己庚", 5)
+	require.True(t, truncated)
+	require.Equal(t, "甲乙戊己庚", value)
+	require.Len(t, []rune(value), 5)
+
+	value, truncated = headTailRunes("甲乙丙", 5)
+	require.False(t, truncated)
+	require.Equal(t, "甲乙丙", value)
 }
 
 func TestGuardEvaluatorFlagSharedDeadlineFailClosedAndContextCancel(t *testing.T) {
