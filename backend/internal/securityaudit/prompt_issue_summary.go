@@ -12,6 +12,17 @@ func BuildIssueSummaries(result NormalizedResult) []IssueSummary {
 	}
 	summaries := make([]IssueSummary, 0, len(resultCategories)+len(result.UnknownCategories))
 	for _, category := range resultCategories {
+		if category == "audit_unavailable" {
+			evidence := RedactPreview(result.ScannerEvidence[category], 160)
+			digest := sha256.Sum256([]byte(evidence))
+			summaries = append(summaries, IssueSummary{
+				Category: category, ScannerID: category, Title: "同步审核异常",
+				Description: "同步审核节点不可用，当前请求已放行并进入异步补审", Severity: string(RiskLow),
+				SeverityLabel: riskLabelZH(RiskLow), Action: string(ActionWarn), ActionLabel: "已放行",
+				Code: "prompt_audit_unavailable", Evidence: evidence, EvidenceHash: hex.EncodeToString(digest[:]),
+			})
+			continue
+		}
 		if category == "custom_prompt" {
 			evidence := RedactPreview(result.ScannerEvidence[category], 160)
 			digest := sha256.Sum256([]byte(evidence))

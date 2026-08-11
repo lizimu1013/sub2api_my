@@ -31,6 +31,7 @@ export default {
       politically_sensitive_topics: '政治敏感话题',
       copyright_violation: '版权侵权',
       jailbreak: '提示注入或越狱尝试',
+      audit_unavailable: '同步审核节点不可用，当前请求已放行并进入异步补审',
     },
     runtime: {
       title: '运行概览',
@@ -59,7 +60,7 @@ export default {
     saveBar: { enabled: '启用提示词审计', blocking: '同步阻止', blockingLatestTurnOnly: '仅审最新输入和上一轮输出', auditPreviousAssistantOutput: '仅审最新输入和上一轮输出', storePass: '保存安全事件', dirty: '有未保存的更改', synced: '配置已同步' },
     blockingConfirm: {
       title: '开启同步阻止？',
-      message: '适用请求会在账号选择、计费和访问上游之前等待 Guard。命中 Block、Guard 不可用或响应非法时，请求都不会访问上游。',
+      message: '适用请求会在账号选择、计费和访问上游之前等待 Guard。命中 Block 时阻止请求；Guard 超时、不可用或响应非法时放行，并进入异步补审。',
       confirm: '理解风险并开启',
     },
     events: {
@@ -72,7 +73,7 @@ export default {
       moreConditions: '更多条件（入口 / 关键词 / 分组 / 用户）',
       filterDeletePreviewAction: '获取删除预览', filterDeletePreviewing: '正在生成预览…', filterDeleteNeedPreview: '可直接确认删除；如需提前查看匹配数量，可先获取删除预览。',
       filterDeleteConfirmInvalidRange: '请先选择有效的删除时间范围（自定义范围需开始早于结束）。', filterDeleteConfirmNoMatches: '当前筛选匹配 0 条事件，没有可删除的内容。',
-      selectAll: '选择当前页全部事件', selectEvent: '选择事件 {id}', time: '时间', identity: '用户 / 邮箱 / API Key', user: '用户名', email: '用户邮箱', apiKey: 'API Key 名称', group: '分组', route: '入口 / 模型', result: '判定 / 风险', confidence: '置信度', preview: '脱敏预览', empty: '没有符合条件的事件。',
+      selectAll: '选择当前页全部事件', selectEvent: '选择事件 {id}', time: '时间', identity: '用户 / 邮箱 / API Key', user: '用户名', email: '用户邮箱', apiKey: 'API Key 名称', group: '分组', route: '入口 / 模型', result: '判定 / 风险', confidence: '置信度', preview: '脱敏预览', empty: '没有符合条件的事件。', auditUnavailable: '同步审核异常', failOpenAllowed: '已放行',
       passEventsDisabled: '当前未开启“保存安全事件”：安全请求仍会完成审计，但不会出现在事件列表中；Flag 和 Critical 风险事件仍会保存。', openConfiguration: '前往配置',
       detailTitle: '提示词审计事件详情', tabs: { summary: '审计摘要', risks: '具体风险', technical: '技术信息' },
       promptFull: '完整提示词（未脱敏）', latestUserInput: '最新用户输入（未脱敏）', previousAssistantOutput: '上一轮模型输出（未脱敏）',

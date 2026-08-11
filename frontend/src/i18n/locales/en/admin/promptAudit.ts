@@ -31,6 +31,7 @@ export default {
       politically_sensitive_topics: 'Politically sensitive topics',
       copyright_violation: 'Copyright infringement',
       jailbreak: 'Prompt injection or jailbreak attempt',
+      audit_unavailable: 'The synchronous audit node was unavailable. The request was allowed and queued for asynchronous review.',
     },
     runtime: {
       title: 'Runtime overview',
@@ -59,7 +60,7 @@ export default {
     saveBar: { enabled: 'Enable prompt audit', blocking: 'Synchronous blocking', blockingLatestTurnOnly: 'Only latest input and prior output', auditPreviousAssistantOutput: 'Only latest input and prior output', storePass: 'Store safe events', dirty: 'Unsaved changes', synced: 'Configuration synced' },
     blockingConfirm: {
       title: 'Enable synchronous blocking?',
-      message: 'Applicable requests wait for Guard before account selection, billing, or upstream access. Block, unavailable Guard, and invalid responses all prevent upstream access.',
+      message: 'Applicable requests wait for Guard before account selection, billing, or upstream access. Block findings stop the request; timeouts, unavailable Guard, and invalid responses fail open and queue asynchronous review.',
       confirm: 'I understand; enable it',
     },
     events: {
@@ -72,7 +73,7 @@ export default {
       moreConditions: 'More conditions (endpoint / keyword / group / user)',
       filterDeletePreviewAction: 'Generate delete preview', filterDeletePreviewing: 'Generating preview…', filterDeleteNeedPreview: 'You can delete directly, or generate a preview first to see the match count.',
       filterDeleteConfirmInvalidRange: 'Select a valid deletion time range first (a custom range needs a start before the end).', filterDeleteConfirmNoMatches: 'The current filters matched 0 events, so there is nothing to delete.',
-      selectAll: 'Select all events on this page', selectEvent: 'Select event {id}', time: 'Time', identity: 'User / email / API Key', user: 'Username', email: 'User email', apiKey: 'API Key name', group: 'Group', route: 'Endpoint / model', result: 'Decision / risk', confidence: 'Confidence', preview: 'Redacted preview', empty: 'No matching events.',
+      selectAll: 'Select all events on this page', selectEvent: 'Select event {id}', time: 'Time', identity: 'User / email / API Key', user: 'Username', email: 'User email', apiKey: 'API Key name', group: 'Group', route: 'Endpoint / model', result: 'Decision / risk', confidence: 'Confidence', preview: 'Redacted preview', empty: 'No matching events.', auditUnavailable: 'Synchronous audit exception', failOpenAllowed: 'Allowed',
       passEventsDisabled: '“Store safe events” is off. Safe requests are still audited but do not appear in this list; Flag and Critical risk events are still stored.', openConfiguration: 'Open configuration',
       detailTitle: 'Prompt audit event details', tabs: { summary: 'Audit summary', risks: 'Specific risks', technical: 'Technical details' },
       promptFull: 'Full prompt (unredacted)', latestUserInput: 'Latest user input (unredacted)', previousAssistantOutput: 'Previous model output (unredacted)',

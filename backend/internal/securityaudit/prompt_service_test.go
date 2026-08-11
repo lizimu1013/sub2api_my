@@ -3,6 +3,7 @@ package securityaudit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -160,13 +161,13 @@ func TestPromptServiceOversizeFollowupUsesConfidenceBandAndFullSnapshot(t *testi
 	}
 }
 
-func TestPromptServiceOversizeUnavailableDoesNotEnqueueFollowup(t *testing.T) {
+func TestPromptServiceUnavailableFailsOpenRecordsAndEnqueuesFullFollowup(t *testing.T) {
 	scanner := customPromptScannerFunc(func(context.Context, ActiveEndpoint, string) (*NormalizedResult, error) {
 		return nil, &GuardError{Code: ErrorCodeUnavailable, Retryable: true}
 	})
 	cfg := ActiveConfig{
 		RiskControlEnabled: true, Enabled: true, BlockingEnabled: true, AllGroups: true,
-		CustomPromptEnabled: true, CustomPromptFlagThreshold: 0.4, CustomPromptBlockThreshold: 0.7,
+		CustomPromptEnabled: true, BlockingLatestTurnOnly: true, CustomPromptFlagThreshold: 0.4, CustomPromptBlockThreshold: 0.7,
 		WorkerCount: 1, QueueCapacity: 8,
 		Endpoints: []ActiveEndpoint{{ID: "guard", Enabled: true, TimeoutMS: 1000, InputLimit: 6}},
 	}
@@ -182,12 +183,52 @@ func TestPromptServiceOversizeUnavailableDoesNotEnqueueFollowup(t *testing.T) {
 
 	decision, err := service.Evaluate(context.Background(), Request{
 		RequestID: "followup-unavailable", Protocol: "openai_chat_completions",
-		Body: []byte(`{"messages":[{"role":"user","content":"abcdefghij"}]}`),
+		Body: []byte(`{"messages":[{"role":"user","content":"older input"},{"role":"assistant","content":"previous output"},{"role":"user","content":"abcdefghij"}]}`),
 	})
-	require.Error(t, err)
-	require.Nil(t, decision)
+	require.NoError(t, err)
+	require.Equal(t, DecisionAllow, decision.Kind)
+	require.True(t, decision.AllowNextStage)
+	require.True(t, decision.AuditFailedOpen)
+	require.Equal(t, "unavailable", decision.FailureCode)
 	service.enqueueWG.Wait()
-	require.Empty(t, payload.values)
+	require.Equal(t, 1, repo.recordBlockingCalls)
+	require.Equal(t, []string{"audit_unavailable"}, repo.recordBlockingResult.Categories)
+	require.Empty(t, repo.recordBlockingSnapshot.ScanText)
+	require.Len(t, payload.values, 1)
+	for _, raw := range payload.values {
+		stored, decodeErr := decodePromptAuditPayload(raw)
+		require.NoError(t, decodeErr)
+		require.Equal(t, "abcdefghij"+promptAuditPrioritySeparator+"previous output", stored.ScanText)
+		require.Equal(t, "abcdefghij", stored.LatestUserInput)
+		require.Equal(t, "previous output", stored.PreviousAssistantOutput)
+	}
+}
+
+func TestPromptServiceFailOpenQueueFailureNeverBlocksRequest(t *testing.T) {
+	scanner := customPromptScannerFunc(func(context.Context, ActiveEndpoint, string) (*NormalizedResult, error) {
+		return nil, &GuardError{Code: ErrorCodeUnavailable, Retryable: true}
+	})
+	cfg := ActiveConfig{
+		RiskControlEnabled: true, Enabled: true, BlockingEnabled: true, AllGroups: true,
+		CustomPromptEnabled: true, WorkerCount: 1, QueueCapacity: 8,
+		Endpoints: []ActiveEndpoint{{ID: "guard", Enabled: true, TimeoutMS: 1000, InputLimit: 6}},
+	}
+	config := &fakeConfigStore{cfg: cfg, active: true}
+	repo := &fakeJobRepository{createErr: errors.New("database unavailable")}
+	service := &PromptService{
+		config: config, enqueuer: NewEnqueuer(config, repo, &fakePayloadStore{values: map[int64]string{}}),
+		evaluator:  newGuardEvaluator(scanner, repo, NewAtomicMetrics(), 2, 2),
+		background: context.Background(), enqueueSlots: make(chan struct{}, 4),
+	}
+	decision, err := service.Evaluate(context.Background(), Request{
+		RequestID: "queue-failure", Protocol: "openai_chat_completions",
+		Body: []byte(`{"messages":[{"role":"user","content":"short"}]}`),
+	})
+	require.NoError(t, err)
+	require.True(t, decision.AllowNextStage)
+	require.True(t, decision.AuditFailedOpen)
+	service.enqueueWG.Wait()
+	require.Equal(t, 1, repo.recordBlockingCalls)
 }
 
 func TestPromptServiceRejectsInvalidDeleteConfirmationClaims(t *testing.T) {

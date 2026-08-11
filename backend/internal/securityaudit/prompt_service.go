@@ -117,12 +117,12 @@ func (s *PromptService) Enqueue(_ context.Context, req Request) error {
 	})
 }
 
-func (s *PromptService) enqueueFollowup(snapshot PromptSnapshot, cfg ActiveConfig) error {
+func (s *PromptService) enqueueFollowup(snapshot PromptSnapshot, cfg ActiveConfig, reason string) error {
 	if s == nil || s.enqueuer == nil {
 		return nil
 	}
 	return s.enqueueInBackground(snapshot.RequestID, func(ctx context.Context) error {
-		return s.enqueuer.EnqueueFollowup(ctx, snapshot, cfg)
+		return s.enqueuer.EnqueueFollowup(ctx, snapshot, cfg, reason)
 	})
 }
 
@@ -183,8 +183,10 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 	if err != nil || decision == nil {
 		return decision, err
 	}
-	if shouldEnqueueFullFollowup(decision, cfg) {
-		_ = s.enqueueFollowup(snapshot, cfg)
+	if decision.AuditFailedOpen {
+		_ = s.enqueueFollowup(snapshot, cfg, "sync_fail_open")
+	} else if shouldEnqueueFullFollowup(decision, cfg) {
+		_ = s.enqueueFollowup(snapshot, cfg, "sync_flagged_oversize")
 	}
 	if decision.Kind == DecisionBlock && cfg.CustomPromptEnabled &&
 		cfg.ViolationAction == ViolationActionFallbackGroup && cfg.ViolationFallbackGroupID != nil {

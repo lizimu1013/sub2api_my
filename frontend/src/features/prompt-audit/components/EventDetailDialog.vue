@@ -129,11 +129,15 @@ function formatConfidence(event: PromptAuditEvent): string {
 }
 
 function formatDecisionAction(decision: string, action: string): string {
+  if (decision === 'flag' && action === 'Warn' && props.event?.categories.includes('audit_unavailable')) {
+    return `${t('admin.promptAudit.events.auditUnavailable')} · ${t('admin.promptAudit.events.failOpenAllowed')}`
+  }
   const decisionLabel = DECISIONS.has(decision) ? t(`admin.promptAudit.decisions.${decision}`) : decision
   const actionLabel = ACTIONS.has(action) ? t(`admin.promptAudit.actions.${action}`) : action
   return `${decisionLabel} · ${actionLabel}`
 }
 function translateCategory(category: string): string {
+  if (category === 'audit_unavailable') return t('admin.promptAudit.events.auditUnavailable')
   return SCANNER_CATALOG.some((scanner) => scanner.id === category)
     ? t(`admin.promptAudit.scanners.${category}`)
     : category

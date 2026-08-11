@@ -158,6 +158,8 @@ type PromptDecision struct {
 	AllowNextStage  bool              `json:"allow_next_stage"`
 	FallbackGroupID *int64            `json:"fallback_group_id,omitempty"`
 	SyncTruncated   bool              `json:"sync_truncated,omitempty"`
+	AuditFailedOpen bool              `json:"audit_failed_open,omitempty"`
+	FailureCode     string            `json:"failure_code,omitempty"`
 }
 
 type LegacyDecision struct {

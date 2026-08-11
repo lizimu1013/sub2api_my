@@ -55,7 +55,7 @@ func TestCoordinatorModesAndPriority(t *testing.T) {
 		{name: "off", mode: ModeOff, wantKind: DecisionAllow},
 		{name: "async only enqueues", mode: ModeAsync, wantKind: DecisionAllow, wantEnqueue: 1},
 		{name: "prompt block", mode: ModeBlocking, prompt: &PromptDecision{Kind: DecisionBlock}, wantKind: DecisionBlock, wantCode: ErrorCodeBlocked, wantEvaluation: 1},
-		{name: "prompt unavailable", mode: ModeBlocking, promptErr: errors.New("down"), wantKind: DecisionUnavailable, wantCode: ErrorCodeUnavailable, wantEvaluation: 1},
+		{name: "prompt unavailable fails open", mode: ModeBlocking, promptErr: errors.New("down"), wantKind: DecisionAllow, wantEvaluation: 1},
 		{name: "legacy wins both block", mode: ModeBlocking,
 			legacy: &LegacyDecision{Blocked: true, StatusCode: http.StatusForbidden, ErrorCode: "content_policy_violation", Message: "legacy"},
 			prompt: &PromptDecision{Kind: DecisionBlock}, wantKind: DecisionBlock, wantCode: "content_policy_violation", wantEvaluation: 1},
@@ -101,8 +101,8 @@ func TestCoordinatorBlockingPriorityCoversBothEngineDecisionMatrix(t *testing.T)
 		{name: "allow", decision: &PromptDecision{Kind: DecisionAllow, AllowNextStage: true}, wantKind: DecisionAllow},
 		{name: "flag", decision: &PromptDecision{Kind: DecisionFlag, AllowNextStage: true}, wantKind: DecisionFlag},
 		{name: "block", decision: &PromptDecision{Kind: DecisionBlock}, wantKind: DecisionBlock, wantCode: ErrorCodeBlocked},
-		{name: "unavailable", decision: &PromptDecision{Kind: DecisionUnavailable, ErrorCode: ErrorCodeUnavailable}, wantKind: DecisionUnavailable, wantCode: ErrorCodeUnavailable},
-		{name: "invalid", decision: &PromptDecision{Kind: DecisionInvalid, ErrorCode: ErrorCodeInvalidResponse}, wantKind: DecisionInvalid, wantCode: ErrorCodeInvalidResponse},
+		{name: "unavailable", decision: &PromptDecision{Kind: DecisionUnavailable, ErrorCode: ErrorCodeUnavailable}, wantKind: DecisionAllow},
+		{name: "invalid", decision: &PromptDecision{Kind: DecisionInvalid, ErrorCode: ErrorCodeInvalidResponse}, wantKind: DecisionAllow},
 	}
 
 	for _, legacyCase := range legacyCases {
@@ -125,7 +125,7 @@ func TestCoordinatorBlockingPriorityCoversBothEngineDecisionMatrix(t *testing.T)
 				}
 				require.Equal(t, promptCase.wantKind, decision.Kind)
 				require.Equal(t, promptCase.wantCode, decision.ErrorCode)
-				require.Equal(t, promptCase.decision.AllowNextStage, decision.AllowNextStage)
+				require.Equal(t, promptCase.wantKind != DecisionBlock, decision.AllowNextStage)
 			})
 		}
 	}
@@ -173,6 +173,29 @@ func TestCoordinatorAsyncEnqueueFailuresNeverChangeResponseOrDownstreamDispatch(
 		require.Equal(t, int64(1), prompt.enqueues.Load())
 		require.Zero(t, prompt.evaluates.Load())
 	}
+}
+
+func TestCoordinatorBlockingAuditFailureDispatchesDownstreamOnce(t *testing.T) {
+	prompt := &fakePromptEngine{mode: ModeBlocking, err: &GuardError{Code: ErrorCodeUnavailable}}
+	decision := NewCoordinator(&fakeLegacyEngine{decision: &LegacyDecision{Allowed: true}}, prompt).Check(context.Background(), Request{})
+	dispatches := 0
+	if decision.AllowNextStage {
+		dispatches++
+	}
+	require.Equal(t, DecisionAllow, decision.Kind)
+	require.Equal(t, 1, dispatches)
+	require.True(t, decision.Prompt.AuditFailedOpen)
+	require.Equal(t, int64(1), prompt.evaluates.Load())
+}
+
+func TestCoordinatorCanceledRequestDoesNotFailOpen(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	prompt := &fakePromptEngine{mode: ModeBlocking, err: context.Canceled}
+	decision := NewCoordinator(&fakeLegacyEngine{}, prompt).Check(ctx, Request{})
+	require.Equal(t, DecisionUnavailable, decision.Kind)
+	require.False(t, decision.AllowNextStage)
+	require.Equal(t, "request_canceled", decision.Prompt.FailureCode)
 }
 
 func TestCoordinatorUsesConfiguredPromptBlockResponse(t *testing.T) {

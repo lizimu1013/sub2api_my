@@ -66,16 +66,20 @@ func (c *Coordinator) checkBlocking(ctx context.Context, req Request) Decision {
 		}
 		result, err := c.prompt.Evaluate(ctx, req.Clone())
 		if err != nil {
-			var guardErr *GuardError
-			if errors.As(err, &guardErr) && guardErr.Code == ErrorCodeInvalidResponse {
-				prompt = unavailablePromptDecision(ErrorCodeInvalidResponse)
+			if ctx.Err() != nil {
+				prompt = canceledPromptDecision()
 				return
 			}
-			prompt = unavailablePromptDecision(ErrorCodeUnavailable)
+			var guardErr *GuardError
+			if errors.As(err, &guardErr) && guardErr.Code == ErrorCodeInvalidResponse {
+				prompt = failedOpenPromptDecision(ErrorCodeInvalidResponse)
+				return
+			}
+			prompt = failedOpenPromptDecision(ErrorCodeUnavailable)
 			return
 		}
 		if result == nil {
-			prompt = unavailablePromptDecision(ErrorCodeUnavailable)
+			prompt = failedOpenPromptDecision(ErrorCodeUnavailable)
 			return
 		}
 		prompt = result
@@ -122,11 +126,13 @@ func prioritize(legacy *LegacyDecision, prompt *PromptDecision) Decision {
 		return Decision{Kind: DecisionBlock, HTTPStatus: status, ErrorCode: ErrorCodeBlocked,
 			ClientMessage: message, Legacy: legacy, Prompt: prompt}
 	case DecisionInvalid:
-		return Decision{Kind: DecisionInvalid, HTTPStatus: http.StatusServiceUnavailable, ErrorCode: ErrorCodeInvalidResponse,
-			ClientMessage: "提示词安全审计暂时不可用，请稍后重试", Legacy: legacy, Prompt: prompt}
+		return allowDecision(legacy, prompt)
 	case DecisionUnavailable:
-		return Decision{Kind: DecisionUnavailable, HTTPStatus: http.StatusServiceUnavailable, ErrorCode: ErrorCodeUnavailable,
-			ClientMessage: "提示词安全审计暂时不可用，请稍后重试", Legacy: legacy, Prompt: prompt}
+		if prompt.FailureCode == "request_canceled" {
+			return Decision{Kind: DecisionUnavailable, HTTPStatus: http.StatusServiceUnavailable, ErrorCode: ErrorCodeUnavailable,
+				Legacy: legacy, Prompt: prompt, AllowNextStage: false}
+		}
+		return allowDecision(legacy, prompt)
 	case DecisionFlag:
 		return Decision{Kind: DecisionFlag, HTTPStatus: http.StatusOK, Legacy: legacy, Prompt: prompt, AllowNextStage: true}
 	default:
@@ -144,4 +150,16 @@ func unavailablePromptDecision(code string) *PromptDecision {
 		kind = DecisionInvalid
 	}
 	return &PromptDecision{Kind: kind, ErrorCode: code, AllowNextStage: false}
+}
+
+func failedOpenPromptDecision(code string) *PromptDecision {
+	failureCode := "unavailable"
+	if code == ErrorCodeInvalidResponse {
+		failureCode = "invalid_response"
+	}
+	return &PromptDecision{Kind: DecisionAllow, AllowNextStage: true, AuditFailedOpen: true, FailureCode: failureCode}
+}
+
+func canceledPromptDecision() *PromptDecision {
+	return &PromptDecision{Kind: DecisionUnavailable, ErrorCode: ErrorCodeUnavailable, AllowNextStage: false, FailureCode: "request_canceled"}
 }

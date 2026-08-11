@@ -109,6 +109,41 @@ describe('Prompt Audit components', () => {
     expect(wrapper.emitted('selection')?.at(-1)?.[0]).toEqual([1])
   })
 
+  it('shows fail-open audit exceptions as allowed with no confidence', () => {
+    const event: PromptAuditEvent = {
+      id: 7, job_id: 0, decision: 'flag', risk_level: 'low', action: 'Warn',
+      categories: ['audit_unavailable'], matched_scanners: ['audit_unavailable'], scanner_scores: {},
+      scanner_evidence: { audit_unavailable: '同步审核超时，已放行并进入异步补审' },
+      scanner_backend: 'sync_fail_open', scanner_version: '1', guard_endpoint_id: '', policy_id: 'fail_open',
+      policy_version: 1, config_version: 2, chunk_total: 1, latency_ms: 3000,
+      issue_summaries: [{
+        category: 'audit_unavailable', scanner_id: 'audit_unavailable', title: '同步审核异常',
+        description: '同步审核节点不可用，当前请求已放行并进入异步补审', severity: 'low', severity_label: '低',
+        action: 'Warn', action_label: '已放行', code: 'prompt_audit_unavailable', score: 0,
+        evidence: '同步审核超时，已放行并进入异步补审', evidence_hash: 'abc',
+      }],
+      created_at: '2026-08-11T00:00:00Z',
+      snapshot: {
+        request_id: 'req-fail-open', user_id: 1, username: 'alice', user_email: 'alice@example.test',
+        api_key_id: 2, api_key_name: 'key', group_id: 3, group_name: 'Alpha', provider: 'openai',
+        endpoint: '/v1/responses', protocol: 'openai_responses', model: 'gpt-test', prompt_hash: 'a'.repeat(64),
+        redacted_preview: 'preview', full_prompt: 'full', latest_user_input: 'latest', prompt_length: 6, message_count: 1, stage: 'http',
+      },
+    }
+    const workspace = mount(EventWorkspace, {
+      props: { events: [event], total: 1, page: 1, pageSize: 20, filters: emptyEventFilters(), selectedIds: [], loading: false, error: '' },
+      global: { stubs: { Pagination: PaginationStub } },
+    })
+    expect(workspace.text()).toContain('admin.promptAudit.events.auditUnavailable · admin.promptAudit.events.failOpenAllowed')
+    expect(workspace.text()).toContain('—')
+
+    const detail = mount(EventDetailDialog, {
+      props: { show: true, event, loading: false }, global: { stubs: { BaseDialog: DialogStub } },
+    })
+    expect(detail.text()).toContain('admin.promptAudit.events.auditUnavailable · admin.promptAudit.events.failOpenAllowed')
+    expect(detail.text()).toContain('—')
+  })
+
   it('resolves delete range presets to an epoch start and a cutoff end', () => {
     const now = Date.parse('2026-07-17T12:00:00.000Z')
     const sevenDays = resolveDeleteRangeFilters(emptyEventFilters(), '7d', now)

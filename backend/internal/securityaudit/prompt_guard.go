@@ -36,12 +36,15 @@ func newGuardEvaluator(scanner PromptScanner, repo JobRepository, metrics Metric
 }
 
 func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapshot PromptSnapshot) (*PromptDecision, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, &GuardError{Code: ErrorCodeUnavailable, Retryable: true, Cause: err}
+	}
 	if g == nil || g.scanner == nil {
 		if g != nil && g.metrics != nil {
 			g.metrics.Observe(DecisionUnavailable, 0)
 		}
 		logGuardFailure(snapshot, cfg, DecisionUnavailable, ErrorCodeUnavailable, "", 0)
-		return nil, &GuardError{Code: ErrorCodeUnavailable}
+		return g.failOpen(ctx, cfg, snapshot, &GuardError{Code: ErrorCodeUnavailable}, 0), nil
 	}
 	start := g.clock.Now()
 	baseFields := snapshotLogFields(snapshot)
@@ -52,7 +55,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 			g.metrics.Observe(DecisionUnavailable, g.clock.Now().Sub(start))
 		}
 		logGuardFailure(snapshot, cfg, DecisionUnavailable, ErrorCodeUnavailable, "", g.clock.Now().Sub(start))
-		return nil, &GuardError{Code: ErrorCodeUnavailable}
+		return g.failOpen(ctx, cfg, snapshot, &GuardError{Code: ErrorCodeUnavailable}, g.clock.Now().Sub(start)), nil
 	}
 	select {
 	case g.global <- struct{}{}:
@@ -63,7 +66,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 			g.metrics.Observe(DecisionUnavailable, g.clock.Now().Sub(start))
 		}
 		logGuardFailure(snapshot, cfg, DecisionUnavailable, ErrorCodeUnavailable, "", g.clock.Now().Sub(start))
-		return nil, &GuardError{Code: ErrorCodeUnavailable}
+		return g.failOpen(ctx, cfg, snapshot, &GuardError{Code: ErrorCodeUnavailable}, g.clock.Now().Sub(start)), nil
 	}
 	timeout := time.Duration(endpoints[0].TimeoutMS) * time.Millisecond
 	if timeout <= 0 {
@@ -92,6 +95,9 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 		}))
 		result, err := g.scanChunk(evalCtx, cfg, endpoints, chunk)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, err
+			}
 			code := guardErrorCode(err)
 			LogWarn(EventChunkFailed, mergeLogFields(baseFields, map[string]any{
 				"chunk_index": index + 1, "chunk_total": len(chunks),
@@ -110,7 +116,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 				}
 			}
 			logGuardFailure(snapshot, cfg, kind, code, "", g.clock.Now().Sub(start))
-			return nil, err
+			return g.failOpen(ctx, cfg, snapshot, err, g.clock.Now().Sub(start)), nil
 		}
 		result.ChunkTotal = len(chunks)
 		results = append(results, result)
@@ -130,7 +136,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 			g.metrics.Observe(DecisionInvalid, g.clock.Now().Sub(start))
 		}
 		logGuardFailure(snapshot, cfg, DecisionInvalid, ErrorCodeInvalidResponse, "", g.clock.Now().Sub(start))
-		return nil, &GuardError{Code: ErrorCodeInvalidResponse, Cause: err}
+		return g.failOpen(ctx, cfg, snapshot, &GuardError{Code: ErrorCodeInvalidResponse, Cause: err}, g.clock.Now().Sub(start)), nil
 	}
 	aggregated.ChunkTotal = len(chunks)
 	kind := DecisionAllow
@@ -182,6 +188,54 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 		}))
 	}
 	return decision, nil
+}
+
+func (g *GuardEvaluator) failOpen(ctx context.Context, cfg ActiveConfig, snapshot PromptSnapshot, err error, latency time.Duration) *PromptDecision {
+	failureCode, reason := failOpenFailure(err)
+	result := &NormalizedResult{
+		Decision: EventFlag, RiskLevel: RiskLow, Action: ActionWarn, Safety: "AuditUnavailable",
+		Categories: []string{"audit_unavailable"}, MatchedScanners: []string{"audit_unavailable"},
+		ScannerScores: map[string]float64{}, ScannerEvidence: map[string]string{"audit_unavailable": reason},
+		ScannerBackend: "sync_fail_open", ScannerVersion: "1", PolicyID: "fail_open", PolicyVersion: 1,
+		ChunkTotal: 1, LatencyMS: int(latency.Milliseconds()),
+	}
+	decision := &PromptDecision{
+		Kind: DecisionAllow, Result: result, AllowNextStage: true,
+		AuditFailedOpen: true, FailureCode: failureCode,
+	}
+	if g != nil && g.repo != nil {
+		if _, recordErr := g.repo.RecordBlocking(ctx, snapshot.Redacted(), cfg.ConfigVersion, result, false); recordErr != nil {
+			if g.metrics != nil {
+				g.metrics.IncRecordFailed()
+			}
+			LogWarn(EventResultRecordFailed, mergeLogFields(snapshotLogFields(snapshot), map[string]any{
+				"decision": DecisionAllow, "error_code": "result_record_failed", "stage": snapshot.Stage,
+				"status": "failed", "audit_failed_open": true,
+			}))
+		}
+	}
+	LogWarn(EventGuardAllowed, mergeLogFields(snapshotLogFields(snapshot), map[string]any{
+		"decision": DecisionAllow, "risk_level": RiskLow, "action": ActionWarn,
+		"latency_ms": result.LatencyMS, "stage": snapshot.Stage, "status": "fail_open",
+		"audit_failed_open": true, "failure_code": failureCode,
+	}))
+	return decision
+}
+
+func failOpenFailure(err error) (string, string) {
+	var guardErr *GuardError
+	if errors.As(err, &guardErr) {
+		if guardErr.Timeout || errors.Is(guardErr.Cause, context.DeadlineExceeded) {
+			return "timeout", "同步审核超时，已放行并进入异步补审"
+		}
+		if guardErr.HTTPStatus == 401 || guardErr.HTTPStatus == 403 {
+			return "authentication_failed", "同步审核认证失败，已放行并进入异步补审"
+		}
+		if guardErr.Code == ErrorCodeInvalidResponse {
+			return "invalid_response", "同步审核响应无效，已放行并进入异步补审"
+		}
+	}
+	return "unavailable", "同步审核节点不可用，已放行并进入异步补审"
 }
 
 func headTailRunes(value string, limit int) (string, bool) {

@@ -59,13 +59,14 @@ func TestGuardEvaluatorOrderedFailoverAndInvalidTerminal(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, DecisionAllow, decision.Kind)
 	require.Equal(t, int64(1), metrics.Snapshot().Failovers)
-	_, err = evaluator.Evaluate(context.Background(), guardConfig(
+	decision, err = evaluator.Evaluate(context.Background(), guardConfig(
 		ActiveEndpoint{ID: "invalid", Enabled: true, TimeoutMS: 1000, InputLimit: 100},
 		ActiveEndpoint{ID: "good", Enabled: true, TimeoutMS: 1000, InputLimit: 100},
 	), snapshot)
-	var guardErr *GuardError
-	require.ErrorAs(t, err, &guardErr)
-	require.Equal(t, ErrorCodeInvalidResponse, guardErr.Code)
+	require.NoError(t, err)
+	require.Equal(t, DecisionAllow, decision.Kind)
+	require.True(t, decision.AuditFailedOpen)
+	require.Equal(t, "invalid_response", decision.FailureCode)
 	snapshotMetrics := metrics.Snapshot()
 	require.Equal(t, int64(2), snapshotMetrics.Total)
 	require.Equal(t, int64(1), snapshotMetrics.Allowed)
@@ -90,8 +91,9 @@ func TestGuardEvaluatorGlobalBulkheadIsNonBlocking(t *testing.T) {
 		t.Fatal("first evaluation did not enter scanner")
 	}
 	start := time.Now()
-	_, err := evaluator.Evaluate(context.Background(), cfg, PromptSnapshot{ScanText: "two", PromptLength: 3})
-	require.Error(t, err)
+	decision, err := evaluator.Evaluate(context.Background(), cfg, PromptSnapshot{ScanText: "two", PromptLength: 3})
+	require.NoError(t, err)
+	require.True(t, decision.AuditFailedOpen)
 	require.Less(t, time.Since(start), 200*time.Millisecond)
 	require.Equal(t, int64(1), metrics.Snapshot().BulkheadFull)
 	close(release)
@@ -120,8 +122,9 @@ func TestGuardEvaluatorPerNodeBulkheadIsNonBlocking(t *testing.T) {
 		t.Fatal("first evaluation did not enter scanner")
 	}
 	started := time.Now()
-	_, err := evaluator.Evaluate(context.Background(), cfg, PromptSnapshot{ScanText: "two", PromptLength: 3})
-	require.Error(t, err)
+	decision, err := evaluator.Evaluate(context.Background(), cfg, PromptSnapshot{ScanText: "two", PromptLength: 3})
+	require.NoError(t, err)
+	require.True(t, decision.AuditFailedOpen)
 	require.Less(t, time.Since(started), 200*time.Millisecond)
 	require.GreaterOrEqual(t, metrics.Snapshot().BulkheadFull, int64(1))
 	close(release)
@@ -178,7 +181,7 @@ func TestHeadTailRunesPreservesUnicodeAndExactLimit(t *testing.T) {
 	require.Equal(t, "甲乙丙", value)
 }
 
-func TestGuardEvaluatorFlagSharedDeadlineFailClosedAndContextCancel(t *testing.T) {
+func TestGuardEvaluatorFlagSharedDeadlineFailOpenAndContextCancel(t *testing.T) {
 	t.Run("flag allows next stage", func(t *testing.T) {
 		metrics := NewAtomicMetrics()
 		evaluator := newGuardEvaluator(PromptScannerFunc(func(context.Context, ActiveEndpoint, string, []string) (*NormalizedResult, error) {
@@ -209,12 +212,14 @@ func TestGuardEvaluatorFlagSharedDeadlineFailClosedAndContextCancel(t *testing.T
 		metrics := NewAtomicMetrics()
 		evaluator := newGuardEvaluator(scanner, nil, metrics, 2, 2)
 		started := time.Now()
-		_, err := evaluator.Evaluate(context.Background(), guardConfig(
+		decision, err := evaluator.Evaluate(context.Background(), guardConfig(
 			ActiveEndpoint{ID: "first", Enabled: true, TimeoutMS: 70, InputLimit: 100},
 			ActiveEndpoint{ID: "second", Enabled: true, TimeoutMS: 500, InputLimit: 100},
 		), PromptSnapshot{ScanText: "deadline", PromptLength: 8})
 		elapsed := time.Since(started)
-		require.Error(t, err)
+		require.NoError(t, err)
+		require.True(t, decision.AuditFailedOpen)
+		require.Equal(t, "timeout", decision.FailureCode)
 		require.Equal(t, 2, calls)
 		// The bound only has to prove the failover shared the first endpoint's
 		// 70ms deadline instead of taking the second endpoint's own 500ms one.
@@ -278,11 +283,47 @@ func TestGuardEvaluatorNilResultAndScannerPanicBecomeStableFailures(t *testing.T
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			evaluator := newGuardEvaluator(tt.scan, nil, NewAtomicMetrics(), 2, 2)
-			_, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 100}), PromptSnapshot{ScanText: "input", PromptLength: 5})
-			var guardErr *GuardError
-			require.ErrorAs(t, err, &guardErr)
-			require.Equal(t, tt.code, guardErr.Code)
-			require.NotContains(t, err.Error(), "canary")
+			decision, err := evaluator.Evaluate(context.Background(), guardConfig(ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 100}), PromptSnapshot{ScanText: "input", PromptLength: 5})
+			require.NoError(t, err)
+			require.True(t, decision.AuditFailedOpen)
+			expectedFailure := "unavailable"
+			if tt.code == ErrorCodeInvalidResponse {
+				expectedFailure = "invalid_response"
+			}
+			require.Equal(t, expectedFailure, decision.FailureCode)
+			require.NotContains(t, decision.Result.ScannerEvidence["audit_unavailable"], "canary")
+		})
+	}
+}
+
+func TestGuardEvaluatorFailOpenRecordsStableExceptionOnce(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		err         error
+		failureCode string
+		reason      string
+	}{
+		{name: "authentication", err: &GuardError{Code: ErrorCodeUnavailable, HTTPStatus: 401}, failureCode: "authentication_failed", reason: "同步审核认证失败"},
+		{name: "invalid response", err: &GuardError{Code: ErrorCodeInvalidResponse}, failureCode: "invalid_response", reason: "同步审核响应无效"},
+		{name: "timeout", err: &GuardError{Code: ErrorCodeUnavailable, Timeout: true}, failureCode: "timeout", reason: "同步审核超时"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			repo := &fakeJobRepository{recordBlockingErr: errors.New("database unavailable")}
+			metrics := NewAtomicMetrics()
+			evaluator := newGuardEvaluator(PromptScannerFunc(func(context.Context, ActiveEndpoint, string, []string) (*NormalizedResult, error) {
+				return nil, test.err
+			}), repo, metrics, 2, 2)
+			decision, err := evaluator.Evaluate(context.Background(), guardConfig(
+				ActiveEndpoint{ID: "one", Enabled: true, TimeoutMS: 1000, InputLimit: 100},
+			), PromptSnapshot{ScanText: "raw-secret-canary", FullPrompt: "raw-secret-canary", PromptLength: 17})
+			require.NoError(t, err)
+			require.Equal(t, DecisionAllow, decision.Kind)
+			require.Equal(t, test.failureCode, decision.FailureCode)
+			require.Contains(t, decision.Result.ScannerEvidence["audit_unavailable"], test.reason)
+			require.NotContains(t, decision.Result.ScannerEvidence["audit_unavailable"], "canary")
+			require.Equal(t, 1, repo.recordBlockingCalls)
+			require.Empty(t, repo.recordBlockingSnapshot.ScanText)
+			require.Equal(t, int64(1), metrics.Snapshot().RecordFailed)
 		})
 	}
 }

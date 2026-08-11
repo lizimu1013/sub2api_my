@@ -54,13 +54,13 @@ func (e *Enqueuer) Enqueue(ctx context.Context, req Request) error {
 	return e.enqueueSnapshot(ctx, snapshot, cfg, baseFields)
 }
 
-func (e *Enqueuer) EnqueueFollowup(ctx context.Context, snapshot PromptSnapshot, cfg ActiveConfig) error {
+func (e *Enqueuer) EnqueueFollowup(ctx context.Context, snapshot PromptSnapshot, cfg ActiveConfig, reason string) error {
 	if e == nil || e.repo == nil || e.payload == nil {
 		return errors.New("prompt audit enqueuer unavailable")
 	}
 	baseFields := snapshotLogFields(snapshot)
 	baseFields["config_version"] = cfg.ConfigVersion
-	baseFields["enqueue_reason"] = "sync_flagged_oversize"
+	baseFields["enqueue_reason"] = reason
 	if !cfg.RiskControlEnabled || !cfg.Enabled || !cfg.IncludesGroup(snapshot.GroupID) || len(cfg.EnabledEndpoints()) == 0 {
 		LogInfo(EventEnqueueSkipped, mergeLogFields(baseFields, map[string]any{"status": "skipped", "error_code": "followup_not_active"}))
 		return nil

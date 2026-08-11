@@ -226,7 +226,7 @@ func TestConfigManagerUndecryptableTokenKeepsConfigVisibleAndRecoverable(t *test
 	require.Equal(t, int64(9), activeVersion)
 }
 
-func TestConfigManagerUndecryptableTokenStillFailsClosedForBlockingIntent(t *testing.T) {
+func TestConfigManagerUndecryptableTokenFailsOpenForBlockingIntent(t *testing.T) {
 	persisted := `{"enabled":true,"blocking_enabled":true,"config_version":9,"endpoints":[{"id":"g1","name":"Guard","protocol":"openai_compatible","base_url":"http://127.0.0.1:8080","model":"m","token_ciphertext":"undecryptable","timeout_ms":1000,"input_limit":1000,"enabled":true}]}`
 	manager := NewConfigManager(nil, staticSettingRepository{values: map[string]string{
 		SettingKeyPromptAuditConfig: persisted,
@@ -240,11 +240,11 @@ func TestConfigManagerUndecryptableTokenStillFailsClosedForBlockingIntent(t *tes
 		Protocol: "openai_chat_completions",
 		Body:     []byte(`{"messages":[{"role":"user","content":"hi"}]}`),
 	})
-	require.Error(t, err, "blocking intent with no usable endpoint must not let requests pass unaudited")
-	require.Nil(t, decision)
-	var guardErr *GuardError
-	require.ErrorAs(t, err, &guardErr)
-	require.Equal(t, ErrorCodeUnavailable, guardErr.Code)
+	require.NoError(t, err)
+	require.Equal(t, DecisionAllow, decision.Kind)
+	require.True(t, decision.AllowNextStage)
+	require.True(t, decision.AuditFailedOpen)
+	require.Equal(t, "unavailable", decision.FailureCode)
 }
 
 func TestBuildNextStoragePreserveReplaceAndClearToken(t *testing.T) {

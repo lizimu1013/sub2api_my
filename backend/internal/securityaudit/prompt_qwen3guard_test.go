@@ -264,3 +264,15 @@ func TestIssueSummariesAreDeterministicRedactedDerivedDTOs(t *testing.T) {
 		require.NotEmpty(t, summary.EvidenceHash)
 	}
 }
+
+func TestBuildIssueSummariesTreatsAuditUnavailableAsOperationalException(t *testing.T) {
+	summaries := BuildIssueSummaries(NormalizedResult{
+		Decision: EventFlag, RiskLevel: RiskLow, Action: ActionWarn,
+		Categories: []string{"audit_unavailable"}, ScannerScores: map[string]float64{},
+		ScannerEvidence: map[string]string{"audit_unavailable": "同步审核超时，已放行并进入异步补审"},
+	})
+	require.Len(t, summaries, 1)
+	require.Equal(t, "同步审核异常", summaries[0].Title)
+	require.Equal(t, "已放行", summaries[0].ActionLabel)
+	require.Equal(t, "prompt_audit_unavailable", summaries[0].Code)
+}

@@ -88,7 +88,7 @@
               <p class="mt-1 text-xs text-gray-500">{{ event.snapshot.model }} · {{ event.snapshot.protocol }} · {{ event.snapshot.stage || 'http' }}</p>
             </td>
             <td class="px-3 py-3">
-              <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="decisionClass(event.decision)">{{ formatDecisionRisk(event.decision, event.risk_level) }}</span>
+              <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="decisionClass(event.decision)">{{ formatDecisionRisk(event) }}</span>
               <p class="mt-2 max-w-48 truncate text-xs text-gray-500" :title="formatCategories(event.categories)">{{ formatCategories(event.categories) }}</p>
             </td>
             <td class="whitespace-nowrap px-3 py-3 font-mono text-sm text-gray-700 dark:text-dark-200" :title="formatConfidenceRaw(event)">{{ formatConfidence(event) }}</td>
@@ -200,12 +200,14 @@ function translateRiskLevel(riskLevel: string): string {
   return RISK_LEVELS.has(riskLevel) ? t(`admin.promptAudit.riskLevels.${riskLevel}`) : riskLevel
 }
 function translateCategory(category: string): string {
+  if (category === 'audit_unavailable') return t('admin.promptAudit.events.auditUnavailable')
   return SCANNER_CATALOG.some((scanner) => scanner.id === category)
     ? t(`admin.promptAudit.scanners.${category}`)
     : category
 }
-function formatDecisionRisk(decision: string, riskLevel: string): string {
-  return `${translateDecision(decision)} · ${translateRiskLevel(riskLevel)}`
+function formatDecisionRisk(event: PromptAuditEvent): string {
+  if (event.categories.includes('audit_unavailable')) return `${t('admin.promptAudit.events.auditUnavailable')} · ${t('admin.promptAudit.events.failOpenAllowed')}`
+  return `${translateDecision(event.decision)} · ${translateRiskLevel(event.risk_level)}`
 }
 function formatCategories(categories: string[]): string {
   if (!categories.length) return '—'
