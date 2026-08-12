@@ -38,7 +38,7 @@ export default {
       description: 'Shows the configuration currently active on the server. Unsaved draft changes do not affect these values.',
       process: 'Process status', mode: 'Effective mode', version: 'Active / expected version', workers: 'Active / total workers',
       queue: 'Active jobs / capacity', dependencies: 'Dependencies', guardMetrics: 'Synchronous Guard metrics', latest: 'Latest processing and error',
-      queueBreakdown: 'queued {queued} · processing {processing} · retry {retry} · done {done} · failed {failed}',
+      queueBreakdown: 'queued {queued} · processing {processing} · retry {retry} · done {done} · failed {failed}', nodeMetrics: 'Metrics by audit node',
       deliveryTotals: 'Total enqueued {enqueued} · dropped {dropped} · processed {processed} · failed {failed}',
     },
     metrics: { total: 'Total', allowed: 'Allowed', flagged: 'Flagged', blocked: 'Blocked', unavailable: 'Unavailable', timeouts: 'Timeouts', failovers: 'Failovers' },

@@ -6,6 +6,7 @@ import PolicyPanel from '../components/PolicyPanel.vue'
 import EventWorkspace from '../components/EventWorkspace.vue'
 import EventDetailDialog from '../components/EventDetailDialog.vue'
 import FilterDeleteDialog from '../components/FilterDeleteDialog.vue'
+import RuntimeOverview from '../components/RuntimeOverview.vue'
 import type { PromptAuditDraft, PromptAuditEndpointDraft, PromptAuditEvent, PromptEventFilters } from '../types'
 import { emptyEventFilters, resolveDeleteRangeFilters, SCANNER_CATALOG } from '../viewModel'
 
@@ -25,6 +26,37 @@ const endpoint = (): PromptAuditEndpointDraft => ({
 
 describe('Prompt Audit components', () => {
   beforeEach(() => vi.restoreAllMocks())
+
+  it('shows guard metrics separately for each configured audit node', () => {
+    const wrapper = mount(RuntimeOverview, {
+      props: {
+        loading: false,
+        error: '',
+        runtime: {
+          process_status: 'running', effective_mode: 'blocking', expected_config_version: 2, active_config_version: 2,
+          worker_total: 4, worker_active: 1, queue_capacity: 100,
+          queue: { staging: 0, queued: 0, processing: 0, retry: 0, done: 2, failed: 0, active: 0 },
+          processed_total: 2, failed_total: 0, enqueued_total: 2, dropped_total: 0,
+          database_status: 'ok', redis_status: 'ok',
+          endpoints: {
+            'guard-a': { ok: true, status: 'healthy', message: '', latency_ms: 120, http_status: 200, retryable: false, checked_at: '2026-08-12T00:00:00Z', token_applied: true },
+            'guard-b': { ok: false, status: 'failed', message: '', latency_ms: 900, http_status: 503, retryable: true, checked_at: '2026-08-12T00:00:00Z', token_applied: true },
+          },
+          guard_metrics: { total: 2, allowed: 1, flagged: 0, blocked: 0, unavailable: 1, invalid: 0, timeouts: 1, failovers: 1, bulkhead_full: 0, record_failed: 0 },
+          guard_metrics_by_endpoint: [
+            { endpoint_id: 'guard-a', name: 'Primary Guard', metrics: { total: 2, allowed: 1, flagged: 0, blocked: 0, unavailable: 1, invalid: 0, timeouts: 1, failovers: 1, bulkhead_full: 0, record_failed: 0, latency_p95_ms: 800 } },
+            { endpoint_id: 'guard-b', name: 'Fallback Guard', metrics: { total: 1, allowed: 1, flagged: 0, blocked: 0, unavailable: 0, invalid: 0, timeouts: 0, failovers: 0, bulkhead_full: 0, record_failed: 0, latency_p95_ms: 150 } },
+          ],
+        },
+      },
+    })
+    expect(wrapper.text()).toContain('Primary Guard')
+    expect(wrapper.text()).toContain('guard-a · healthy · 120 ms')
+    expect(wrapper.text()).toContain('Fallback Guard')
+    expect(wrapper.text()).toContain('guard-b · failed · 900 ms')
+    expect(wrapper.text()).toContain('800 ms')
+    expect(wrapper.text()).toContain('150 ms')
+  })
 
   it('edits a saved endpoint with blank-secret keep, explicit clear, replacement, and probe actions', async () => {
     const wrapper = mount(EndpointPool, {

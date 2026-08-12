@@ -38,7 +38,7 @@ export default {
       description: '显示服务端当前生效状态；未保存的草稿不会改变这些数值。',
       process: '进程状态', mode: '生效模式', version: '生效 / 期望版本', workers: '活动 / 总 Worker',
       queue: '活动任务 / 容量', dependencies: '依赖', guardMetrics: '同步 Guard 指标', latest: '最近处理与错误',
-      queueBreakdown: 'queued {queued} · processing {processing} · retry {retry} · done {done} · failed {failed}',
+      queueBreakdown: 'queued {queued} · processing {processing} · retry {retry} · done {done} · failed {failed}', nodeMetrics: '按审计节点',
       deliveryTotals: '累计入队 {enqueued} · 丢弃 {dropped} · 处理 {processed} · 失败 {failed}',
     },
     metrics: { total: '总计', allowed: '放行', flagged: '标记', blocked: '阻止', unavailable: '不可用', timeouts: '超时', failovers: '故障切换' },

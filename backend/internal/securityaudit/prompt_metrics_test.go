@@ -50,3 +50,21 @@ func TestAtomicMetricsConcurrentObservationIsBoundedAndRaceSafe(t *testing.T) {
 	require.LessOrEqual(t, len(metrics.latencies), latencySampleCapacity)
 	metrics.latencyMu.RUnlock()
 }
+
+func TestAtomicMetricsKeepsEndpointObservationsIsolated(t *testing.T) {
+	metrics := NewAtomicMetrics()
+	metrics.ObserveEndpoint("guard-a", DecisionUnavailable, 80*time.Millisecond)
+	metrics.IncEndpointTimeout("guard-a")
+	metrics.IncEndpointFailover("guard-a")
+	metrics.ObserveEndpoint("guard-b", DecisionAllow, 20*time.Millisecond)
+
+	snapshots := metrics.EndpointSnapshots()
+	require.Equal(t, int64(1), snapshots["guard-a"].Total)
+	require.Equal(t, int64(1), snapshots["guard-a"].Unavailable)
+	require.Equal(t, int64(1), snapshots["guard-a"].Timeouts)
+	require.Equal(t, int64(1), snapshots["guard-a"].Failovers)
+	require.Equal(t, int64(80), snapshots["guard-a"].LatencyP95MS)
+	require.Equal(t, int64(1), snapshots["guard-b"].Allowed)
+	require.Equal(t, int64(20), snapshots["guard-b"].LatencyP95MS)
+	require.Equal(t, int64(0), metrics.Snapshot().Total)
+}

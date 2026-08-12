@@ -229,6 +229,14 @@ func (s *PromptService) Runtime(ctx context.Context) RuntimeSnapshot {
 		WorkerTotal: workerTotal, QueueCapacity: queueCapacity, DatabaseStatus: "ok", RedisStatus: "ok",
 		Endpoints: s.probeSnapshot(), GuardMetrics: s.metrics.Snapshot(),
 	}
+	if hasConfig {
+		snapshots := s.metrics.EndpointSnapshots()
+		for _, endpoint := range cfg.EnabledEndpoints() {
+			runtime.GuardMetricsByEndpoint = append(runtime.GuardMetricsByEndpoint, GuardEndpointMetricsSnapshot{
+				EndpointID: endpoint.ID, Name: endpoint.Name, Metrics: snapshots[endpoint.ID],
+			})
+		}
+	}
 	if s.repo != nil {
 		stats, err := s.repo.QueueStats(ctx)
 		if err != nil {

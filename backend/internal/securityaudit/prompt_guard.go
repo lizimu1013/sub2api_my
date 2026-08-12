@@ -260,6 +260,7 @@ func logGuardFailure(snapshot PromptSnapshot, cfg ActiveConfig, kind DecisionKin
 func (g *GuardEvaluator) scanChunk(ctx context.Context, cfg ActiveConfig, endpoints []ActiveEndpoint, chunk string) (*NormalizedResult, error) {
 	var lastErr error
 	for index, endpoint := range endpoints {
+		attemptStarted := g.clock.Now()
 		semaphore := g.nodeSemaphore(endpoint.ID)
 		select {
 		case semaphore <- struct{}{}:
@@ -268,34 +269,70 @@ func (g *GuardEvaluator) scanChunk(ctx context.Context, cfg ActiveConfig, endpoi
 		default:
 			if g.metrics != nil {
 				g.metrics.IncBulkheadFull()
+				g.observeEndpointBulkhead(endpoint.ID)
 			}
 			lastErr = &GuardError{Code: ErrorCodeUnavailable, Retryable: true}
 			if index < len(endpoints)-1 && g.metrics != nil {
 				g.metrics.IncFailover()
+				g.observeEndpointFailover(endpoint.ID)
 			}
 			continue
 		}
 		result, err := callPromptScannerSafely(ctx, g.scanner, endpoint, chunk, cfg.Scanners, cfg.CustomPromptEnabled, cfg.CustomSystemPrompt, cfg.CustomPromptMaxTokens, cfg.CustomPromptFlagThreshold, cfg.CustomPromptBlockThreshold)
 		<-semaphore
 		if err == nil && result != nil {
+			g.observeEndpoint(endpoint.ID, decisionKindForResult(result), g.clock.Now().Sub(attemptStarted))
 			return result, nil
 		}
 		if err == nil {
 			err = &GuardError{Code: ErrorCodeInvalidResponse, Retryable: false}
 		}
 		lastErr = err
+		kind := DecisionUnavailable
+		if guardErrorCode(err) == ErrorCodeInvalidResponse {
+			kind = DecisionInvalid
+		}
+		g.observeEndpoint(endpoint.ID, kind, g.clock.Now().Sub(attemptStarted))
 		var guardErr *GuardError
-		if !errors.As(err, &guardErr) || !guardErr.Retryable {
+		if errors.As(err, &guardErr) && guardErr.Timeout {
+			g.observeEndpointTimeout(endpoint.ID)
+		}
+		if guardErr == nil || !guardErr.Retryable {
 			return nil, err
 		}
 		if index < len(endpoints)-1 && g.metrics != nil {
 			g.metrics.IncFailover()
+			g.observeEndpointFailover(endpoint.ID)
 		}
 	}
 	if lastErr == nil {
 		lastErr = &GuardError{Code: ErrorCodeUnavailable}
 	}
 	return nil, lastErr
+}
+
+func (g *GuardEvaluator) observeEndpoint(endpointID string, kind DecisionKind, latency time.Duration) {
+	if endpointMetrics, ok := g.metrics.(EndpointMetrics); ok {
+		endpointMetrics.ObserveEndpoint(endpointID, kind, latency)
+	}
+}
+
+func (g *GuardEvaluator) observeEndpointFailover(endpointID string) {
+	if endpointMetrics, ok := g.metrics.(EndpointMetrics); ok {
+		endpointMetrics.IncEndpointFailover(endpointID)
+	}
+}
+
+func (g *GuardEvaluator) observeEndpointBulkhead(endpointID string) {
+	if endpointMetrics, ok := g.metrics.(EndpointMetrics); ok {
+		endpointMetrics.IncEndpointBulkheadFull(endpointID)
+	}
+}
+
+func (g *GuardEvaluator) observeEndpointTimeout(endpointID string) {
+	if endpointMetrics, ok := g.metrics.(EndpointMetrics); ok {
+		endpointMetrics.IncEndpointTimeout(endpointID)
+	}
 }
 
 func callPromptScanner(ctx context.Context, scanner PromptScanner, endpoint ActiveEndpoint, chunk string, scanners []string, customPromptEnabled bool, systemPrompt string, maxTokens int, flagThreshold, blockThreshold float64) (result *NormalizedResult, err error) {

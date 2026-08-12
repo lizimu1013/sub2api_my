@@ -59,6 +59,10 @@ func TestGuardEvaluatorOrderedFailoverAndInvalidTerminal(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, DecisionAllow, decision.Kind)
 	require.Equal(t, int64(1), metrics.Snapshot().Failovers)
+	endpointMetrics := metrics.EndpointSnapshots()
+	require.Equal(t, int64(1), endpointMetrics["bad"].Unavailable)
+	require.Equal(t, int64(1), endpointMetrics["bad"].Failovers)
+	require.Equal(t, int64(1), endpointMetrics["good"].Allowed)
 	decision, err = evaluator.Evaluate(context.Background(), guardConfig(
 		ActiveEndpoint{ID: "invalid", Enabled: true, TimeoutMS: 1000, InputLimit: 100},
 		ActiveEndpoint{ID: "good", Enabled: true, TimeoutMS: 1000, InputLimit: 100},

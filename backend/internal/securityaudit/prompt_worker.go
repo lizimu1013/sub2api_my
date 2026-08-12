@@ -321,26 +321,47 @@ func (r *Runner) setLastError(code, _ string) {
 func scanWithFailover(ctx context.Context, scanner PromptScanner, cfg ActiveConfig, endpoints []ActiveEndpoint, chunk string, metrics Metrics) (*NormalizedResult, error) {
 	var lastErr error
 	for index, endpoint := range endpoints {
+		attemptStarted := time.Now()
 		result, err := callPromptScanner(ctx, scanner, endpoint, chunk, cfg.Scanners, cfg.CustomPromptEnabled, cfg.CustomSystemPrompt, cfg.CustomPromptMaxTokens, cfg.CustomPromptFlagThreshold, cfg.CustomPromptBlockThreshold)
 		if err == nil && result != nil {
+			observeEndpointMetrics(metrics, endpoint.ID, decisionKindForResult(result), time.Since(attemptStarted))
 			return result, nil
 		}
 		if err == nil {
 			err = &GuardError{Code: ErrorCodeInvalidResponse, Retryable: false}
 		}
 		lastErr = err
+		kind := DecisionUnavailable
+		if guardErrorCode(err) == ErrorCodeInvalidResponse {
+			kind = DecisionInvalid
+		}
+		observeEndpointMetrics(metrics, endpoint.ID, kind, time.Since(attemptStarted))
 		var guardErr *GuardError
-		if !errors.As(err, &guardErr) || !guardErr.Retryable {
+		if errors.As(err, &guardErr) && guardErr.Timeout {
+			if endpointMetrics, ok := metrics.(EndpointMetrics); ok {
+				endpointMetrics.IncEndpointTimeout(endpoint.ID)
+			}
+		}
+		if guardErr == nil || !guardErr.Retryable {
 			return nil, err
 		}
 		if index < len(endpoints)-1 && metrics != nil {
 			metrics.IncFailover()
+			if endpointMetrics, ok := metrics.(EndpointMetrics); ok {
+				endpointMetrics.IncEndpointFailover(endpoint.ID)
+			}
 		}
 	}
 	if lastErr == nil {
 		lastErr = &GuardError{Code: ErrorCodeUnavailable}
 	}
 	return nil, lastErr
+}
+
+func observeEndpointMetrics(metrics Metrics, endpointID string, kind DecisionKind, latency time.Duration) {
+	if endpointMetrics, ok := metrics.(EndpointMetrics); ok {
+		endpointMetrics.ObserveEndpoint(endpointID, kind, latency)
+	}
 }
 
 func retryBackoff(attempt int) time.Duration {

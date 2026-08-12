@@ -27,9 +27,15 @@ type AtomicMetrics struct {
 	latencyMu    sync.RWMutex
 	latencies    []int64
 	latencyNext  int
+	endpointMu   sync.RWMutex
+	endpoints    map[string]*AtomicMetrics
 }
 
-func NewAtomicMetrics() *AtomicMetrics { return &AtomicMetrics{} }
+func NewAtomicMetrics() *AtomicMetrics {
+	return &AtomicMetrics{endpoints: make(map[string]*AtomicMetrics)}
+}
+
+func newAtomicMetricsLeaf() *AtomicMetrics { return &AtomicMetrics{} }
 
 func (m *AtomicMetrics) Snapshot() GuardMetricsSnapshot {
 	if m == nil {
@@ -95,6 +101,60 @@ func (m *AtomicMetrics) Observe(kind DecisionKind, latency time.Duration) {
 	default:
 		m.allowed.Add(1)
 	}
+}
+
+func (m *AtomicMetrics) endpoint(id string) *AtomicMetrics {
+	if m == nil || id == "" {
+		return nil
+	}
+	m.endpointMu.Lock()
+	defer m.endpointMu.Unlock()
+	if m.endpoints == nil {
+		m.endpoints = make(map[string]*AtomicMetrics)
+	}
+	if endpoint := m.endpoints[id]; endpoint != nil {
+		return endpoint
+	}
+	endpoint := newAtomicMetricsLeaf()
+	m.endpoints[id] = endpoint
+	return endpoint
+}
+
+func (m *AtomicMetrics) ObserveEndpoint(id string, kind DecisionKind, latency time.Duration) {
+	if endpoint := m.endpoint(id); endpoint != nil {
+		endpoint.Observe(kind, latency)
+	}
+}
+
+func (m *AtomicMetrics) IncEndpointTimeout(id string) {
+	if endpoint := m.endpoint(id); endpoint != nil {
+		endpoint.IncTimeout()
+	}
+}
+
+func (m *AtomicMetrics) IncEndpointFailover(id string) {
+	if endpoint := m.endpoint(id); endpoint != nil {
+		endpoint.IncFailover()
+	}
+}
+
+func (m *AtomicMetrics) IncEndpointBulkheadFull(id string) {
+	if endpoint := m.endpoint(id); endpoint != nil {
+		endpoint.IncBulkheadFull()
+	}
+}
+
+func (m *AtomicMetrics) EndpointSnapshots() map[string]GuardMetricsSnapshot {
+	if m == nil {
+		return nil
+	}
+	m.endpointMu.RLock()
+	defer m.endpointMu.RUnlock()
+	snapshots := make(map[string]GuardMetricsSnapshot, len(m.endpoints))
+	for id, endpoint := range m.endpoints {
+		snapshots[id] = endpoint.Snapshot()
+	}
+	return snapshots
 }
 
 func percentile(sorted []int64, quantile float64) int64 {

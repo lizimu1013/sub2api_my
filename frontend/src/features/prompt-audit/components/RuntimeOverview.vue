@@ -51,6 +51,24 @@
             <span class="mx-1.5 text-gray-300 dark:text-dark-600">·</span>
             {{ t('admin.promptAudit.runtime.deliveryTotals', { enqueued: runtime.enqueued_total, dropped: runtime.dropped_total, processed: runtime.processed_total, failed: runtime.failed_total }) }}
           </p>
+          <div v-if="endpointMetricItems.length" class="mt-5 border-t border-gray-100 pt-4 dark:border-dark-700/60">
+            <h4 class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.promptAudit.runtime.nodeMetrics') }}</h4>
+            <div class="mt-3 space-y-3">
+              <div v-for="endpoint in endpointMetricItems" :key="endpoint.endpoint_id" class="rounded-lg bg-gray-50 p-3 dark:bg-dark-900/60">
+                <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-dark-300">
+                  <span class="font-medium text-gray-900 dark:text-white">{{ endpoint.name }}</span>
+                  <span>{{ endpoint.endpoint_id }}</span>
+                  <span v-if="runtime.endpoints[endpoint.endpoint_id]">· {{ runtime.endpoints[endpoint.endpoint_id].status }} · {{ runtime.endpoints[endpoint.endpoint_id].latency_ms }} ms</span>
+                </div>
+                <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div v-for="metric in endpoint.items" :key="metric.label" class="rounded-md bg-white px-2.5 py-2 dark:bg-dark-800">
+                    <p class="text-[11px] text-gray-500 dark:text-dark-400">{{ metric.label }}</p>
+                    <p class="mt-0.5 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{{ metric.value }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="rounded-xl border border-gray-100 px-4 py-3 dark:border-dark-700/60 dark:bg-dark-900/20">
           <h3 class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.promptAudit.runtime.latest') }}</h3>
@@ -107,6 +125,20 @@ const guardMetricItems = computed(() => {
     { label: 'P95', value: metrics.latency_p95_ms != null ? `${metrics.latency_p95_ms} ms` : '—' },
   ]
 })
+
+const endpointMetricItems = computed(() => (props.runtime?.guard_metrics_by_endpoint ?? []).map((endpoint) => ({
+  ...endpoint,
+  items: [
+    { label: t('admin.promptAudit.metrics.total'), value: endpoint.metrics.total },
+    { label: t('admin.promptAudit.metrics.allowed'), value: endpoint.metrics.allowed },
+    { label: t('admin.promptAudit.metrics.flagged'), value: endpoint.metrics.flagged },
+    { label: t('admin.promptAudit.metrics.blocked'), value: endpoint.metrics.blocked },
+    { label: t('admin.promptAudit.metrics.unavailable'), value: endpoint.metrics.unavailable },
+    { label: t('admin.promptAudit.metrics.timeouts'), value: endpoint.metrics.timeouts },
+    { label: t('admin.promptAudit.metrics.failovers'), value: endpoint.metrics.failovers },
+    { label: 'P95', value: endpoint.metrics.latency_p95_ms != null ? `${endpoint.metrics.latency_p95_ms} ms` : '—' },
+  ],
+})))
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value))

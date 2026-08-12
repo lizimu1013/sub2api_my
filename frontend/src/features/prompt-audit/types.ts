@@ -133,6 +133,12 @@ export interface PromptGuardMetrics {
   latency_max_ms?: number
 }
 
+export interface PromptGuardEndpointMetrics {
+  endpoint_id: string
+  name: string
+  metrics: PromptGuardMetrics
+}
+
 export interface PromptAuditRuntime {
   process_status: 'disabled' | 'running' | 'degraded' | 'error' | string
   effective_mode: PromptAuditMode
@@ -156,6 +162,7 @@ export interface PromptAuditRuntime {
   redis_status: string
   endpoints: Record<string, PromptProbeResult>
   guard_metrics: PromptGuardMetrics
+  guard_metrics_by_endpoint?: PromptGuardEndpointMetrics[]
 }
 
 export interface PromptSnapshot {
