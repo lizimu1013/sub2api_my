@@ -3,6 +3,7 @@ package securityaudit
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -179,6 +180,7 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 			r.observeAsyncFailure(scanErr, r.clock.Now().Sub(started))
 			return r.finishFailure(ctx, job, scanErr)
 		}
+		result.ChunkIndex = index + 1
 		results = append(results, result)
 		LogInfo(EventChunkCompleted, mergeLogFields(baseFields, map[string]any{"worker_id": workerID, "chunk_index": index + 1, "chunk_total": len(chunks), "guard_endpoint_id": result.GuardEndpointID, "action": result.Action, "latency_ms": r.clock.Now().Sub(chunkStarted).Milliseconds(), "status": "completed"}))
 		if result.Action == ActionBlock {
@@ -193,6 +195,11 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 		return r.finishFailure(ctx, job, &GuardError{Code: ErrorCodeInvalidResponse, Cause: err})
 	}
 	aggregated.ChunkTotal = len(chunks)
+	if cfg.CustomPromptEnabled && aggregated.Action == ActionBlock {
+		aggregated = r.reviewAsyncBlock(ctx, cfg, endpoints, scanText, chunks, aggregated)
+	}
+	aggregated.ChunkTotal = len(chunks)
+	aggregated.LatencyMS = int(r.clock.Now().Sub(started).Milliseconds())
 	if r.metrics != nil {
 		r.metrics.Observe(decisionKindForResult(aggregated), r.clock.Now().Sub(started))
 	}
@@ -213,6 +220,82 @@ func (r *Runner) processJob(ctx context.Context, workerID int, cfg ActiveConfig,
 		LogWarn(EventFindingRecorded, mergeLogFields(baseFields, map[string]any{"worker_id": workerID, "event_id": event.ID, "decision": aggregated.Decision, "risk_level": aggregated.RiskLevel, "action": aggregated.Action, "guard_endpoint_id": aggregated.GuardEndpointID, "status": "recorded"}))
 	}
 	return nil
+}
+
+const customPromptReviewSuffix = `
+
+这是一次异步复核，不是新的用户请求。请结合下面的原始内容摘要和命中分片摘要判断用户的真实意图：
+- 论文、新闻、代码、学术分析或防御性说明中描述攻击行为，但没有请求实施，不应阻断。
+- 只有确认用户正在请求实施网络攻击、逆向破解、批量滥用或其他系统提示词定义的违规行为时，才输出达到阻断阈值的 confidence。
+- 证据必须描述你实际判定的内容，不要把“合规”作为高风险证据。
+仍然只输出约定的 JSON。`
+
+func (r *Runner) reviewAsyncBlock(ctx context.Context, cfg ActiveConfig, endpoints []ActiveEndpoint, scanText string, chunks []string, initial *NormalizedResult) *NormalizedResult {
+	hitChunk := ""
+	if index := initial.ScannerEvidenceChunks["custom_prompt"]; index > 0 && index <= len(chunks) {
+		hitChunk = chunks[index-1]
+	}
+	inputLimit := minimumInputLimit(endpoints)
+	reviewInput := buildAsyncReviewInput(scanText, hitChunk, inputLimit)
+	reviewCfg := cfg
+	reviewCfg.CustomSystemPrompt = strings.TrimSpace(cfg.CustomSystemPrompt) + customPromptReviewSuffix
+	started := r.clock.Now()
+	review, err := scanWithFailover(ctx, r.scanner, reviewCfg, endpoints, reviewInput, r.metrics)
+	if err != nil {
+		r.observeAsyncFailure(err, r.clock.Now().Sub(started))
+		return asyncReviewUnavailableResult(err, initial)
+	}
+	if review == nil {
+		return asyncReviewUnavailableResult(&GuardError{Code: ErrorCodeInvalidResponse}, initial)
+	}
+	review.ChunkIndex = initial.ScannerEvidenceChunks["custom_prompt"]
+	if review.ScannerEvidenceChunks == nil {
+		review.ScannerEvidenceChunks = map[string]int{}
+	}
+	if review.ChunkIndex > 0 {
+		review.ScannerEvidenceChunks["custom_prompt"] = review.ChunkIndex
+	}
+	return review
+}
+
+func buildAsyncReviewInput(scanText, hitChunk string, inputLimit int) string {
+	if inputLimit <= 0 {
+		inputLimit = DefaultInputLimit
+	}
+	// Reserve space for labels, then apply one final bound to the complete
+	// review input because the endpoint limit applies to the whole chunk.
+	const originalLabel = "原始内容摘要：\n"
+	const hitLabel = "\n\n命中分片摘要：\n"
+	available := inputLimit - len([]rune(originalLabel+hitLabel))
+	if available < 2 {
+		value, _ := headTailRunes(originalLabel, inputLimit)
+		return value
+	}
+	hitLimit := available / 2
+	originalLimit := available - hitLimit
+	original, _ := headTailRunes(strings.ReplaceAll(scanText, promptAuditPrioritySeparator, "\n\n"), originalLimit)
+	hit, _ := headTailRunes(hitChunk, hitLimit)
+	if hit == "" {
+		value, _ := headTailRunes(originalLabel+original, inputLimit)
+		return value
+	}
+	value, _ := headTailRunes(originalLabel+original+hitLabel+hit, inputLimit)
+	return value
+}
+
+func asyncReviewUnavailableResult(err error, initial *NormalizedResult) *NormalizedResult {
+	failureCode, _ := failOpenFailure(err)
+	reason := "异步阻断复核不可用，初判未确认，已按放行处理"
+	if failureCode == "timeout" {
+		reason = "异步阻断复核超时，初判未确认，已按放行处理"
+	}
+	return &NormalizedResult{
+		Decision: EventFlag, RiskLevel: RiskLow, Action: ActionWarn, Safety: "AuditUnavailable",
+		Categories: []string{"audit_unavailable"}, MatchedScanners: []string{"audit_unavailable"},
+		ScannerScores: map[string]float64{}, ScannerEvidence: map[string]string{"audit_unavailable": reason},
+		ScannerBackend: "custom_prompt_review_fail_open", ScannerVersion: "1", PolicyID: "custom_prompt_review", PolicyVersion: 1,
+		GuardEndpointID: initial.GuardEndpointID, ChunkTotal: initial.ChunkTotal,
+	}
 }
 
 func (r *Runner) observeAsyncFailure(err error, latency time.Duration) {

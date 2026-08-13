@@ -409,6 +409,66 @@ func TestWorkerCompletesPassWithoutEventRefreshesEveryChunkAndDeletesPayload(t *
 	require.Equal(t, int64(1), metrics.Snapshot().Allowed)
 }
 
+func TestWorkerRechecksCustomPromptBlockWithBoundedContext(t *testing.T) {
+	repo := &fakeJobRepository{}
+	payload := &fakePayloadStore{values: map[int64]string{51: "academic context about an attack"}}
+	calls := 0
+	scanner := customPromptScannerFunc(func(_ context.Context, _ ActiveEndpoint, input string) (*NormalizedResult, error) {
+		calls++
+		if calls == 1 {
+			return &NormalizedResult{Decision: EventCritical, RiskLevel: RiskCritical, Action: ActionBlock,
+				ScannerScores: map[string]float64{"custom_prompt": 0.95}, ScannerEvidence: map[string]string{"custom_prompt": "攻击"}}, nil
+		}
+		require.Contains(t, input, "原始内容摘要：")
+		require.Contains(t, input, "命中分片摘要：")
+		return &NormalizedResult{Decision: EventPass, RiskLevel: RiskLow, Action: ActionAllow,
+			ScannerScores: map[string]float64{"custom_prompt": 0.10}, ScannerEvidence: map[string]string{"custom_prompt": "合规"}}, nil
+	})
+	cfg := asyncConfig()
+	cfg.CustomPromptEnabled = true
+	cfg.CustomSystemPrompt = "audit context"
+	cfg.CustomPromptFlagThreshold = 0.4
+	cfg.CustomPromptBlockThreshold = 0.7
+	cfg.Endpoints[0].InputLimit = 128
+	runner := NewRunner(&fakeConfigStore{cfg: cfg, active: true}, repo, payload, scanner, NewAtomicMetrics())
+	runner.clock = fixedClock{now: time.Unix(100, 0).UTC()}
+
+	require.NoError(t, runner.processJob(context.Background(), 0, cfg, workerJob(1, 3)))
+	require.Equal(t, 2, calls)
+	require.Equal(t, EventPass, repo.completedResult.Decision)
+	require.Equal(t, ActionAllow, repo.completedResult.Action)
+	require.Equal(t, 0.10, repo.completedResult.ScannerScores["custom_prompt"])
+	require.Equal(t, "合规", repo.completedResult.ScannerEvidence["custom_prompt"])
+}
+
+func TestWorkerFailsOpenWhenCustomPromptBlockReviewIsUnavailable(t *testing.T) {
+	repo := &fakeJobRepository{}
+	payload := &fakePayloadStore{values: map[int64]string{51: "prompt"}}
+	calls := 0
+	scanner := customPromptScannerFunc(func(context.Context, ActiveEndpoint, string) (*NormalizedResult, error) {
+		calls++
+		if calls == 1 {
+			return &NormalizedResult{Decision: EventCritical, RiskLevel: RiskCritical, Action: ActionBlock,
+				ScannerScores: map[string]float64{"custom_prompt": 0.95}, ScannerEvidence: map[string]string{"custom_prompt": "攻击"}}, nil
+		}
+		return nil, &GuardError{Code: ErrorCodeUnavailable, Retryable: false}
+	})
+	cfg := asyncConfig()
+	cfg.CustomPromptEnabled = true
+	cfg.CustomSystemPrompt = "audit context"
+	cfg.CustomPromptFlagThreshold = 0.4
+	cfg.CustomPromptBlockThreshold = 0.7
+	cfg.Endpoints[0].InputLimit = 128
+	runner := NewRunner(&fakeConfigStore{cfg: cfg, active: true}, repo, payload, scanner, NewAtomicMetrics())
+
+	require.NoError(t, runner.processJob(context.Background(), 0, cfg, workerJob(1, 3)))
+	require.Equal(t, 2, calls)
+	require.Equal(t, EventFlag, repo.completedResult.Decision)
+	require.Equal(t, ActionWarn, repo.completedResult.Action)
+	require.Empty(t, repo.completedResult.ScannerScores)
+	require.Equal(t, []string{"audit_unavailable"}, repo.completedResult.Categories)
+}
+
 func TestWorkerRetryBackoffTerminalFailureAndFailover(t *testing.T) {
 	now := time.Unix(200, 0).UTC()
 	for _, tt := range []struct {

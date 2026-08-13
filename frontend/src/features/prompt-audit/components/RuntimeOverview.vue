@@ -49,7 +49,12 @@
               failed: runtime.queue.failed,
             }) }}
             <span class="mx-1.5 text-gray-300 dark:text-dark-600">·</span>
-            {{ t('admin.promptAudit.runtime.deliveryTotals', { enqueued: runtime.enqueued_total, dropped: runtime.dropped_total, processed: runtime.processed_total, failed: runtime.failed_total }) }}
+            <template v-if="runtime.effective_mode === 'blocking'">
+              {{ t('admin.promptAudit.runtime.blockingDelivery') }}
+            </template>
+            <template v-else>
+              {{ t('admin.promptAudit.runtime.deliveryTotals', { enqueued: runtime.enqueued_total, dropped: runtime.dropped_total, processed: runtime.processed_total, failed: runtime.failed_total }) }}
+            </template>
           </p>
           <div v-if="endpointMetricItems.length" class="mt-5 border-t border-gray-100 pt-4 dark:border-dark-700/60">
             <h4 class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.promptAudit.runtime.nodeMetrics') }}</h4>

@@ -119,6 +119,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 			return g.failOpen(ctx, cfg, snapshot, err, g.clock.Now().Sub(start)), nil
 		}
 		result.ChunkTotal = len(chunks)
+		result.ChunkIndex = index + 1
 		results = append(results, result)
 		LogInfo(EventChunkCompleted, mergeLogFields(baseFields, map[string]any{
 			"chunk_index": index + 1, "chunk_total": len(chunks),

@@ -43,7 +43,7 @@ func openPromptAuditIntegrationDB(t *testing.T) *sql.DB {
 		);
 	`)
 	require.NoError(t, err)
-	for _, name := range []string{"181_prompt_audit.sql", "182_prompt_audit_full_prompt.sql", "194_prompt_audit_event_turns.sql"} {
+	for _, name := range []string{"181_prompt_audit.sql", "182_prompt_audit_full_prompt.sql", "194_prompt_audit_event_turns.sql", "195_prompt_audit_evidence_chunks.sql"} {
 		migration, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		require.NoError(t, err)
 		// The migration runner can retry an interrupted deployment; the migration

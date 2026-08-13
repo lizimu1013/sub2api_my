@@ -58,6 +58,7 @@
               <dl class="mt-2 grid gap-1 text-xs text-gray-500 dark:text-dark-400 sm:grid-cols-2">
                 <div><dt class="inline text-gray-400">{{ t('admin.promptAudit.events.categories') }} · </dt><dd class="inline">{{ translateCategory(issue.category || issue.scanner_id) }}</dd></div>
                 <div><dt class="inline text-gray-400">{{ t('admin.promptAudit.events.score') }} · </dt><dd class="inline">{{ issue.score }}</dd></div>
+                <div v-if="issue.chunk_index"><dt class="inline text-gray-400">{{ t('admin.promptAudit.events.technical.chunk') }} · </dt><dd class="inline">{{ issue.chunk_index }}</dd></div>
                 <div class="sm:col-span-2"><dt class="inline text-gray-400">{{ t('admin.promptAudit.events.evidence') }} · </dt><dd class="inline break-words">{{ issue.evidence ? translateEvidence(issue.evidence) : '—' }}</dd></div>
               </dl>
             </article>
@@ -167,6 +168,7 @@ function formatGuardReturn(event: PromptAuditEvent): string {
     matched_scanners: event.matched_scanners.map(translateCategory),
     scanner_scores: event.scanner_scores,
     scanner_evidence: evidence,
+    scanner_evidence_chunks: event.scanner_evidence_chunks,
     scanner_backend: event.scanner_backend,
     scanner_version: event.scanner_version,
     guard_endpoint_id: event.guard_endpoint_id,

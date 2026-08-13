@@ -131,22 +131,24 @@ func (s PromptSnapshot) Redacted() PromptSnapshot {
 }
 
 type NormalizedResult struct {
-	Decision          EventDecision      `json:"decision"`
-	RiskLevel         RiskLevel          `json:"risk_level"`
-	Action            Action             `json:"action"`
-	Safety            string             `json:"safety"`
-	Categories        []string           `json:"categories"`
-	MatchedScanners   []string           `json:"matched_scanners"`
-	ScannerScores     map[string]float64 `json:"scanner_scores"`
-	ScannerEvidence   map[string]string  `json:"scanner_evidence"`
-	ScannerBackend    string             `json:"scanner_backend"`
-	ScannerVersion    string             `json:"scanner_version"`
-	GuardEndpointID   string             `json:"guard_endpoint_id"`
-	PolicyID          string             `json:"policy_id"`
-	PolicyVersion     int                `json:"policy_version"`
-	ChunkTotal        int                `json:"chunk_total"`
-	LatencyMS         int                `json:"latency_ms"`
-	UnknownCategories []string           `json:"unknown_categories,omitempty"`
+	Decision              EventDecision      `json:"decision"`
+	RiskLevel             RiskLevel          `json:"risk_level"`
+	Action                Action             `json:"action"`
+	Safety                string             `json:"safety"`
+	Categories            []string           `json:"categories"`
+	MatchedScanners       []string           `json:"matched_scanners"`
+	ScannerScores         map[string]float64 `json:"scanner_scores"`
+	ScannerEvidence       map[string]string  `json:"scanner_evidence"`
+	ScannerEvidenceChunks map[string]int     `json:"scanner_evidence_chunks,omitempty"`
+	ScannerBackend        string             `json:"scanner_backend"`
+	ScannerVersion        string             `json:"scanner_version"`
+	GuardEndpointID       string             `json:"guard_endpoint_id"`
+	PolicyID              string             `json:"policy_id"`
+	PolicyVersion         int                `json:"policy_version"`
+	ChunkTotal            int                `json:"chunk_total"`
+	ChunkIndex            int                `json:"-"`
+	LatencyMS             int                `json:"latency_ms"`
+	UnknownCategories     []string           `json:"unknown_categories,omitempty"`
 }
 
 type PromptDecision struct {
@@ -195,6 +197,7 @@ type IssueSummary struct {
 	Score         float64 `json:"score"`
 	Evidence      string  `json:"evidence"`
 	EvidenceHash  string  `json:"evidence_hash"`
+	ChunkIndex    int     `json:"chunk_index,omitempty"`
 	StartRune     *int    `json:"start_rune,omitempty"`
 	EndRune       *int    `json:"end_rune,omitempty"`
 }

@@ -19,7 +19,7 @@ func BuildIssueSummaries(result NormalizedResult) []IssueSummary {
 				Category: category, ScannerID: category, Title: "同步审核异常",
 				Description: "同步审核节点不可用，当前请求已放行并进入异步补审", Severity: string(RiskLow),
 				SeverityLabel: riskLabelZH(RiskLow), Action: string(ActionWarn), ActionLabel: "已放行",
-				Code: "prompt_audit_unavailable", Evidence: evidence, EvidenceHash: hex.EncodeToString(digest[:]),
+				Code: "prompt_audit_unavailable", Evidence: evidence, EvidenceHash: hex.EncodeToString(digest[:]), ChunkIndex: result.ScannerEvidenceChunks[category],
 			})
 			continue
 		}
@@ -31,7 +31,7 @@ func BuildIssueSummaries(result NormalizedResult) []IssueSummary {
 				Description: "自定义审计提示词判定为违规", Severity: string(result.RiskLevel),
 				SeverityLabel: riskLabelZH(result.RiskLevel), Action: string(result.Action),
 				ActionLabel: actionLabelZH(result.Action), Code: "prompt_audit_custom_prompt",
-				Score: result.ScannerScores[category], Evidence: evidence, EvidenceHash: hex.EncodeToString(digest[:]),
+				Score: result.ScannerScores[category], Evidence: evidence, EvidenceHash: hex.EncodeToString(digest[:]), ChunkIndex: result.ScannerEvidenceChunks[category],
 			})
 			continue
 		}
@@ -50,7 +50,7 @@ func BuildIssueSummaries(result NormalizedResult) []IssueSummary {
 			SeverityLabel: riskLabelZH(result.RiskLevel), Action: string(result.Action),
 			ActionLabel: actionLabelZH(result.Action), Code: "prompt_audit_" + category,
 			Score: result.ScannerScores[category], Evidence: evidence,
-			EvidenceHash: hex.EncodeToString(digest[:]),
+			EvidenceHash: hex.EncodeToString(digest[:]), ChunkIndex: result.ScannerEvidenceChunks[category],
 		})
 	}
 	for _, category := range result.UnknownCategories {

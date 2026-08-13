@@ -33,7 +33,7 @@ func AggregateResults(results []*NormalizedResult, latency time.Duration) (*Norm
 	aggregated := &NormalizedResult{
 		Decision: EventPass, RiskLevel: RiskLow, Action: ActionAllow,
 		ScannerBackend: "qwen3guard-openai", Categories: []string{}, MatchedScanners: []string{},
-		ScannerScores: map[string]float64{}, ScannerEvidence: map[string]string{}, ChunkTotal: len(results),
+		ScannerScores: map[string]float64{}, ScannerEvidence: map[string]string{}, ScannerEvidenceChunks: map[string]int{}, ChunkTotal: len(results),
 		LatencyMS: int(latency.Milliseconds()),
 	}
 	categories := map[string]struct{}{}
@@ -73,13 +73,27 @@ func AggregateResults(results []*NormalizedResult, latency time.Duration) (*Norm
 		}
 		for scanner, score := range result.ScannerScores {
 			current, exists := aggregated.ScannerScores[scanner]
-			if !exists || score > current {
-				aggregated.ScannerScores[scanner] = score
+			if exists && score <= current {
+				continue
+			}
+			aggregated.ScannerScores[scanner] = score
+			if evidence, ok := result.ScannerEvidence[scanner]; ok {
+				aggregated.ScannerEvidence[scanner] = RedactPreview(evidence, 160)
+				aggregated.ScannerEvidenceChunks[scanner] = evidenceChunkIndex(result, scanner)
+			} else {
+				// Do not leave evidence from a lower-scoring chunk beside the
+				// score that won aggregation.
+				delete(aggregated.ScannerEvidence, scanner)
+				delete(aggregated.ScannerEvidenceChunks, scanner)
 			}
 		}
 		for scanner, evidence := range result.ScannerEvidence {
+			if _, hasScore := result.ScannerScores[scanner]; hasScore {
+				continue
+			}
 			if _, exists := aggregated.ScannerEvidence[scanner]; !exists {
 				aggregated.ScannerEvidence[scanner] = RedactPreview(evidence, 160)
+				aggregated.ScannerEvidenceChunks[scanner] = evidenceChunkIndex(result, scanner)
 			}
 		}
 		for _, category := range result.UnknownCategories {
@@ -89,7 +103,20 @@ func AggregateResults(results []*NormalizedResult, latency time.Duration) (*Norm
 	aggregated.Categories = orderedScannerKeys(categories)
 	aggregated.MatchedScanners = orderedScannerKeys(matched)
 	aggregated.UnknownCategories = sortedKeys(unknown)
+	if len(aggregated.ScannerEvidenceChunks) == 0 {
+		aggregated.ScannerEvidenceChunks = map[string]int{}
+	}
 	return aggregated, nil
+}
+
+func evidenceChunkIndex(result *NormalizedResult, scanner string) int {
+	if result == nil {
+		return 0
+	}
+	if index, ok := result.ScannerEvidenceChunks[scanner]; ok {
+		return index
+	}
+	return result.ChunkIndex
 }
 
 func resultSeverity(decision EventDecision) int {

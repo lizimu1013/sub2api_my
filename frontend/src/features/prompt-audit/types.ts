@@ -201,6 +201,7 @@ export interface PromptIssueSummary {
   score: number
   evidence: string
   evidence_hash: string
+  chunk_index?: number
   start_rune?: number
   end_rune?: number
 }
@@ -217,6 +218,7 @@ export interface PromptAuditEvent {
   scanner_scores: Record<string, number>
   confidence?: number
   scanner_evidence: Record<string, string>
+  scanner_evidence_chunks?: Record<string, number>
   scanner_backend: string
   scanner_version: string
   guard_endpoint_id: string

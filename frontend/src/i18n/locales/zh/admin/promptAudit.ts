@@ -40,6 +40,7 @@ export default {
       queue: '活动任务 / 容量', dependencies: '依赖', guardMetrics: '同步 Guard 指标', latest: '最近处理与错误',
       queueBreakdown: 'queued {queued} · processing {processing} · retry {retry} · done {done} · failed {failed}', nodeMetrics: '按审计节点',
       deliveryTotals: '累计入队 {enqueued} · 丢弃 {dropped} · 处理 {processed} · 失败 {failed}',
+      blockingDelivery: '当前为同步审核模式：请求直接等待 Guard 判定，不进入异步队列。',
     },
     metrics: { total: '总计', allowed: '放行', flagged: '标记', blocked: '阻止', unavailable: '不可用', timeouts: '超时', failovers: '故障切换' },
     pool: {
@@ -87,7 +88,7 @@ export default {
       requestId: 'Request ID', promptHash: 'Prompt SHA-256',
       technical: {
         scanner: '扫描器', policy: '策略', guardEndpoint: 'Guard 节点', config: '配置版本',
-        chunks: '分片数', latency: '耗时', protocol: '协议',
+        chunks: '分片数', chunk: '命中分片', latency: '耗时', protocol: '协议',
       },
       deleteConfirmTitle: '删除审计事件？', deleteConfirmMessage: '将永久删除 {count} 条事件及符合条件的孤立任务。', filterDeleteCount: '服务端快照匹配 {count} 条事件。', snapshotMax: '快照最大事件 ID', expiresAt: '确认令牌过期时间', filterDeleteWarning: '只删除预览高水位内的事件；预览后产生的新事件会保留。筛选一旦变化，必须重新预览。', confirmFilterDelete: '确认永久删除',
     },

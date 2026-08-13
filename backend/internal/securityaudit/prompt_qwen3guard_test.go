@@ -229,19 +229,22 @@ func TestAggregateRequiresEveryResult(t *testing.T) {
 
 func TestAggregateDeduplicatesFactsAndUsesMostSevereEndpointMetadata(t *testing.T) {
 	result, err := AggregateResults([]*NormalizedResult{
-		{Decision: EventPass, RiskLevel: RiskLow, Action: ActionAllow, Safety: "Safe", Categories: []string{"pii"}, MatchedScanners: []string{"pii"}, ScannerScores: map[string]float64{"pii": 0, "custom_prompt": 0}, ScannerEvidence: map[string]string{"pii": "first"}, GuardEndpointID: "safe-node", ScannerVersion: "safe-version", PolicyID: "priority", PolicyVersion: 1},
-		{Decision: EventCritical, RiskLevel: RiskCritical, Action: ActionBlock, Safety: "Unsafe", Categories: []string{"pii", "jailbreak"}, MatchedScanners: []string{"pii", "jailbreak"}, ScannerScores: map[string]float64{"pii": 1, "jailbreak": 1}, ScannerEvidence: map[string]string{"pii": "second", "jailbreak": "blocked"}, GuardEndpointID: "block-node", ScannerVersion: "block-version", PolicyID: "priority", PolicyVersion: 2},
+		{ChunkIndex: 1, Decision: EventPass, RiskLevel: RiskLow, Action: ActionAllow, Safety: "Safe", Categories: []string{"pii"}, MatchedScanners: []string{"pii"}, ScannerScores: map[string]float64{"pii": 0.05, "custom_prompt": 0.05}, ScannerEvidence: map[string]string{"pii": "合规", "custom_prompt": "合规"}, GuardEndpointID: "safe-node", ScannerVersion: "safe-version", PolicyID: "priority", PolicyVersion: 1},
+		{ChunkIndex: 4, Decision: EventCritical, RiskLevel: RiskCritical, Action: ActionBlock, Safety: "Unsafe", Categories: []string{"pii", "jailbreak"}, MatchedScanners: []string{"pii", "jailbreak"}, ScannerScores: map[string]float64{"pii": 0.95, "jailbreak": 1}, ScannerEvidence: map[string]string{"pii": "攻击", "jailbreak": "blocked"}, GuardEndpointID: "block-node", ScannerVersion: "block-version", PolicyID: "priority", PolicyVersion: 2},
 	}, 7*time.Millisecond)
 	require.NoError(t, err)
 	require.Equal(t, []string{"pii", "jailbreak"}, result.Categories)
 	require.Equal(t, []string{"pii", "jailbreak"}, result.MatchedScanners)
-	require.Equal(t, "first", result.ScannerEvidence["pii"], "evidence is deterministically first-seen")
+	require.Equal(t, "攻击", result.ScannerEvidence["pii"], "evidence follows the highest score")
+	require.Equal(t, 4, result.ScannerEvidenceChunks["pii"])
+	require.Equal(t, "合规", result.ScannerEvidence["custom_prompt"], "highest score evidence is deterministic when no later score wins")
+	require.Equal(t, 1, result.ScannerEvidenceChunks["custom_prompt"])
 	require.Equal(t, "block-node", result.GuardEndpointID)
 	require.Equal(t, "block-version", result.ScannerVersion)
 	require.Equal(t, 2, result.PolicyVersion)
 	require.Equal(t, 7, result.LatencyMS)
 	require.Contains(t, result.ScannerScores, "custom_prompt")
-	require.Zero(t, result.ScannerScores["custom_prompt"])
+	require.Equal(t, 0.05, result.ScannerScores["custom_prompt"])
 }
 
 func TestIssueSummariesAreDeterministicRedactedDerivedDTOs(t *testing.T) {

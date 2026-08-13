@@ -40,6 +40,7 @@ export default {
       queue: 'Active jobs / capacity', dependencies: 'Dependencies', guardMetrics: 'Synchronous Guard metrics', latest: 'Latest processing and error',
       queueBreakdown: 'queued {queued} · processing {processing} · retry {retry} · done {done} · failed {failed}', nodeMetrics: 'Metrics by audit node',
       deliveryTotals: 'Total enqueued {enqueued} · dropped {dropped} · processed {processed} · failed {failed}',
+      blockingDelivery: 'Synchronous audit mode is active: requests wait for Guard directly and do not enter the async queue.',
     },
     metrics: { total: 'Total', allowed: 'Allowed', flagged: 'Flagged', blocked: 'Blocked', unavailable: 'Unavailable', timeouts: 'Timeouts', failovers: 'Failovers' },
     pool: {
@@ -87,7 +88,7 @@ export default {
       requestId: 'Request ID', promptHash: 'Prompt SHA-256',
       technical: {
         scanner: 'Scanner', policy: 'Policy', guardEndpoint: 'Guard endpoint', config: 'Config',
-        chunks: 'Chunks', latency: 'Latency', protocol: 'Protocol',
+        chunks: 'Chunks', chunk: 'Matched chunk', latency: 'Latency', protocol: 'Protocol',
       },
       deleteConfirmTitle: 'Delete audit events?', deleteConfirmMessage: 'This permanently deletes {count} events and eligible orphan jobs.', filterDeleteCount: 'The server snapshot matches {count} events.', snapshotMax: 'Snapshot maximum event ID', expiresAt: 'Confirmation token expires', filterDeleteWarning: 'Only events at or below the preview high-water mark are deleted. Newer events survive. Any filter change requires a new preview.', confirmFilterDelete: 'Permanently delete',
     },
