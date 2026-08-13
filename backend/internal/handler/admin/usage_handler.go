@@ -172,6 +172,16 @@ func (h *UsageHandler) List(c *gin.Context) {
 		billingType = &bt
 	}
 
+	var upstreamModelMismatch *bool
+	if raw := strings.TrimSpace(c.Query("upstream_model_mismatch")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.BadRequest(c, "Invalid upstream_model_mismatch value, use true or false")
+			return
+		}
+		upstreamModelMismatch = &value
+	}
+
 	// Parse date range
 	var startTime, endTime *time.Time
 	userTZ := c.Query("timezone") // Get user's timezone from request
@@ -202,21 +212,22 @@ func (h *UsageHandler) List(c *gin.Context) {
 		SortOrder: c.DefaultQuery("sort_order", "desc"),
 	}
 	filters := usagestats.UsageLogFilters{
-		UserID:            userID,
-		APIKeyID:          apiKeyID,
-		AccountID:         accountID,
-		GroupID:           groupID,
-		RequestID:         requestID,
-		Model:             model,
-		IPAddress:         ipAddress,
-		ModelFilterSource: usagestats.ModelSourceRequested,
-		RequestType:       requestType,
-		Stream:            stream,
-		BillingType:       billingType,
-		BillingMode:       billingMode,
-		StartTime:         startTime,
-		EndTime:           endTime,
-		ExactTotal:        exactTotal,
+		UserID:                userID,
+		APIKeyID:              apiKeyID,
+		AccountID:             accountID,
+		GroupID:               groupID,
+		RequestID:             requestID,
+		Model:                 model,
+		IPAddress:             ipAddress,
+		ModelFilterSource:     usagestats.ModelSourceRequested,
+		RequestType:           requestType,
+		Stream:                stream,
+		BillingType:           billingType,
+		BillingMode:           billingMode,
+		UpstreamModelMismatch: upstreamModelMismatch,
+		StartTime:             startTime,
+		EndTime:               endTime,
+		ExactTotal:            exactTotal,
 	}
 
 	records, result, err := h.usageService.ListWithFilters(c.Request.Context(), params, filters)
@@ -310,6 +321,16 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		billingType = &bt
 	}
 
+	var upstreamModelMismatch *bool
+	if raw := strings.TrimSpace(c.Query("upstream_model_mismatch")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.BadRequest(c, "Invalid upstream_model_mismatch value, use true or false")
+			return
+		}
+		upstreamModelMismatch = &value
+	}
+
 	// Parse date range
 	userTZ := c.Query("timezone")
 	now := timezone.NowInUserLocation(userTZ)
@@ -349,19 +370,20 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 
 	// Build filters and call GetStatsWithFilters
 	filters := usagestats.UsageLogFilters{
-		UserID:            userID,
-		APIKeyID:          apiKeyID,
-		AccountID:         accountID,
-		GroupID:           groupID,
-		Model:             model,
-		IPAddress:         ipAddress,
-		ModelFilterSource: usagestats.ModelSourceRequested,
-		RequestType:       requestType,
-		Stream:            stream,
-		BillingType:       billingType,
-		BillingMode:       billingMode,
-		StartTime:         &startTime,
-		EndTime:           &endTime,
+		UserID:                userID,
+		APIKeyID:              apiKeyID,
+		AccountID:             accountID,
+		GroupID:               groupID,
+		Model:                 model,
+		IPAddress:             ipAddress,
+		ModelFilterSource:     usagestats.ModelSourceRequested,
+		RequestType:           requestType,
+		Stream:                stream,
+		BillingType:           billingType,
+		BillingMode:           billingMode,
+		UpstreamModelMismatch: upstreamModelMismatch,
+		StartTime:             &startTime,
+		EndTime:               &endTime,
 	}
 
 	var stats *usagestats.UsageStats
@@ -451,37 +473,17 @@ func (h *UsageHandler) AccountLatencyTrend(c *gin.Context) {
 
 func parseUsageAccountLatencyFilters(c *gin.Context) (usagestats.UsageLogFilters, bool) {
 	var userID, apiKeyID, accountID, groupID int64
-	if userIDStr := c.Query("user_id"); userIDStr != "" {
-		id, err := strconv.ParseInt(userIDStr, 10, 64)
-		if err != nil {
-			response.BadRequest(c, "Invalid user_id")
-			return usagestats.UsageLogFilters{}, false
+	for name, target := range map[string]*int64{
+		"user_id": &userID, "api_key_id": &apiKeyID, "account_id": &accountID, "group_id": &groupID,
+	} {
+		if raw := c.Query(name); raw != "" {
+			id, err := strconv.ParseInt(raw, 10, 64)
+			if err != nil {
+				response.BadRequest(c, "Invalid "+name)
+				return usagestats.UsageLogFilters{}, false
+			}
+			*target = id
 		}
-		userID = id
-	}
-	if apiKeyIDStr := c.Query("api_key_id"); apiKeyIDStr != "" {
-		id, err := strconv.ParseInt(apiKeyIDStr, 10, 64)
-		if err != nil {
-			response.BadRequest(c, "Invalid api_key_id")
-			return usagestats.UsageLogFilters{}, false
-		}
-		apiKeyID = id
-	}
-	if accountIDStr := c.Query("account_id"); accountIDStr != "" {
-		id, err := strconv.ParseInt(accountIDStr, 10, 64)
-		if err != nil {
-			response.BadRequest(c, "Invalid account_id")
-			return usagestats.UsageLogFilters{}, false
-		}
-		accountID = id
-	}
-	if groupIDStr := c.Query("group_id"); groupIDStr != "" {
-		id, err := strconv.ParseInt(groupIDStr, 10, 64)
-		if err != nil {
-			response.BadRequest(c, "Invalid group_id")
-			return usagestats.UsageLogFilters{}, false
-		}
-		groupID = id
 	}
 
 	ipAddress, ok := parseUsageIPAddressFilter(c)
@@ -491,57 +493,62 @@ func parseUsageAccountLatencyFilters(c *gin.Context) (usagestats.UsageLogFilters
 
 	var requestType *int16
 	var stream *bool
-	if requestTypeStr := strings.TrimSpace(c.Query("request_type")); requestTypeStr != "" {
-		parsed, err := service.ParseUsageRequestType(requestTypeStr)
+	if raw := strings.TrimSpace(c.Query("request_type")); raw != "" {
+		parsed, err := service.ParseUsageRequestType(raw)
 		if err != nil {
 			response.BadRequest(c, err.Error())
 			return usagestats.UsageLogFilters{}, false
 		}
 		value := int16(parsed)
 		requestType = &value
-	} else if streamStr := c.Query("stream"); streamStr != "" {
-		val, err := strconv.ParseBool(streamStr)
+	} else if raw := c.Query("stream"); raw != "" {
+		value, err := strconv.ParseBool(raw)
 		if err != nil {
 			response.BadRequest(c, "Invalid stream value, use true or false")
 			return usagestats.UsageLogFilters{}, false
 		}
-		stream = &val
+		stream = &value
 	}
 
 	var billingType *int8
-	if billingTypeStr := c.Query("billing_type"); billingTypeStr != "" {
-		val, err := strconv.ParseInt(billingTypeStr, 10, 8)
+	if raw := c.Query("billing_type"); raw != "" {
+		value, err := strconv.ParseInt(raw, 10, 8)
 		if err != nil {
 			response.BadRequest(c, "Invalid billing_type")
 			return usagestats.UsageLogFilters{}, false
 		}
-		bt := int8(val)
-		billingType = &bt
+		parsed := int8(value)
+		billingType = &parsed
+	}
+
+	var upstreamModelMismatch *bool
+	if raw := strings.TrimSpace(c.Query("upstream_model_mismatch")); raw != "" {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			response.BadRequest(c, "Invalid upstream_model_mismatch value, use true or false")
+			return usagestats.UsageLogFilters{}, false
+		}
+		upstreamModelMismatch = &value
 	}
 
 	userTZ := c.Query("timezone")
 	now := timezone.NowInUserLocation(userTZ)
 	var startTime, endTime time.Time
-	startDateStr := c.Query("start_date")
-	endDateStr := c.Query("end_date")
-	if startDateStr != "" && endDateStr != "" {
+	if startDate, endDate := c.Query("start_date"), c.Query("end_date"); startDate != "" && endDate != "" {
 		var err error
-		startTime, err = timezone.ParseInUserLocation("2006-01-02", startDateStr, userTZ)
+		startTime, err = timezone.ParseInUserLocation("2006-01-02", startDate, userTZ)
 		if err != nil {
 			response.BadRequest(c, "Invalid start_date format, use YYYY-MM-DD")
 			return usagestats.UsageLogFilters{}, false
 		}
-		endTime, err = timezone.ParseInUserLocation("2006-01-02", endDateStr, userTZ)
+		endTime, err = timezone.ParseInUserLocation("2006-01-02", endDate, userTZ)
 		if err != nil {
 			response.BadRequest(c, "Invalid end_date format, use YYYY-MM-DD")
 			return usagestats.UsageLogFilters{}, false
 		}
 		endTime = endTime.AddDate(0, 0, 1)
 	} else {
-		period := c.DefaultQuery("period", "today")
-		switch period {
-		case "today":
-			startTime = timezone.StartOfDayInUserLocation(now, userTZ)
+		switch c.DefaultQuery("period", "today") {
 		case "week":
 			startTime = now.AddDate(0, 0, -7)
 		case "month":
@@ -553,18 +560,10 @@ func parseUsageAccountLatencyFilters(c *gin.Context) (usagestats.UsageLogFilters
 	}
 
 	return usagestats.UsageLogFilters{
-		UserID:      userID,
-		APIKeyID:    apiKeyID,
-		AccountID:   accountID,
-		GroupID:     groupID,
-		Model:       c.Query("model"),
-		IPAddress:   ipAddress,
-		RequestType: requestType,
-		Stream:      stream,
-		BillingType: billingType,
-		BillingMode: strings.TrimSpace(c.Query("billing_mode")),
-		StartTime:   &startTime,
-		EndTime:     &endTime,
+		UserID: userID, APIKeyID: apiKeyID, AccountID: accountID, GroupID: groupID,
+		Model: c.Query("model"), IPAddress: ipAddress, RequestType: requestType, Stream: stream,
+		BillingType: billingType, BillingMode: strings.TrimSpace(c.Query("billing_mode")),
+		UpstreamModelMismatch: upstreamModelMismatch, StartTime: &startTime, EndTime: &endTime,
 	}, true
 }
 

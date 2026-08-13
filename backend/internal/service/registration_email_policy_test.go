@@ -75,3 +75,31 @@ func TestIsRegistrationIPBlocked(t *testing.T) {
 	require.False(t, IsRegistrationIPBlocked("203.0.113.8", blacklist))
 	require.False(t, IsRegistrationIPBlocked("not-an-ip", blacklist))
 }
+
+func TestRegistrationEmailQuotaRejectsMalformedDomainWhenWhitelistConfigured(t *testing.T) {
+	repo := &userRepoStub{}
+	svc := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled:                 "true",
+		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
+		SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
+	}, nil, nil)
+
+	_, _, err := svc.Register(context.Background(), "malformed-email", "password")
+
+	require.ErrorIs(t, err, ErrEmailSuffixNotAllowed)
+	require.Empty(t, repo.created)
+}
+
+func TestIsRegistrationEmailSuffixLimited(t *testing.T) {
+	require.False(t, IsRegistrationEmailSuffixLimited("user@custom.example", nil))
+	require.False(t, IsRegistrationEmailSuffixLimited("user@example.com", []string{"@example.com"}))
+	require.True(t, IsRegistrationEmailSuffixLimited("user@custom.example", []string{"@example.com"}))
+}
+
+func TestRegistrationEmailDomainUsesRegistrableDomain(t *testing.T) {
+	require.Equal(t, "abc.com", RegistrationEmailDomain("user@abc.com"))
+	require.Equal(t, "abc.com", RegistrationEmailDomain("user@abcd.abc.com"))
+	require.Equal(t, "example.co.uk", RegistrationEmailDomain("user@team.example.co.uk"))
+	require.Equal(t, "example.com", RegistrationEmailDomain("user@example.com."))
+	require.Equal(t, "example.com", RegistrationEmailDomain("user@team.example.com."))
+}
