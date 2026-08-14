@@ -209,6 +209,7 @@ export interface PromptIssueSummary {
 export interface PromptAuditEvent {
   id: number
   job_id: number
+  execution_mode: PromptAuditMode | string
   snapshot: PromptSnapshot
   decision: PromptDecision
   risk_level: PromptRiskLevel
@@ -234,6 +235,7 @@ export interface PromptAuditEvent {
 export interface PromptEventFilters {
   decision: string
   risk_level: string
+  execution_mode: string
   endpoint: string
   group_id: string
   user_id: string

@@ -219,6 +219,18 @@ func TestPromptAdminRejectsInvalidEventIDsTimesAndPagination(t *testing.T) {
 	}
 }
 
+func TestPromptAdminPassesExecutionModeEventFilter(t *testing.T) {
+	service := &fakePromptAdminService{list: func(_ context.Context, filter EventFilter, page, pageSize int) (*EventPage, error) {
+		require.Equal(t, string(ModeBlocking), filter.ExecutionMode)
+		require.Equal(t, 2, page)
+		require.Equal(t, 10, pageSize)
+		return &EventPage{Items: []*Event{}, Page: page, PageSize: pageSize}, nil
+	}}
+	response := promptAdminRequest(t, promptAdminRouter(service), http.MethodGet,
+		"/admin/prompt-audit/events?execution_mode=blocking&page=2&page_size=10", nil)
+	require.Equal(t, http.StatusOK, response.Code)
+}
+
 func validHandlerUpdateRequest(token string) UpdateConfigRequest {
 	return UpdateConfigRequest{
 		ExpectedConfigVersion: 7,

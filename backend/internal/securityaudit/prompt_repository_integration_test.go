@@ -310,16 +310,18 @@ func TestPromptAuditRepositoryForeignKeysFiltersAndStableIdentitySnapshots(t *te
 	event, err := repo.RecordBlocking(ctx, snapshot, 7, integrationResult(EventCritical), true)
 	require.NoError(t, err)
 	require.NotNil(t, event)
+	require.Equal(t, ModeBlocking, event.ExecutionMode)
 
 	start, end := time.Now().Add(-time.Hour), time.Now().Add(time.Hour)
 	page, err := repo.ListEvents(ctx, EventFilter{
-		Decision: string(EventCritical), RiskLevel: string(RiskCritical), Endpoint: snapshot.Endpoint,
+		Decision: string(EventCritical), RiskLevel: string(RiskCritical), ExecutionMode: string(ModeBlocking), Endpoint: snapshot.Endpoint,
 		GroupID: &groupID, UserID: &userID, APIKeyID: &apiKeyID, RequestID: snapshot.RequestID,
 		PromptHash: snapshot.PromptHash, Keyword: snapshot.UsernameSnapshot, StartAt: &start, EndAt: &end,
 	}, 1, 10)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), page.Total)
 	require.Len(t, page.Items, 1)
+	require.Equal(t, ModeBlocking, page.Items[0].ExecutionMode)
 	require.NotEmpty(t, page.Items[0].IssueSummaries)
 	require.Equal(t, snapshot.UsernameSnapshot, page.Items[0].Snapshot.UsernameSnapshot)
 	require.Equal(t, snapshot.UserEmailSnapshot, page.Items[0].Snapshot.UserEmailSnapshot)
@@ -339,6 +341,7 @@ func TestPromptAuditRepositoryForeignKeysFiltersAndStableIdentitySnapshots(t *te
 	require.Equal(t, snapshot.UsernameSnapshot, stored.Snapshot.UsernameSnapshot)
 	require.Equal(t, snapshot.UserEmailSnapshot, stored.Snapshot.UserEmailSnapshot)
 	require.Equal(t, snapshot.APIKeyNameSnapshot, stored.Snapshot.APIKeyNameSnapshot)
+	require.Equal(t, ModeBlocking, stored.ExecutionMode)
 
 	_, err = db.Exec(`DELETE FROM prompt_audit_jobs WHERE id=$1`, event.JobID)
 	require.NoError(t, err)

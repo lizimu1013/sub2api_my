@@ -35,6 +35,14 @@
           <option value="critical">{{ t('admin.promptAudit.riskLevels.critical') }}</option>
         </select>
       </label>
+      <label class="text-xs text-gray-600 dark:text-dark-200">
+        <span>{{ t('admin.promptAudit.events.executionMode') }}</span>
+        <select v-model="localFilters.execution_mode" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.executionMode')" @change="filtersChanged">
+          <option value="">{{ t('common.all') }}</option>
+          <option value="blocking">{{ t('admin.promptAudit.events.executionModes.blocking') }}</option>
+          <option value="async_audit">{{ t('admin.promptAudit.events.executionModes.async_audit') }}</option>
+        </select>
+      </label>
       <FilterInput v-model="localFilters.endpoint" :label="t('admin.promptAudit.events.endpoint')" @change="filtersChanged" />
       <FilterInput v-model="localFilters.group_id" :label="t('admin.promptAudit.events.groupId')" type="number" @change="filtersChanged" />
       <FilterInput v-model="localFilters.user_id" :label="t('admin.promptAudit.events.userId')" type="number" @change="filtersChanged" />
@@ -57,11 +65,12 @@
     </form>
     <div v-if="error" role="alert" class="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{{ error }}</div>
     <div class="mt-5 overflow-x-auto rounded-xl border border-gray-200 dark:border-dark-700/60">
-      <table class="min-w-[1120px] w-full text-left text-sm">
+      <table class="min-w-[1220px] w-full text-left text-sm">
         <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-dark-900/70 dark:text-dark-400">
           <tr>
             <th class="w-10 px-3 py-3"><input type="checkbox" :checked="allSelected" :aria-label="t('admin.promptAudit.events.selectAll')" @change="toggleAll" /></th>
             <th class="px-3 py-3 font-medium">{{ t('admin.promptAudit.events.time') }}</th>
+            <th class="px-3 py-3 font-medium">{{ t('admin.promptAudit.events.executionMode') }}</th>
             <th class="px-3 py-3 font-medium">{{ t('admin.promptAudit.events.identity') }}</th>
             <th class="px-3 py-3 font-medium">{{ t('admin.promptAudit.events.group') }}</th>
             <th class="px-3 py-3 font-medium">{{ t('admin.promptAudit.events.route') }}</th>
@@ -72,11 +81,14 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 bg-white dark:divide-dark-700 dark:bg-transparent">
-          <tr v-if="loading"><td colspan="9" class="px-4 py-12 text-center text-gray-500" aria-busy="true">{{ t('common.loading') }}</td></tr>
-          <tr v-else-if="events.length === 0"><td colspan="9" class="px-4 py-12 text-center text-gray-500">{{ t('admin.promptAudit.events.empty') }}</td></tr>
+          <tr v-if="loading"><td colspan="10" class="px-4 py-12 text-center text-gray-500" aria-busy="true">{{ t('common.loading') }}</td></tr>
+          <tr v-else-if="events.length === 0"><td colspan="10" class="px-4 py-12 text-center text-gray-500">{{ t('admin.promptAudit.events.empty') }}</td></tr>
           <tr v-for="event in events" v-else :key="event.id" :data-test="`event-${event.id}`" class="align-top hover:bg-gray-50/70 dark:hover:bg-dark-800/70">
             <td class="px-3 py-3"><input type="checkbox" :checked="selectedIds.includes(event.id)" :aria-label="t('admin.promptAudit.events.selectEvent', { id: event.id })" @change="toggleOne(event.id)" /></td>
             <td class="whitespace-nowrap px-3 py-3 text-xs text-gray-600 dark:text-dark-300">{{ formatDate(event.created_at) }}</td>
+            <td class="whitespace-nowrap px-3 py-3">
+              <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="executionModeClass(event.execution_mode)" data-test="event-execution-mode">{{ formatExecutionMode(event.execution_mode) }}</span>
+            </td>
             <td class="px-3 py-3">
               <CopyLine :label="t('admin.promptAudit.events.user')" :value="event.snapshot.username" />
               <CopyLine :label="t('admin.promptAudit.events.email')" :value="event.snapshot.user_email" />
@@ -189,6 +201,15 @@ function decisionClass(decision: string): string {
   if (decision === 'critical') return 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300'
   if (decision === 'flag') return 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
   return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+}
+function executionModeClass(mode: string): string {
+  if (mode === 'blocking') return 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+  if (mode === 'async_audit') return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300'
+  return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-dark-300'
+}
+function formatExecutionMode(mode: string): string {
+  if (mode === 'blocking' || mode === 'async_audit') return t(`admin.promptAudit.events.executionModes.${mode}`)
+  return t('admin.promptAudit.events.executionModes.unknown')
 }
 const DECISIONS = new Set(['pass', 'flag', 'critical'])
 const RISK_LEVELS = new Set(['low', 'medium', 'high', 'critical'])

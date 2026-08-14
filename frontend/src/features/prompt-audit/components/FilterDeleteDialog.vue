@@ -31,7 +31,7 @@
         </div>
       </fieldset>
 
-      <div class="grid gap-3 sm:grid-cols-2">
+      <div class="grid gap-3 sm:grid-cols-3">
         <label class="text-xs text-gray-600 dark:text-dark-200">
           <span>{{ t('admin.promptAudit.events.decision') }}</span>
           <select v-model="local.decision" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.decision')" data-test="delete-decision" @change="criteriaChanged">
@@ -49,6 +49,14 @@
             <option value="medium">{{ t('admin.promptAudit.riskLevels.medium') }}</option>
             <option value="high">{{ t('admin.promptAudit.riskLevels.high') }}</option>
             <option value="critical">{{ t('admin.promptAudit.riskLevels.critical') }}</option>
+          </select>
+        </label>
+        <label class="text-xs text-gray-600 dark:text-dark-200">
+          <span>{{ t('admin.promptAudit.events.executionMode') }}</span>
+          <select v-model="local.execution_mode" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.executionMode')" data-test="delete-execution-mode" @change="criteriaChanged">
+            <option value="">{{ t('common.all') }}</option>
+            <option value="blocking">{{ t('admin.promptAudit.events.executionModes.blocking') }}</option>
+            <option value="async_audit">{{ t('admin.promptAudit.events.executionModes.async_audit') }}</option>
           </select>
         </label>
       </div>

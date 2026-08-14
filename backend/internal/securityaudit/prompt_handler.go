@@ -269,7 +269,7 @@ func eventFilterFromQuery(c *gin.Context) (EventFilter, error) {
 		return EventFilter{}, err
 	}
 	filter := EventFilter{
-		Decision: c.Query("decision"), RiskLevel: c.Query("risk_level"), Endpoint: c.Query("endpoint"),
+		Decision: c.Query("decision"), RiskLevel: c.Query("risk_level"), ExecutionMode: c.Query("execution_mode"), Endpoint: c.Query("endpoint"),
 		GroupID: groupID, UserID: userID, APIKeyID: apiKeyID, RequestID: c.Query("request_id"),
 		PromptHash: c.Query("prompt_hash"), Keyword: c.Query("keyword"),
 	}

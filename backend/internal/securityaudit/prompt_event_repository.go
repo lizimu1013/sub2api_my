@@ -15,17 +15,18 @@ import (
 )
 
 type EventFilter struct {
-	Decision   string     `json:"decision,omitempty"`
-	RiskLevel  string     `json:"risk_level,omitempty"`
-	Endpoint   string     `json:"endpoint,omitempty"`
-	GroupID    *int64     `json:"group_id,omitempty"`
-	UserID     *int64     `json:"user_id,omitempty"`
-	APIKeyID   *int64     `json:"api_key_id,omitempty"`
-	RequestID  string     `json:"request_id,omitempty"`
-	PromptHash string     `json:"prompt_hash,omitempty"`
-	Keyword    string     `json:"keyword,omitempty"`
-	StartAt    *time.Time `json:"start_at,omitempty"`
-	EndAt      *time.Time `json:"end_at,omitempty"`
+	Decision      string     `json:"decision,omitempty"`
+	RiskLevel     string     `json:"risk_level,omitempty"`
+	ExecutionMode string     `json:"execution_mode,omitempty"`
+	Endpoint      string     `json:"endpoint,omitempty"`
+	GroupID       *int64     `json:"group_id,omitempty"`
+	UserID        *int64     `json:"user_id,omitempty"`
+	APIKeyID      *int64     `json:"api_key_id,omitempty"`
+	RequestID     string     `json:"request_id,omitempty"`
+	PromptHash    string     `json:"prompt_hash,omitempty"`
+	Keyword       string     `json:"keyword,omitempty"`
+	StartAt       *time.Time `json:"start_at,omitempty"`
+	EndAt         *time.Time `json:"end_at,omitempty"`
 }
 
 type EventPage struct {
@@ -78,7 +79,8 @@ func (r *PostgreSQLRepository) ListEvents(ctx context.Context, filter EventFilte
 	queryArgs := append([]any(nil), args...)
 	limitIndex := len(queryArgs) + 1
 	queryArgs = append(queryArgs, pageSize, (page-1)*pageSize)
-	rows, err := r.db.QueryContext(ctx, `SELECT `+eventColumns("e")+` FROM prompt_audit_events e`+where+
+	rows, err := r.db.QueryContext(ctx, `SELECT `+eventColumns("e")+`,j.execution_mode FROM prompt_audit_events e
+		JOIN prompt_audit_jobs j ON j.id=e.job_id`+where+
 		fmt.Sprintf(` ORDER BY e.created_at DESC, e.id DESC LIMIT $%d OFFSET $%d`, limitIndex, limitIndex+1), queryArgs...)
 	if err != nil {
 		return nil, err
@@ -86,7 +88,7 @@ func (r *PostgreSQLRepository) ListEvents(ctx context.Context, filter EventFilte
 	defer func() { _ = rows.Close() }()
 	items := make([]*Event, 0, pageSize)
 	for rows.Next() {
-		event, err := scanEvent(rows)
+		event, err := scanEvent(rows, false, true)
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +105,8 @@ func (r *PostgreSQLRepository) ListEvents(ctx context.Context, filter EventFilte
 }
 
 func (r *PostgreSQLRepository) GetEvent(ctx context.Context, id int64) (*Event, error) {
-	event, err := scanEvent(r.db.QueryRowContext(ctx, `SELECT `+eventDetailColumns("e")+` FROM prompt_audit_events e WHERE e.id=$1`, id), true)
+	event, err := scanEvent(r.db.QueryRowContext(ctx, `SELECT `+eventDetailColumns("e")+`,j.execution_mode FROM prompt_audit_events e
+		JOIN prompt_audit_jobs j ON j.id=e.job_id WHERE e.id=$1`, id), true, true)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrEventNotFound
 	}
@@ -247,6 +250,7 @@ func validateDeleteFilter(filter EventFilter) error {
 func canonicalEventFilter(filter EventFilter) EventFilter {
 	filter.Decision = strings.TrimSpace(strings.ToLower(filter.Decision))
 	filter.RiskLevel = strings.TrimSpace(strings.ToLower(filter.RiskLevel))
+	filter.ExecutionMode = strings.TrimSpace(strings.ToLower(filter.ExecutionMode))
 	filter.Endpoint = strings.TrimSpace(filter.Endpoint)
 	filter.RequestID = strings.TrimSpace(filter.RequestID)
 	filter.PromptHash = strings.ToLower(strings.TrimSpace(filter.PromptHash))
@@ -275,6 +279,9 @@ func buildEventWhere(filter EventFilter, firstIndex int) (string, []any) {
 	}
 	if filter.RiskLevel != "" {
 		add(" AND e.risk_level=$%d", filter.RiskLevel)
+	}
+	if filter.ExecutionMode != "" {
+		add(" AND EXISTS (SELECT 1 FROM prompt_audit_jobs mode_job WHERE mode_job.id=e.job_id AND mode_job.execution_mode=$%d)", filter.ExecutionMode)
 	}
 	if filter.Endpoint != "" {
 		add(" AND e.endpoint=$%d", filter.Endpoint)
@@ -326,7 +333,7 @@ func eventDetailColumns(alias string) string {
 	return eventColumns(alias) + fmt.Sprintf(",%[1]s.full_prompt,%[1]s.latest_user_input,%[1]s.previous_assistant_output", alias)
 }
 
-func scanEvent(row rowScanner, withFullPrompt ...bool) (*Event, error) {
+func scanEvent(row rowScanner, withFullPrompt, withExecutionMode bool) (*Event, error) {
 	event := &Event{}
 	var userID, apiKeyID, groupID sql.NullInt64
 	var categories, matched, scores, evidence, evidenceChunks []byte
@@ -338,8 +345,11 @@ func scanEvent(row rowScanner, withFullPrompt ...bool) (*Event, error) {
 		&event.RiskLevel, &event.Action, &categories, &matched, &scores, &evidence, &evidenceChunks, &event.ScannerBackend,
 		&event.ScannerVersion, &event.GuardEndpointID, &event.PolicyID, &event.PolicyVersion,
 		&event.ConfigVersion, &event.ChunkTotal, &event.LatencyMS, &event.CreatedAt}
-	if len(withFullPrompt) > 0 && withFullPrompt[0] {
+	if withFullPrompt {
 		dest = append(dest, &event.Snapshot.FullPrompt, &event.Snapshot.LatestUserInput, &event.Snapshot.PreviousAssistantOutput)
+	}
+	if withExecutionMode {
+		dest = append(dest, &event.ExecutionMode)
 	}
 	err := row.Scan(dest...)
 	if err != nil {

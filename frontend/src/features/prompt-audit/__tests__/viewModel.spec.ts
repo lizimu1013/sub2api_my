@@ -98,9 +98,11 @@ describe('Prompt Audit view model', () => {
     filters.start_at = '2026-07-15T10:00'
     filters.end_at = '2026-07-16T10:00'
     filters.group_id = '9'
+    filters.execution_mode = 'async_audit'
     expect(hasExplicitDeleteRange(filters)).toBe(true)
     expect(eventFilterPayload(filters)).toMatchObject({
       group_id: 9,
+      execution_mode: 'async_audit',
       start_at: new Date(filters.start_at).toISOString(),
       end_at: new Date(filters.end_at).toISOString(),
     })

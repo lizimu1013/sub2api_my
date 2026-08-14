@@ -75,8 +75,7 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 	evalCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	inputLimit := minimumInputLimit(endpoints)
-	syncSource := strings.ReplaceAll(snapshot.ScanText, promptAuditPrioritySeparator, "\n\n")
-	syncInput, truncated := headTailRunes(syncSource, inputLimit)
+	syncInput, truncated := buildSynchronousAuditInput(snapshot.ScanText, inputLimit)
 	if syncInput == "" {
 		if g.metrics != nil {
 			g.metrics.Observe(DecisionAllow, g.clock.Now().Sub(start))
@@ -247,6 +246,121 @@ func headTailRunes(value string, limit int) (string, bool) {
 	head := limit / 2
 	tail := limit - head
 	return string(runes[:head]) + string(runes[len(runes)-tail:]), true
+}
+
+const (
+	latestInputOpen       = "<latest_user_input>\n"
+	latestInputClose      = "\n</latest_user_input>"
+	previousOutputOpen    = "<previous_assistant_output>\n"
+	previousOutputClose   = "\n</previous_assistant_output>"
+	auditSampleOmission   = "\n...\n"
+	latestInputPercentage = 80
+)
+
+func buildSynchronousAuditInput(scanText string, limit int) (string, bool) {
+	latestInput, previousOutput := splitAuditInput(scanText)
+	if latestInput == "" {
+		return headTailRunes(strings.ReplaceAll(scanText, promptAuditPrioritySeparator, "\n\n"), limit)
+	}
+	if limit <= 0 {
+		return formatSynchronousAuditInput(latestInput, previousOutput), false
+	}
+	overhead := synchronousAuditInputOverhead(previousOutput != "")
+	if limit <= overhead {
+		return headTailRunes(strings.ReplaceAll(scanText, promptAuditPrioritySeparator, "\n\n"), limit)
+	}
+	latestBudget, previousBudget := allocateAuditInputBudgets(
+		len([]rune(latestInput)), len([]rune(previousOutput)), limit-overhead,
+	)
+	sampledLatest, latestTruncated := sampleHeadMiddleTailRunes(latestInput, latestBudget)
+	sampledPrevious, previousTruncated := sampleHeadTailRunes(previousOutput, previousBudget)
+	return formatSynchronousAuditInput(sampledLatest, sampledPrevious), latestTruncated || previousTruncated
+}
+
+func splitAuditInput(scanText string) (string, string) {
+	if index := strings.Index(scanText, promptAuditPrioritySeparator); index >= 0 {
+		return scanText[:index], scanText[index+len(promptAuditPrioritySeparator):]
+	}
+	return scanText, ""
+}
+
+func formatSynchronousAuditInput(latestInput, previousOutput string) string {
+	result := latestInputOpen + latestInput + latestInputClose
+	if previousOutput != "" {
+		result += "\n\n" + previousOutputOpen + previousOutput + previousOutputClose
+	}
+	return result
+}
+
+func synchronousAuditInputOverhead(includePreviousOutput bool) int {
+	overhead := len([]rune(latestInputOpen + latestInputClose))
+	if includePreviousOutput {
+		overhead += len([]rune("\n\n" + previousOutputOpen + previousOutputClose))
+	}
+	return overhead
+}
+
+func allocateAuditInputBudgets(latestLength, previousLength, capacity int) (int, int) {
+	if capacity <= 0 {
+		return 0, 0
+	}
+	latestTarget := capacity * latestInputPercentage / 100
+	if latestLength > 0 && latestTarget == 0 {
+		latestTarget = 1
+	}
+	previousTarget := capacity - latestTarget
+	latestBudget := min(latestLength, latestTarget)
+	previousBudget := min(previousLength, previousTarget)
+	remaining := capacity - latestBudget - previousBudget
+	if remaining > 0 {
+		additionalLatest := min(latestLength-latestBudget, remaining)
+		latestBudget += additionalLatest
+		remaining -= additionalLatest
+	}
+	if remaining > 0 {
+		previousBudget += min(previousLength-previousBudget, remaining)
+	}
+	return latestBudget, previousBudget
+}
+
+func sampleHeadMiddleTailRunes(value string, limit int) (string, bool) {
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value, false
+	}
+	if limit <= 0 {
+		return "", len(runes) > 0
+	}
+	markerLength := len([]rune(auditSampleOmission))
+	contentLimit := limit - 2*markerLength
+	if contentLimit < 3 {
+		return headTailRunes(value, limit)
+	}
+	headLength := contentLimit * 35 / 100
+	middleLength := contentLimit * 30 / 100
+	tailLength := contentLimit - headLength - middleLength
+	middleStart := (len(runes) - middleLength) / 2
+	return string(runes[:headLength]) + auditSampleOmission +
+		string(runes[middleStart:middleStart+middleLength]) + auditSampleOmission +
+		string(runes[len(runes)-tailLength:]), true
+}
+
+func sampleHeadTailRunes(value string, limit int) (string, bool) {
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value, false
+	}
+	if limit <= 0 {
+		return "", len(runes) > 0
+	}
+	markerLength := len([]rune(auditSampleOmission))
+	contentLimit := limit - markerLength
+	if contentLimit < 2 {
+		return headTailRunes(value, limit)
+	}
+	headLength := contentLimit / 2
+	tailLength := contentLimit - headLength
+	return string(runes[:headLength]) + auditSampleOmission + string(runes[len(runes)-tailLength:]), true
 }
 
 func logGuardFailure(snapshot PromptSnapshot, cfg ActiveConfig, kind DecisionKind, code, guardEndpointID string, latency time.Duration) {

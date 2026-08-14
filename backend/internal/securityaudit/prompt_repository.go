@@ -43,6 +43,7 @@ type Job struct {
 type Event struct {
 	ID                    int64              `json:"id"`
 	JobID                 int64              `json:"job_id"`
+	ExecutionMode         Mode               `json:"execution_mode"`
 	Snapshot              PromptSnapshot     `json:"snapshot"`
 	Decision              EventDecision      `json:"decision"`
 	RiskLevel             RiskLevel          `json:"risk_level"`
@@ -193,6 +194,7 @@ func (r *PostgreSQLRepository) Complete(ctx context.Context, job *Job, result *N
 		if err != nil {
 			return nil, err
 		}
+		event.ExecutionMode = job.ExecutionMode
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -299,6 +301,7 @@ func (r *PostgreSQLRepository) RecordBlocking(ctx context.Context, snapshot Prom
 		if err != nil {
 			return nil, err
 		}
+		event.ExecutionMode = ModeBlocking
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -367,7 +370,7 @@ func insertEvent(ctx context.Context, queryer sqlQueryer, jobID int64, snapshot 
 		string(result.Action), categories, matched, scores, evidenceJSON, evidenceChunksJSON, result.ScannerBackend, result.ScannerVersion,
 		result.GuardEndpointID, result.PolicyID, result.PolicyVersion, configVersion, result.ChunkTotal, result.LatencyMS,
 		snapshot.FullPrompt, snapshot.LatestUserInput, snapshot.PreviousAssistantOutput)
-	return scanEvent(row, true)
+	return scanEvent(row, true, false)
 }
 
 type rowScanner interface{ Scan(...any) error }

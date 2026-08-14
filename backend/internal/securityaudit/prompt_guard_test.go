@@ -3,6 +3,7 @@ package securityaudit
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -183,6 +184,51 @@ func TestHeadTailRunesPreservesUnicodeAndExactLimit(t *testing.T) {
 	value, truncated = headTailRunes("甲乙丙", 5)
 	require.False(t, truncated)
 	require.Equal(t, "甲乙丙", value)
+}
+
+func TestAuditSamplingUsesHeadMiddleTailAndPreviousHeadTail(t *testing.T) {
+	latest, truncated := sampleHeadMiddleTailRunes("abcdefghijklmnopqrstuvwxyz", 20)
+	require.True(t, truncated)
+	require.Equal(t, "abc\n...\nlmn\n...\nwxyz", latest)
+	require.Len(t, []rune(latest), 20)
+
+	previous, truncated := sampleHeadTailRunes("abcdefghijklmnopqrstuvwxyz", 10)
+	require.True(t, truncated)
+	require.Equal(t, "ab\n...\nxyz", previous)
+	require.Len(t, []rune(previous), 10)
+
+	unicode, truncated := sampleHeadMiddleTailRunes("甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉", 15)
+	require.True(t, truncated)
+	require.Len(t, []rune(unicode), 15)
+}
+
+func TestAuditSamplingAllocatesDynamicEightyTwentyBudgets(t *testing.T) {
+	latest, previous := allocateAuditInputBudgets(1000, 1000, 100)
+	require.Equal(t, 80, latest)
+	require.Equal(t, 20, previous)
+
+	latest, previous = allocateAuditInputBudgets(10, 1000, 100)
+	require.Equal(t, 10, latest)
+	require.Equal(t, 90, previous)
+
+	latest, previous = allocateAuditInputBudgets(1000, 5, 100)
+	require.Equal(t, 95, latest)
+	require.Equal(t, 5, previous)
+}
+
+func TestBuildSynchronousAuditInputSeparatesTurnsWithinLimit(t *testing.T) {
+	latest := strings.Repeat("latest-", 80)
+	previous := strings.Repeat("previous-", 80)
+	value, truncated := buildSynchronousAuditInput(latest+promptAuditPrioritySeparator+previous, 256)
+	require.True(t, truncated)
+	require.Len(t, []rune(value), 256)
+	require.Contains(t, value, latestInputOpen)
+	require.Contains(t, value, previousOutputOpen)
+	require.Contains(t, value, auditSampleOmission)
+
+	value, truncated = buildSynchronousAuditInput("short latest"+promptAuditPrioritySeparator+"short previous", 256)
+	require.False(t, truncated)
+	require.Equal(t, formatSynchronousAuditInput("short latest", "short previous"), value)
 }
 
 func TestGuardEvaluatorFlagSharedDeadlineFailOpenAndContextCancel(t *testing.T) {

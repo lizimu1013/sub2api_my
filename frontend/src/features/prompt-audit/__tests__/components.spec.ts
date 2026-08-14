@@ -121,7 +121,7 @@ describe('Prompt Audit components', () => {
 
   it('keeps identity fields separate, supports selection, and opens filter deletion from the toolbar', async () => {
     const event: PromptAuditEvent = {
-	  id: 1, job_id: 1, decision: 'critical', risk_level: 'critical', action: 'Block', categories: ['pii'], matched_scanners: ['pii'], scanner_scores: { pii: 1, custom_prompt: 0.72 }, confidence: 0.72, scanner_evidence: { pii: 'redacted' }, scanner_backend: 'custom_prompt', scanner_version: '1', guard_endpoint_id: 'guard-1', policy_id: 'priority', policy_version: 1, config_version: 1, chunk_total: 1, latency_ms: 10, issue_summaries: [], created_at: '2026-07-16T00:00:00Z',
+      id: 1, job_id: 1, execution_mode: 'blocking', decision: 'critical', risk_level: 'critical', action: 'Block', categories: ['pii'], matched_scanners: ['pii'], scanner_scores: { pii: 1, custom_prompt: 0.72 }, confidence: 0.72, scanner_evidence: { pii: 'redacted' }, scanner_backend: 'custom_prompt', scanner_version: '1', guard_endpoint_id: 'guard-1', policy_id: 'priority', policy_version: 1, config_version: 1, chunk_total: 1, latency_ms: 10, issue_summaries: [], created_at: '2026-07-16T00:00:00Z',
       snapshot: { request_id: 'req-1', user_id: 1, username: 'alice', user_email: 'alice@example.test', api_key_id: 2, api_key_name: 'alice-key', group_id: 3, group_name: 'Alpha', provider: 'openai', endpoint: '/v1/chat/completions', protocol: 'openai_chat', model: 'gpt-test', prompt_hash: 'a'.repeat(64), redacted_preview: 'redacted preview', full_prompt: 'full prompt text', prompt_length: 10, message_count: 1, stage: 'http' },
     }
     const wrapper = mount(EventWorkspace, {
@@ -133,7 +133,10 @@ describe('Prompt Audit components', () => {
     expect(wrapper.text()).toContain('alice-key')
     expect(wrapper.text()).toContain('admin.promptAudit.decisions.critical · admin.promptAudit.riskLevels.critical')
     expect(wrapper.text()).toContain('admin.promptAudit.scanners.pii')
-	expect(wrapper.text()).toContain('72.0%')
+    expect(wrapper.text()).toContain('72.0%')
+    expect(wrapper.get('[data-test="event-execution-mode"]').text()).toContain('admin.promptAudit.events.executionModes.blocking')
+    await wrapper.get('[aria-label="admin.promptAudit.events.executionMode"]').setValue('async_audit')
+    expect((wrapper.emitted('filters-change')?.at(-1)?.[0] as PromptEventFilters).execution_mode).toBe('async_audit')
     expect(wrapper.get('[data-test="filter-delete"]').attributes()).not.toHaveProperty('disabled')
     await wrapper.get('[data-test="filter-delete"]').trigger('click')
     expect(wrapper.emitted('preview-delete')).toHaveLength(1)
@@ -143,7 +146,7 @@ describe('Prompt Audit components', () => {
 
   it('shows fail-open audit exceptions as allowed with no confidence', () => {
     const event: PromptAuditEvent = {
-      id: 7, job_id: 0, decision: 'flag', risk_level: 'low', action: 'Warn',
+      id: 7, job_id: 0, execution_mode: 'blocking', decision: 'flag', risk_level: 'low', action: 'Warn',
       categories: ['audit_unavailable'], matched_scanners: ['audit_unavailable'], scanner_scores: {},
       scanner_evidence: { audit_unavailable: '同步审核超时，已放行并进入异步补审' },
       scanner_backend: 'sync_fail_open', scanner_version: '1', guard_endpoint_id: '', policy_id: 'fail_open',
@@ -274,7 +277,7 @@ describe('Prompt Audit components', () => {
 
   it('shows the full unredacted prompt and structured guard return on the risks tab', async () => {
     const event: PromptAuditEvent = {
-      id: 1, job_id: 1, decision: 'critical', risk_level: 'critical', action: 'Block',
+      id: 1, job_id: 1, execution_mode: 'async_audit', decision: 'critical', risk_level: 'critical', action: 'Block',
       categories: ['sexual_content_or_sexual_acts'], matched_scanners: ['sexual_content_or_sexual_acts'],
 	  scanner_scores: { sexual_content_or_sexual_acts: 1, custom_prompt: 0.72 }, confidence: 0.72,
       scanner_evidence: { sexual_content_or_sexual_acts: 'Sexual Content or Sexual Acts' },
@@ -306,7 +309,8 @@ describe('Prompt Audit components', () => {
     expect(panel.classes()).toContain('overflow-y-auto')
 	expect(wrapper.get('[data-test="summary-prompt-full"]').text()).toContain('latest unmasked user input')
 	expect(wrapper.get('[data-test="summary-previous-assistant-output"]').text()).toContain('previous unmasked model output')
-	expect(wrapper.text()).toContain('0.72 (72.0%)')
+    expect(wrapper.text()).toContain('0.72 (72.0%)')
+    expect(wrapper.text()).toContain('admin.promptAudit.events.executionModes.async_audit')
 
     const riskTab = wrapper.findAll('[role="tab"]').find((tab) => tab.text().includes('admin.promptAudit.events.tabs.risks'))
     expect(riskTab).toBeTruthy()
@@ -323,7 +327,7 @@ describe('Prompt Audit components', () => {
 
   it('falls back to the redacted preview for events stored before full prompts were kept', async () => {
     const event: PromptAuditEvent = {
-      id: 2, job_id: 2, decision: 'flag', risk_level: 'medium', action: 'Warn',
+      id: 2, job_id: 2, execution_mode: 'async_audit', decision: 'flag', risk_level: 'medium', action: 'Warn',
       categories: ['pii'], matched_scanners: ['pii'], scanner_scores: {}, scanner_evidence: {},
       scanner_backend: 'qwen3guard-openai', scanner_version: '1', guard_endpoint_id: 'guard-1',
       policy_id: 'priority', policy_version: 1, config_version: 1, chunk_total: 1, latency_ms: 5,

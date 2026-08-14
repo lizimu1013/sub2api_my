@@ -24,6 +24,7 @@
           <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.decision') }}</dt><dd class="font-medium text-gray-900 dark:text-white">{{ formatDecisionAction(event.decision, event.action) }}</dd>
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.confidence') }}</dt><dd class="font-mono">{{ formatConfidence(event) }}</dd>
+            <dt class="text-gray-500">{{ t('admin.promptAudit.events.executionMode') }}</dt><dd>{{ formatExecutionMode(event.execution_mode) }}</dd>
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.user') }}</dt><dd>{{ event.snapshot.username || '—' }}</dd>
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.email') }}</dt><dd>{{ event.snapshot.user_email || '—' }}</dd>
             <dt class="text-gray-500">{{ t('admin.promptAudit.events.apiKey') }}</dt><dd>{{ event.snapshot.api_key_name || '—' }}</dd>
@@ -76,6 +77,7 @@
           <dt class="text-gray-500">{{ t('admin.promptAudit.events.technical.chunks') }}</dt><dd>{{ event.chunk_total }}</dd>
           <dt class="text-gray-500">{{ t('admin.promptAudit.events.technical.latency') }}</dt><dd>{{ event.latency_ms }} ms</dd>
           <dt class="text-gray-500">{{ t('admin.promptAudit.events.stage') }}</dt><dd>{{ event.snapshot.stage || 'http' }}</dd>
+          <dt class="text-gray-500">{{ t('admin.promptAudit.events.executionMode') }}</dt><dd>{{ formatExecutionMode(event.execution_mode) }}</dd>
           <dt class="text-gray-500">{{ t('admin.promptAudit.events.technical.protocol') }}</dt><dd>{{ event.snapshot.protocol }} · {{ event.snapshot.endpoint }}</dd>
         </dl>
       </div>
@@ -127,6 +129,11 @@ function eventConfidence(event: PromptAuditEvent): number | undefined {
 function formatConfidence(event: PromptAuditEvent): string {
   const confidence = eventConfidence(event)
   return typeof confidence === 'number' ? `${confidence.toFixed(2)} (${(confidence * 100).toFixed(1)}%)` : '—'
+}
+
+function formatExecutionMode(mode: string): string {
+  if (mode === 'blocking' || mode === 'async_audit') return t(`admin.promptAudit.events.executionModes.${mode}`)
+  return t('admin.promptAudit.events.executionModes.unknown')
 }
 
 function formatDecisionAction(decision: string, action: string): string {
