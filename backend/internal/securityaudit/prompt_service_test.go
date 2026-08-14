@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -98,6 +100,103 @@ func TestPromptServiceBlockingLatestTurnOnlyUsesNarrowSnapshot(t *testing.T) {
 	require.Equal(t, []string{"latest user input\n\nprevious output"}, seen)
 }
 
+func TestPromptServiceReusesRepeatedBlockingDecision(t *testing.T) {
+	var scannerCalls atomic.Int64
+	scanner := PromptScannerFunc(func(_ context.Context, _ ActiveEndpoint, _ string, _ []string) (*NormalizedResult, error) {
+		scannerCalls.Add(1)
+		return &NormalizedResult{
+			Decision: EventCritical, RiskLevel: RiskCritical, Action: ActionBlock,
+			ScannerScores:   map[string]float64{"custom_prompt": 0.95},
+			ScannerEvidence: map[string]string{"custom_prompt": "blocked once"},
+		}, nil
+	})
+	groupID := int64(2)
+	cfg := ActiveConfig{
+		ConfigVersion: 30, RiskControlEnabled: true, Enabled: true, BlockingEnabled: true, AllGroups: true,
+		BlockHTTPStatus: 403, BlockMessage: "blocked",
+		Endpoints: []ActiveEndpoint{{ID: "guard", Enabled: true, TimeoutMS: 1000, InputLimit: 4096}},
+	}
+	config := &fakeConfigStore{cfg: cfg, active: true}
+	repo := &fakeJobRepository{}
+	service := &PromptService{
+		config: config, evaluator: newGuardEvaluator(scanner, repo, NewAtomicMetrics(), 2, 2),
+		decisionCache: newPromptDecisionCache(time.Minute, time.Second, 32),
+	}
+	request := Request{
+		RequestID: "first", UserID: 46, APIKeyID: 37, GroupID: &groupID,
+		Protocol: "openai_chat_completions", Body: []byte(`{"messages":[{"role":"user","content":"same prompt"}]}`),
+	}
+
+	first, err := service.Evaluate(context.Background(), request)
+	require.NoError(t, err)
+	require.Equal(t, DecisionBlock, first.Kind)
+	first.Result.ScannerEvidence["custom_prompt"] = "caller mutation"
+
+	request.RequestID = "retry-with-new-request-id"
+	second, err := service.Evaluate(context.Background(), request)
+	require.NoError(t, err)
+	require.Equal(t, DecisionBlock, second.Kind)
+	require.Equal(t, "blocked once", second.Result.ScannerEvidence["custom_prompt"])
+	require.Equal(t, int64(1), scannerCalls.Load())
+	require.Equal(t, 1, repo.recordBlockingCalls)
+
+	config.cfg.ConfigVersion++
+	request.RequestID = "after-config-change"
+	_, err = service.Evaluate(context.Background(), request)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), scannerCalls.Load(), "a policy version change must bypass the cache")
+}
+
+func TestPromptServiceCoalescesConcurrentRepeatedAudit(t *testing.T) {
+	var scannerCalls atomic.Int64
+	started := make(chan struct{})
+	release := make(chan struct{})
+	scanner := PromptScannerFunc(func(_ context.Context, _ ActiveEndpoint, _ string, _ []string) (*NormalizedResult, error) {
+		if scannerCalls.Add(1) == 1 {
+			close(started)
+		}
+		<-release
+		return &NormalizedResult{
+			Decision: EventPass, RiskLevel: RiskLow, Action: ActionAllow,
+			ScannerScores: map[string]float64{}, ScannerEvidence: map[string]string{},
+		}, nil
+	})
+	cfg := ActiveConfig{
+		ConfigVersion: 30, RiskControlEnabled: true, Enabled: true, BlockingEnabled: true, AllGroups: true,
+		Endpoints: []ActiveEndpoint{{ID: "guard", Enabled: true, TimeoutMS: 1000, InputLimit: 4096}},
+	}
+	service := &PromptService{
+		config:        &fakeConfigStore{cfg: cfg, active: true},
+		evaluator:     newGuardEvaluator(scanner, nil, NewAtomicMetrics(), 2, 2),
+		decisionCache: newPromptDecisionCache(time.Minute, time.Second, 32),
+	}
+	request := Request{
+		UserID: 46, APIKeyID: 37, Protocol: "openai_chat_completions",
+		Body: []byte(`{"messages":[{"role":"user","content":"same concurrent prompt"}]}`),
+	}
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for _, requestID := range []string{"one", "two"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			copy := request
+			copy.RequestID = requestID
+			_, err := service.Evaluate(context.Background(), copy)
+			errs <- err
+		}()
+	}
+	<-started
+	close(release)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+	require.Equal(t, int64(1), scannerCalls.Load())
+}
+
 func TestPromptServiceOversizeFollowupUsesConfidenceBandAndFullSnapshot(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -162,7 +261,9 @@ func TestPromptServiceOversizeFollowupUsesConfidenceBandAndFullSnapshot(t *testi
 }
 
 func TestPromptServiceUnavailableFailsOpenRecordsAndEnqueuesFullFollowup(t *testing.T) {
+	var scannerCalls atomic.Int64
 	scanner := customPromptScannerFunc(func(context.Context, ActiveEndpoint, string) (*NormalizedResult, error) {
+		scannerCalls.Add(1)
 		return nil, &GuardError{Code: ErrorCodeUnavailable, Retryable: true}
 	})
 	cfg := ActiveConfig{
@@ -181,16 +282,23 @@ func TestPromptServiceUnavailableFailsOpenRecordsAndEnqueuesFullFollowup(t *test
 		background: context.Background(), enqueueSlots: make(chan struct{}, 4),
 	}
 
-	decision, err := service.Evaluate(context.Background(), Request{
+	request := Request{
 		RequestID: "followup-unavailable", Protocol: "openai_chat_completions",
 		Body: []byte(`{"messages":[{"role":"user","content":"older input"},{"role":"assistant","content":"previous output"},{"role":"user","content":"abcdefghij"}]}`),
-	})
+	}
+	decision, err := service.Evaluate(context.Background(), request)
 	require.NoError(t, err)
 	require.Equal(t, DecisionAllow, decision.Kind)
 	require.True(t, decision.AllowNextStage)
 	require.True(t, decision.AuditFailedOpen)
 	require.Equal(t, "unavailable", decision.FailureCode)
 	service.enqueueWG.Wait()
+	request.RequestID = "followup-unavailable-retry"
+	reused, err := service.Evaluate(context.Background(), request)
+	require.NoError(t, err)
+	require.True(t, reused.AuditFailedOpen)
+	service.enqueueWG.Wait()
+	require.Equal(t, int64(1), scannerCalls.Load())
 	require.Equal(t, 1, repo.recordBlockingCalls)
 	require.Equal(t, []string{"audit_unavailable"}, repo.recordBlockingResult.Categories)
 	require.Empty(t, repo.recordBlockingSnapshot.ScanText)

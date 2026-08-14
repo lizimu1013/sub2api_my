@@ -27,6 +27,7 @@ const (
 	EventChunkFailed          = "prompt_audit.scan_chunk_failed"
 	EventChunksAggregated     = "prompt_audit.scan_chunks_aggregated"
 	EventEvaluationStarted    = "prompt_guard.evaluation_started"
+	EventEvaluationReused     = "prompt_guard.evaluation_reused"
 	EventGuardAllowed         = "prompt_guard.allowed"
 	EventGuardBlocked         = "prompt_guard.blocked"
 	EventGuardFailed          = "prompt_guard.failed"
@@ -43,7 +44,7 @@ var knownLogEvents = map[string]struct{}{
 	EventJobEnqueued: {}, EventEnqueueSkipped: {}, EventEnqueueDropped: {},
 	EventAuditStarted: {}, EventProcessingReclaimed: {}, EventProcessed: {}, EventProcessFailed: {}, EventFindingRecorded: {},
 	EventChunkStarted: {}, EventChunkCompleted: {}, EventChunkFailed: {}, EventChunksAggregated: {},
-	EventEvaluationStarted: {}, EventGuardAllowed: {}, EventGuardBlocked: {}, EventGuardFailed: {}, EventResultRecordFailed: {},
+	EventEvaluationStarted: {}, EventEvaluationReused: {}, EventGuardAllowed: {}, EventGuardBlocked: {}, EventGuardFailed: {}, EventResultRecordFailed: {},
 	EventEventDeleted: {}, EventEventsDeleted: {}, EventDeletePreviewed: {}, EventEventsFilterDeleted: {},
 }
 

@@ -23,13 +23,14 @@ type PromptService struct {
 	metrics   *AtomicMetrics
 	clock     Clock
 
-	lifecycleMu  sync.Mutex
-	cancel       context.CancelFunc
-	background   context.Context
-	enqueueWG    sync.WaitGroup
-	enqueueSlots chan struct{}
-	probeMu      sync.RWMutex
-	probes       map[string]ProbeResult
+	lifecycleMu   sync.Mutex
+	cancel        context.CancelFunc
+	background    context.Context
+	enqueueWG     sync.WaitGroup
+	enqueueSlots  chan struct{}
+	probeMu       sync.RWMutex
+	probes        map[string]ProbeResult
+	decisionCache *promptDecisionCache
 }
 
 func NewPromptService(
@@ -46,6 +47,7 @@ func NewPromptService(
 		config: config, repo: repo, payload: payload, scanner: scanner, metrics: metrics,
 		enqueuer: enqueuer, evaluator: evaluator, runner: runner, clock: realClock{},
 		enqueueSlots: make(chan struct{}, 128), probes: map[string]ProbeResult{},
+		decisionCache: newPromptDecisionCache(0, 0, 0),
 	}
 }
 
@@ -158,6 +160,9 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 	if s == nil || s.config == nil || s.evaluator == nil {
 		return nil, &GuardError{Code: ErrorCodeUnavailable}
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if s.config.BlockingActivationDegraded() {
 		return nil, &GuardError{Code: ErrorCodeUnavailable}
 	}
@@ -179,6 +184,24 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 	if err != nil {
 		return nil, &GuardError{Code: ErrorCodeInvalidResponse, Cause: err}
 	}
+	cache := s.promptDecisionCache()
+	cacheKey := promptDecisionCacheKey(cfg, snapshot)
+	decision, reused, err := cache.GetOrLoad(ctx, cacheKey, func() (*PromptDecision, error) {
+		return s.evaluateSnapshot(s.evaluationContext(ctx), cfg, snapshot)
+	})
+	if err != nil || decision == nil {
+		return decision, err
+	}
+	if reused {
+		LogInfo(EventEvaluationReused, mergeLogFields(snapshotLogFields(snapshot), map[string]any{
+			"config_version": cfg.ConfigVersion, "decision": decision.Kind,
+			"action": resultAction(decision.Result), "status": "cache_hit",
+		}))
+	}
+	return decision, nil
+}
+
+func (s *PromptService) evaluateSnapshot(ctx context.Context, cfg ActiveConfig, snapshot PromptSnapshot) (*PromptDecision, error) {
 	decision, err := s.evaluator.Evaluate(ctx, cfg, snapshot)
 	if err != nil || decision == nil {
 		return decision, err
@@ -198,6 +221,32 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 		decision.ClientMessage = cfg.BlockMessage
 	}
 	return decision, nil
+}
+
+func (s *PromptService) promptDecisionCache() *promptDecisionCache {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if s.decisionCache == nil {
+		s.decisionCache = newPromptDecisionCache(0, 0, 0)
+	}
+	return s.decisionCache
+}
+
+func (s *PromptService) evaluationContext(requestCtx context.Context) context.Context {
+	s.lifecycleMu.Lock()
+	background := s.background
+	s.lifecycleMu.Unlock()
+	if background != nil {
+		return background
+	}
+	return context.WithoutCancel(requestCtx)
+}
+
+func resultAction(result *NormalizedResult) Action {
+	if result == nil {
+		return ""
+	}
+	return result.Action
 }
 
 func shouldEnqueueFullFollowup(decision *PromptDecision, cfg ActiveConfig) bool {
