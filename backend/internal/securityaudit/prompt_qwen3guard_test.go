@@ -279,3 +279,15 @@ func TestBuildIssueSummariesTreatsAuditUnavailableAsOperationalException(t *test
 	require.Equal(t, "已放行", summaries[0].ActionLabel)
 	require.Equal(t, "prompt_audit_unavailable", summaries[0].Code)
 }
+
+func TestBuildIssueSummariesTreatsRequestCancellationAsNotDispatched(t *testing.T) {
+	summaries := BuildIssueSummaries(NormalizedResult{
+		Decision: EventFlag, RiskLevel: RiskLow, Action: ActionWarn,
+		Categories: []string{"request_canceled"}, ScannerScores: map[string]float64{},
+		ScannerEvidence: map[string]string{"request_canceled": "客户端在同步审核完成前取消请求"},
+	})
+	require.Len(t, summaries, 1)
+	require.Equal(t, "客户端请求已取消", summaries[0].Title)
+	require.Equal(t, "未进入上游", summaries[0].ActionLabel)
+	require.Equal(t, "prompt_audit_request_canceled", summaries[0].Code)
+}

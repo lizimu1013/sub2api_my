@@ -143,7 +143,7 @@ func (c *promptDecisionCache) get(key string) (*PromptDecision, bool) {
 }
 
 func (c *promptDecisionCache) set(key string, decision *PromptDecision) {
-	if c == nil || key == "" || decision == nil || decision.FailureCode == "request_canceled" {
+	if c == nil || key == "" || decision == nil || decision.FailureCode == ErrorCodeRequestCanceled {
 		return
 	}
 	ttl := c.successTTL

@@ -32,6 +32,7 @@ export default {
       copyright_violation: '版权侵权',
       jailbreak: '提示注入或越狱尝试',
       audit_unavailable: '同步审核节点不可用，当前请求已放行并进入异步补审',
+      request_canceled: '客户端在同步审核完成前断开，后台审核继续完成并缓存结果，业务上游未被调用。',
     },
     runtime: {
       title: '运行概览',
@@ -74,7 +75,7 @@ export default {
       moreConditions: '更多条件（入口 / 关键词 / 分组 / 用户）',
       filterDeletePreviewAction: '获取删除预览', filterDeletePreviewing: '正在生成预览…', filterDeleteNeedPreview: '可直接确认删除；如需提前查看匹配数量，可先获取删除预览。',
       filterDeleteConfirmInvalidRange: '请先选择有效的删除时间范围（自定义范围需开始早于结束）。', filterDeleteConfirmNoMatches: '当前筛选匹配 0 条事件，没有可删除的内容。',
-      selectAll: '选择当前页全部事件', selectEvent: '选择事件 {id}', time: '时间', identity: '用户 / 邮箱 / API Key', user: '用户名', email: '用户邮箱', apiKey: 'API Key 名称', group: '分组', route: '入口 / 模型', result: '判定 / 风险', confidence: '置信度', preview: '脱敏预览', empty: '没有符合条件的事件。', auditUnavailable: '同步审核异常', failOpenAllowed: '已放行',
+      selectAll: '选择当前页全部事件', selectEvent: '选择事件 {id}', time: '时间', identity: '用户 / 邮箱 / API Key', user: '用户名', email: '用户邮箱', apiKey: 'API Key 名称', group: '分组', route: '入口 / 模型', result: '判定 / 风险', confidence: '置信度', preview: '脱敏预览', empty: '没有符合条件的事件。', auditUnavailable: '同步审核异常', failOpenAllowed: '已放行', requestCanceled: '客户端请求已取消', notDispatched: '未进入上游',
       passEventsDisabled: '当前未开启“保存安全事件”：安全请求仍会完成审计，但不会出现在事件列表中；Flag 和 Critical 风险事件仍会保存。', openConfiguration: '前往配置',
       detailTitle: '提示词审计事件详情', tabs: { summary: '审计摘要', risks: '具体风险', technical: '技术信息' },
       promptFull: '完整提示词（未脱敏）', latestUserInput: '最新用户输入（未脱敏）', previousAssistantOutput: '上一轮模型输出（未脱敏）',

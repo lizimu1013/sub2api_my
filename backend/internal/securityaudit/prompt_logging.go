@@ -31,6 +31,7 @@ const (
 	EventGuardAllowed         = "prompt_guard.allowed"
 	EventGuardBlocked         = "prompt_guard.blocked"
 	EventGuardFailed          = "prompt_guard.failed"
+	EventRequestCanceled      = "prompt_guard.request_canceled"
 	EventResultRecordFailed   = "prompt_guard.result_record_failed"
 	EventEventDeleted         = "prompt_audit.event_deleted"
 	EventEventsDeleted        = "prompt_audit.events_deleted"
@@ -44,7 +45,7 @@ var knownLogEvents = map[string]struct{}{
 	EventJobEnqueued: {}, EventEnqueueSkipped: {}, EventEnqueueDropped: {},
 	EventAuditStarted: {}, EventProcessingReclaimed: {}, EventProcessed: {}, EventProcessFailed: {}, EventFindingRecorded: {},
 	EventChunkStarted: {}, EventChunkCompleted: {}, EventChunkFailed: {}, EventChunksAggregated: {},
-	EventEvaluationStarted: {}, EventEvaluationReused: {}, EventGuardAllowed: {}, EventGuardBlocked: {}, EventGuardFailed: {}, EventResultRecordFailed: {},
+	EventEvaluationStarted: {}, EventEvaluationReused: {}, EventGuardAllowed: {}, EventGuardBlocked: {}, EventGuardFailed: {}, EventRequestCanceled: {}, EventResultRecordFailed: {},
 	EventEventDeleted: {}, EventEventsDeleted: {}, EventDeletePreviewed: {}, EventEventsFilterDeleted: {},
 }
 
@@ -155,6 +156,8 @@ func stableErrorMessage(code string) string {
 		return "Prompt Guard blocked the request"
 	case ErrorCodeUnavailable, "payload_store_unavailable", "payload_missing":
 		return "Prompt Audit dependency is unavailable"
+	case ErrorCodeRequestCanceled:
+		return "Client canceled the request before Prompt Audit completed"
 	case ErrorCodeInvalidResponse:
 		return "Prompt Guard returned an invalid response"
 	case "queue_full", "queue_admission_busy":

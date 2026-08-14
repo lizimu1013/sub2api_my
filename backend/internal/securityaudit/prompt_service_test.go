@@ -197,6 +197,71 @@ func TestPromptServiceCoalescesConcurrentRepeatedAudit(t *testing.T) {
 	require.Equal(t, int64(1), scannerCalls.Load())
 }
 
+func TestPromptServiceCanceledWaiterRecordsCancellationAndCachesBackgroundResult(t *testing.T) {
+	var scannerCalls atomic.Int64
+	started := make(chan struct{})
+	release := make(chan struct{})
+	scanner := PromptScannerFunc(func(_ context.Context, _ ActiveEndpoint, _ string, _ []string) (*NormalizedResult, error) {
+		if scannerCalls.Add(1) == 1 {
+			close(started)
+		}
+		<-release
+		return &NormalizedResult{
+			Decision: EventPass, RiskLevel: RiskLow, Action: ActionAllow,
+			ScannerScores: map[string]float64{}, ScannerEvidence: map[string]string{},
+		}, nil
+	})
+	repo := &fakeJobRepository{}
+	cfg := ActiveConfig{
+		ConfigVersion: 31, RiskControlEnabled: true, Enabled: true, BlockingEnabled: true, AllGroups: true,
+		Endpoints: []ActiveEndpoint{{ID: "guard", Enabled: true, TimeoutMS: 1000, InputLimit: 4096}},
+	}
+	service := &PromptService{
+		config:        &fakeConfigStore{cfg: cfg, active: true},
+		evaluator:     newGuardEvaluator(scanner, repo, NewAtomicMetrics(), 2, 2),
+		background:    context.Background(),
+		decisionCache: newPromptDecisionCache(time.Minute, time.Second, 32),
+	}
+	request := Request{
+		RequestID: "canceled-first-attempt", UserID: 46, APIKeyID: 37,
+		Protocol: "openai_chat_completions", Body: []byte(`{"messages":[{"role":"user","content":"same prompt"}]}`),
+	}
+
+	type evaluationResult struct {
+		decision *PromptDecision
+		err      error
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	resultCh := make(chan evaluationResult, 1)
+	go func() {
+		decision, err := service.Evaluate(ctx, request)
+		resultCh <- evaluationResult{decision: decision, err: err}
+	}()
+	<-started
+	cancel()
+	canceled := <-resultCh
+	require.Nil(t, canceled.decision)
+	require.ErrorIs(t, canceled.err, context.Canceled)
+
+	repo.mu.Lock()
+	require.Len(t, repo.recordBlockingResults, 1)
+	require.Equal(t, []string{"request_canceled"}, repo.recordBlockingResults[0].Categories)
+	require.Equal(t, "request_context", repo.recordBlockingResults[0].ScannerBackend)
+	repo.mu.Unlock()
+
+	close(release)
+	request.RequestID = "retry-after-cancel"
+	reused, err := service.Evaluate(context.Background(), request)
+	require.NoError(t, err)
+	require.Equal(t, DecisionAllow, reused.Kind)
+	require.Equal(t, int64(1), scannerCalls.Load(), "the detached first audit must populate the decision cache")
+
+	repo.mu.Lock()
+	require.Len(t, repo.recordBlockingResults, 2)
+	require.Equal(t, EventPass, repo.recordBlockingResults[1].Decision)
+	repo.mu.Unlock()
+}
+
 func TestPromptServiceOversizeFollowupUsesConfidenceBandAndFullSnapshot(t *testing.T) {
 	tests := []struct {
 		name          string

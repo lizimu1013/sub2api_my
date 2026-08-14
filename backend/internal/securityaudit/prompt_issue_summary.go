@@ -12,6 +12,17 @@ func BuildIssueSummaries(result NormalizedResult) []IssueSummary {
 	}
 	summaries := make([]IssueSummary, 0, len(resultCategories)+len(result.UnknownCategories))
 	for _, category := range resultCategories {
+		if category == "request_canceled" {
+			evidence := RedactPreview(result.ScannerEvidence[category], 160)
+			digest := sha256.Sum256([]byte(evidence))
+			summaries = append(summaries, IssueSummary{
+				Category: category, ScannerID: category, Title: "客户端请求已取消",
+				Description: "客户端在同步审核完成前断开，后台审核继续完成并缓存结果", Severity: string(RiskLow),
+				SeverityLabel: riskLabelZH(RiskLow), Action: string(ActionWarn), ActionLabel: "未进入上游",
+				Code: "prompt_audit_request_canceled", Evidence: evidence, EvidenceHash: hex.EncodeToString(digest[:]), ChunkIndex: result.ScannerEvidenceChunks[category],
+			})
+			continue
+		}
 		if category == "audit_unavailable" {
 			evidence := RedactPreview(result.ScannerEvidence[category], 160)
 			digest := sha256.Sum256([]byte(evidence))

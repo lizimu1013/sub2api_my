@@ -195,7 +195,11 @@ func TestCoordinatorCanceledRequestDoesNotFailOpen(t *testing.T) {
 	decision := NewCoordinator(&fakeLegacyEngine{}, prompt).Check(ctx, Request{})
 	require.Equal(t, DecisionUnavailable, decision.Kind)
 	require.False(t, decision.AllowNextStage)
-	require.Equal(t, "request_canceled", decision.Prompt.FailureCode)
+	require.Equal(t, statusClientClosedRequest, decision.HTTPStatus)
+	require.Equal(t, ErrorCodeRequestCanceled, decision.ErrorCode)
+	require.Equal(t, ErrorCodeRequestCanceled, decision.Prompt.ErrorCode)
+	require.Equal(t, ErrorCodeRequestCanceled, decision.Prompt.FailureCode)
+	require.Equal(t, "Client canceled the request before prompt audit completed", decision.ClientMessage)
 }
 
 func TestCoordinatorUsesConfiguredPromptBlockResponse(t *testing.T) {

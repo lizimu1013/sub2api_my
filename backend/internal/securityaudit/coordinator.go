@@ -7,6 +7,8 @@ import (
 	"sync"
 )
 
+const statusClientClosedRequest = 499
+
 type LegacyEngine interface {
 	Check(ctx context.Context, req Request) (*LegacyDecision, error)
 }
@@ -128,9 +130,12 @@ func prioritize(legacy *LegacyDecision, prompt *PromptDecision) Decision {
 	case DecisionInvalid:
 		return allowDecision(legacy, prompt)
 	case DecisionUnavailable:
-		if prompt.FailureCode == "request_canceled" {
-			return Decision{Kind: DecisionUnavailable, HTTPStatus: http.StatusServiceUnavailable, ErrorCode: ErrorCodeUnavailable,
-				Legacy: legacy, Prompt: prompt, AllowNextStage: false}
+		if prompt.FailureCode == ErrorCodeRequestCanceled {
+			return Decision{
+				Kind: DecisionUnavailable, HTTPStatus: statusClientClosedRequest, ErrorCode: ErrorCodeRequestCanceled,
+				ClientMessage: "Client canceled the request before prompt audit completed",
+				Legacy:        legacy, Prompt: prompt, AllowNextStage: false,
+			}
 		}
 		return allowDecision(legacy, prompt)
 	case DecisionFlag:
@@ -161,5 +166,8 @@ func failedOpenPromptDecision(code string) *PromptDecision {
 }
 
 func canceledPromptDecision() *PromptDecision {
-	return &PromptDecision{Kind: DecisionUnavailable, ErrorCode: ErrorCodeUnavailable, AllowNextStage: false, FailureCode: "request_canceled"}
+	return &PromptDecision{
+		Kind: DecisionUnavailable, ErrorCode: ErrorCodeRequestCanceled,
+		AllowNextStage: false, FailureCode: ErrorCodeRequestCanceled,
+	}
 }

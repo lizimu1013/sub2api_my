@@ -186,10 +186,16 @@ func (s *PromptService) Evaluate(ctx context.Context, req Request) (*PromptDecis
 	}
 	cache := s.promptDecisionCache()
 	cacheKey := promptDecisionCacheKey(cfg, snapshot)
+	evaluationStarted := time.Now()
 	decision, reused, err := cache.GetOrLoad(ctx, cacheKey, func() (*PromptDecision, error) {
 		return s.evaluateSnapshot(s.evaluationContext(ctx), cfg, snapshot)
 	})
 	if err != nil || decision == nil {
+		if ctx.Err() != nil {
+			recordCtx, cancel := context.WithTimeout(s.evaluationContext(ctx), 2*time.Second)
+			s.evaluator.RecordRequestCanceled(recordCtx, cfg, snapshot, time.Since(evaluationStarted))
+			cancel()
+		}
 		return decision, err
 	}
 	if reused {

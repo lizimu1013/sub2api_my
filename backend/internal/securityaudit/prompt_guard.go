@@ -222,6 +222,40 @@ func (g *GuardEvaluator) failOpen(ctx context.Context, cfg ActiveConfig, snapsho
 	return decision
 }
 
+func (g *GuardEvaluator) RecordRequestCanceled(ctx context.Context, cfg ActiveConfig, snapshot PromptSnapshot, latency time.Duration) {
+	if g == nil {
+		return
+	}
+	result := &NormalizedResult{
+		Decision: EventFlag, RiskLevel: RiskLow, Action: ActionWarn, Safety: "RequestCanceled",
+		Categories: []string{"request_canceled"}, MatchedScanners: []string{"request_canceled"},
+		ScannerScores: map[string]float64{},
+		ScannerEvidence: map[string]string{
+			"request_canceled": "客户端在同步审核完成前取消请求；审核在后台继续，业务上游未被调用",
+		},
+		ScannerBackend: "request_context", ScannerVersion: "1",
+		PolicyID: "request_lifecycle", PolicyVersion: 1,
+		ChunkTotal: 0, LatencyMS: int(latency.Milliseconds()),
+	}
+	baseFields := snapshotLogFields(snapshot)
+	if g.repo != nil {
+		if _, err := g.repo.RecordBlocking(ctx, snapshot.Redacted(), cfg.ConfigVersion, result, false); err != nil {
+			if g.metrics != nil {
+				g.metrics.IncRecordFailed()
+			}
+			LogWarn(EventResultRecordFailed, mergeLogFields(baseFields, map[string]any{
+				"decision": DecisionUnavailable, "error_code": "request_canceled_record_failed",
+				"stage": snapshot.Stage, "status": "failed",
+			}))
+		}
+	}
+	LogWarn(EventRequestCanceled, mergeLogFields(baseFields, map[string]any{
+		"decision": DecisionUnavailable, "risk_level": RiskLow, "action": ActionWarn,
+		"latency_ms": result.LatencyMS, "stage": snapshot.Stage, "status": "canceled",
+		"error_code": ErrorCodeRequestCanceled, "upstream_dispatched": false,
+	}))
+}
+
 func failOpenFailure(err error) (string, string) {
 	var guardErr *GuardError
 	if errors.As(err, &guardErr) {

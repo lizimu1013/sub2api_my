@@ -32,6 +32,7 @@ export default {
       copyright_violation: 'Copyright infringement',
       jailbreak: 'Prompt injection or jailbreak attempt',
       audit_unavailable: 'The synchronous audit node was unavailable. The request was allowed and queued for asynchronous review.',
+      request_canceled: 'The client disconnected before synchronous audit completed. The audit continues in the background and the business upstream was not called.',
     },
     runtime: {
       title: 'Runtime overview',
@@ -74,7 +75,7 @@ export default {
       moreConditions: 'More conditions (endpoint / keyword / group / user)',
       filterDeletePreviewAction: 'Generate delete preview', filterDeletePreviewing: 'Generating preview…', filterDeleteNeedPreview: 'You can delete directly, or generate a preview first to see the match count.',
       filterDeleteConfirmInvalidRange: 'Select a valid deletion time range first (a custom range needs a start before the end).', filterDeleteConfirmNoMatches: 'The current filters matched 0 events, so there is nothing to delete.',
-      selectAll: 'Select all events on this page', selectEvent: 'Select event {id}', time: 'Time', identity: 'User / email / API Key', user: 'Username', email: 'User email', apiKey: 'API Key name', group: 'Group', route: 'Endpoint / model', result: 'Decision / risk', confidence: 'Confidence', preview: 'Redacted preview', empty: 'No matching events.', auditUnavailable: 'Synchronous audit exception', failOpenAllowed: 'Allowed',
+      selectAll: 'Select all events on this page', selectEvent: 'Select event {id}', time: 'Time', identity: 'User / email / API Key', user: 'Username', email: 'User email', apiKey: 'API Key name', group: 'Group', route: 'Endpoint / model', result: 'Decision / risk', confidence: 'Confidence', preview: 'Redacted preview', empty: 'No matching events.', auditUnavailable: 'Synchronous audit exception', failOpenAllowed: 'Allowed', requestCanceled: 'Client request canceled', notDispatched: 'Not dispatched upstream',
       passEventsDisabled: '“Store safe events” is off. Safe requests are still audited but do not appear in this list; Flag and Critical risk events are still stored.', openConfiguration: 'Open configuration',
       detailTitle: 'Prompt audit event details', tabs: { summary: 'Audit summary', risks: 'Specific risks', technical: 'Technical details' },
       promptFull: 'Full prompt (unredacted)', latestUserInput: 'Latest user input (unredacted)', previousAssistantOutput: 'Previous model output (unredacted)',

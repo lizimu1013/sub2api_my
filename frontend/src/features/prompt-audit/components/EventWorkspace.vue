@@ -222,12 +222,14 @@ function translateRiskLevel(riskLevel: string): string {
 }
 function translateCategory(category: string): string {
   if (category === 'audit_unavailable') return t('admin.promptAudit.events.auditUnavailable')
+  if (category === 'request_canceled') return t('admin.promptAudit.events.requestCanceled')
   return SCANNER_CATALOG.some((scanner) => scanner.id === category)
     ? t(`admin.promptAudit.scanners.${category}`)
     : category
 }
 function formatDecisionRisk(event: PromptAuditEvent): string {
   if (event.categories.includes('audit_unavailable')) return `${t('admin.promptAudit.events.auditUnavailable')} · ${t('admin.promptAudit.events.failOpenAllowed')}`
+  if (event.categories.includes('request_canceled')) return `${t('admin.promptAudit.events.requestCanceled')} · ${t('admin.promptAudit.events.notDispatched')}`
   return `${translateDecision(event.decision)} · ${translateRiskLevel(event.risk_level)}`
 }
 function formatCategories(categories: string[]): string {

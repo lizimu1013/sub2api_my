@@ -179,6 +179,39 @@ describe('Prompt Audit components', () => {
     expect(detail.text()).toContain('—')
   })
 
+  it('shows canceled requests as not dispatched instead of policy blocks', () => {
+    const event: PromptAuditEvent = {
+      id: 8, job_id: 8, execution_mode: 'blocking', decision: 'flag', risk_level: 'low', action: 'Warn',
+      categories: ['request_canceled'], matched_scanners: ['request_canceled'], scanner_scores: {},
+      scanner_evidence: { request_canceled: '客户端在同步审核完成前取消请求' },
+      scanner_backend: 'request_context', scanner_version: '1', guard_endpoint_id: '', policy_id: 'request_lifecycle',
+      policy_version: 1, config_version: 2, chunk_total: 0, latency_ms: 153,
+      issue_summaries: [{
+        category: 'request_canceled', scanner_id: 'request_canceled', title: '客户端请求已取消',
+        description: '客户端在同步审核完成前断开，后台审核继续完成并缓存结果', severity: 'low', severity_label: '低',
+        action: 'Warn', action_label: '未进入上游', code: 'prompt_audit_request_canceled', score: 0,
+        evidence: '客户端在同步审核完成前取消请求', evidence_hash: 'abc',
+      }],
+      created_at: '2026-08-14T00:00:00Z',
+      snapshot: {
+        request_id: 'req-canceled', user_id: 1, username: 'alice', user_email: 'alice@example.test',
+        api_key_id: 2, api_key_name: 'key', group_id: 3, group_name: 'Alpha', provider: 'openai',
+        endpoint: '/v1/responses', protocol: 'openai_responses', model: 'gpt-test', prompt_hash: 'a'.repeat(64),
+        redacted_preview: 'preview', full_prompt: 'full', latest_user_input: 'latest', prompt_length: 6, message_count: 1, stage: 'http',
+      },
+    }
+    const workspace = mount(EventWorkspace, {
+      props: { events: [event], total: 1, page: 1, pageSize: 20, filters: emptyEventFilters(), selectedIds: [], loading: false, error: '' },
+      global: { stubs: { Pagination: PaginationStub } },
+    })
+    expect(workspace.text()).toContain('admin.promptAudit.events.requestCanceled · admin.promptAudit.events.notDispatched')
+
+    const detail = mount(EventDetailDialog, {
+      props: { show: true, event, loading: false }, global: { stubs: { BaseDialog: DialogStub } },
+    })
+    expect(detail.text()).toContain('admin.promptAudit.events.requestCanceled · admin.promptAudit.events.notDispatched')
+  })
+
   it('resolves delete range presets to an epoch start and a cutoff end', () => {
     const now = Date.parse('2026-07-17T12:00:00.000Z')
     const sevenDays = resolveDeleteRangeFilters(emptyEventFilters(), '7d', now)

@@ -27,6 +27,18 @@ func TestCachesSecurityAuditCompletionSkipsWebSocketStages(t *testing.T) {
 	require.False(t, isSecurityAuditWebSocketStage("http"))
 }
 
+func TestSecurityAuditRequestCanceledResponseIsNotReportedAsPolicyBlock(t *testing.T) {
+	decision := &securityaudit.Decision{
+		Kind: securityaudit.DecisionUnavailable, HTTPStatus: 499,
+		ErrorCode:      securityaudit.ErrorCodeRequestCanceled,
+		ClientMessage:  "Client canceled the request before prompt audit completed",
+		AllowNextStage: false,
+	}
+	require.Equal(t, 499, securityAuditStatus(decision))
+	require.Equal(t, securityaudit.ErrorCodeRequestCanceled, securityAuditErrorCode(decision))
+	require.Equal(t, "Client canceled the request before prompt audit completed", securityAuditMessage(decision))
+}
+
 func TestRunSecurityAuditDoesNotSkipSubsequentWebSocketTurns(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := &turnCountingEngine{mode: securityaudit.ModeAsync}
